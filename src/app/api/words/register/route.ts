@@ -6,10 +6,12 @@ export async function POST(req: NextRequest) {
   const { wordId } = await req.json();
 
   const { data, error: sessionError } = await supabase.auth.getSession();
-  if (sessionError) return NextResponse.json({ error: sessionError.message }, { status: 500 });
+  if (sessionError)
+    return NextResponse.json({ error: sessionError.message }, { status: 500 });
 
   const session = data.session;
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session?.user)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
     const { error } = await supabase
@@ -18,7 +20,13 @@ export async function POST(req: NextRequest) {
     if (error) throw error;
 
     return NextResponse.json({ message: "登録成功" });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+  } catch (err: unknown) {
+    let errorMessage = "不明なエラーです";
+    if (err instanceof Error) {
+      errorMessage = err.message;
+    }
+
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
+// src/app/api/words/register/route.ts

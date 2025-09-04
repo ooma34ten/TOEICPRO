@@ -38,7 +38,10 @@ export async function POST(req: Request) {
       correct_dates: [],
     }));
 
-    const { data, error } = await supabaseAdmin.from("words").insert(insertData).select("*");
+    const { data, error } = await supabaseAdmin
+      .from("words")
+      .insert(insertData)
+      .select("*");
 
     if (error) {
       console.error("Supabase insert error:", error);
@@ -49,12 +52,14 @@ export async function POST(req: Request) {
       );
     }
 
-    console.log("Insert success:", data);
     return NextResponse.json({ success: true, results: data || [] });
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error("Route exception:", e);
+    let message = "不明なエラーです";
+    if (e instanceof Error) message = e.message;
+
     return NextResponse.json(
-      { success: false, message: e.message, details: e },
+      { success: false, message },
       { status: 500 }
     );
   }

@@ -30,7 +30,14 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ answer });
-  } catch (e: any) {
-    return NextResponse.json({ answer: "回答なし", error: e.message });
+  } catch (e: unknown) {
+    let errorMessage = "不明なエラーです";
+    if (e instanceof Error) {
+      errorMessage = e.message;
+    }
+
+    return NextResponse.json({ answer: "回答なし", error: errorMessage });
   }
 }
+
+//src/app/api/words/register/route.ts

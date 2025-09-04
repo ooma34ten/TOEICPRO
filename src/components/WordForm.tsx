@@ -68,8 +68,10 @@ export default function WordForm({ onAdd }: WordFormProps) {
       setRows(newRows);
       setMsg("生成完了");
       onAdd(newRows, parsed.word || word);
-    } catch (e: any) {
-      setMsg("生成エラー: " + e.message);
+    } catch (e: unknown) {
+      let message = "不明なエラーです";
+      if (e instanceof Error) message = e.message;
+      setMsg("生成エラー: " + message);
       console.error("Generate error:", e);
     }
   };
@@ -111,8 +113,10 @@ export default function WordForm({ onAdd }: WordFormProps) {
         setMsg("保存失敗: " + (data.message || "不明なエラー"));
         console.error("Save word error details:", data);
       }
-    } catch (e: any) {
-      setMsg("保存エラー: " + e.message);
+    } catch (e: unknown) {
+      let message = "不明なエラーです";
+      if (e instanceof Error) message = e.message;
+      setMsg("保存エラー: " + message);
       console.error("Save word exception:", e);
     }
   };
