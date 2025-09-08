@@ -53,13 +53,14 @@ export default function WordForm({ onAdd }: WordFormProps) {
         return;
       }
 
-      const newRows = (parsed.definitions || parsed.meanings || []).map((m: any) => ({
-        part_of_speech: m.part_of_speech,
-        meaning: m.meaning ?? m.definition,
-        example: m.example,
-        translation: m.translation,
-        importance: m.importance,
+      const newRows: Row[] = (parsed.definitions || parsed.meanings || []).map((m: Partial<Row>) => ({
+        part_of_speech: m.part_of_speech ?? "",
+        meaning: m.meaning ?? (m as any).definition ?? "",
+        example: m.example ?? "",
+        translation: m.translation ?? "",
+        importance: m.importance ?? "",
       }));
+
 
       if (!newRows.length) {
         setMsg("意味が生成されませんでした");
