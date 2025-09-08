@@ -53,9 +53,11 @@ export default function WordForm({ onAdd }: WordFormProps) {
         return;
       }
 
-      const newRows: Row[] = (parsed.definitions || parsed.meanings || []).map((m: Partial<Row>) => ({
+      type GeminiRow = Partial<Row> & { definition?: string };
+
+      const newRows: Row[] = (parsed.definitions || parsed.meanings || []).map((m: GeminiRow) => ({
         part_of_speech: m.part_of_speech ?? "",
-        meaning: m.meaning ?? (m as any).definition ?? "",
+        meaning: m.meaning ?? m.definition ?? "",
         example: m.example ?? "",
         translation: m.translation ?? "",
         importance: m.importance ?? "",
