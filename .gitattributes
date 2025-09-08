@@ -1,0 +1,10 @@
+# 改行コードを自動変換
+* text=auto
+
+# 特定の拡張子は LF に統一
+*.ts text eol=lf
+*.tsx text eol=lf
+*.js text eol=lf
+*.jsx text eol=lf
+*.css text eol=lf
+*.html text eol=lf
