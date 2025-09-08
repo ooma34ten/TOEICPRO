@@ -20,8 +20,6 @@ export default function WordForm({ onAdd }: WordFormProps) {
   const [rows, setRows] = useState<Row[]>([]);
   const [msg, setMsg] = useState("");
 
-  const question = `...`; // 既存のJSON指示文は省略
-
   const handleGenerate = async () => {
     if (!word.trim()) {
       setMsg("単語を入力してください");
