@@ -6,7 +6,6 @@ import { supabase } from "@/lib/supabaseClient";
 import Link from "next/link";
 
 export default function RegisterPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [msg, setMsg] = useState("");

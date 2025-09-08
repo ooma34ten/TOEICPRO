@@ -37,6 +37,7 @@ export default function WordForm({ onAdd }: WordFormProps) {
       });
 
       const data = await res.json();
+      
       if (!data.answer) {
         setMsg("回答がありません");
         return;

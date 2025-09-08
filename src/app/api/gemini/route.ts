@@ -53,6 +53,8 @@ export async function POST(req: Request) {
     );
 
     const data = await res.json();
+    console.log("Gemini response:", JSON.stringify(data, null, 2));
+
 
     // テキスト抽出
     let answer = "回答なし";

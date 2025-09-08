@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import WordForm from "@/components/WordForm";
-import WordList from "@/components/WordList";
 
 interface Row {
   part_of_speech: string;
