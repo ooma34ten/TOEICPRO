@@ -53,7 +53,7 @@ export async function POST(req: Request) {
     );
 
     const data = await res.json();
-    console.log("Gemini response:", JSON.stringify(data, null, 2));
+    //console.log("Gemini response:", JSON.stringify(data, null, 2));
 
 
     // テキスト抽出
@@ -87,8 +87,8 @@ export async function POST(req: Request) {
     try {
       JSON.parse(answer);
     } catch {
-      console.log("Gemini raw response:", data);
-      console.log("Extracted answer before parse:", answer);
+      //console.log("Gemini raw response:", data);
+      //console.log("Extracted answer before parse:", answer);
       return NextResponse.json({ error: "正しいJSONを取得できませんでした", raw: answer }, { status: 500 });
     }
 
