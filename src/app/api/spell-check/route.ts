@@ -2,29 +2,29 @@ import { NextResponse } from "next/server";
 import nspell from "nspell";
 import dictionary from "dictionary-en";
 
+// spell オブジェクトをキャッシュ
 let spell: ReturnType<typeof nspell> | null = null;
 
-// 初期化
-async function getSpell() {
-  if (!spell) {
-    // dictionary はすでに Dictionary オブジェクトなので直接渡す
-    spell = nspell(dictionary as unknown as Record<string, unknown>);
-  }
+async function getSpell(): Promise<ReturnType<typeof nspell>> {
+  if (spell) return spell;
+
+  // dictionary-en は ESM default export なので await import で取得
+  const dict = await dictionary;
+  
+  // nspell に渡す
+  spell = nspell(dict as unknown as Record<string, unknown>);
   return spell;
 }
 
 export async function POST(req: Request) {
   const { word } = await req.json();
-  const spell = await getSpell();
+  const spellInstance = await getSpell();
 
   let correctedWord = word;
-  if (!spell.correct(word)) {
-    const suggestions = spell.suggest(word);
-    if (suggestions.length > 0) {
-      correctedWord = suggestions[0];
-    }
+  if (!spellInstance.correct(word)) {
+    const suggestions = spellInstance.suggest(word);
+    if (suggestions.length > 0) correctedWord = suggestions[0];
   }
 
   return NextResponse.json({ correctedWord });
 }
-//src/app/api/spell-check/route.ts
