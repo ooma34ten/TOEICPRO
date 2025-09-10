@@ -8,9 +8,9 @@ let spell: ReturnType<typeof nspell> | null = null;
 async function getSpell(): Promise<ReturnType<typeof nspell>> {
   if (spell) return spell;
 
-  // dictionary-en は ESM default export なので await import で取得
+  // dictionary-en は ESM default export なので await で取得
   const dict = await dictionary;
-  
+
   // nspell に渡す
   spell = nspell(dict as unknown as Record<string, unknown>);
   return spell;
@@ -28,3 +28,4 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ correctedWord });
 }
+// src/app/api/spell-check/route.ts
