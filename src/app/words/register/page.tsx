@@ -7,7 +7,7 @@ import WordForm, { Row } from "@/components/WordForm";
 export default function RegisterPage() {
   const [rows, setRows] = useState<Row[]>([]);
 
-  const handleAdd = (newRows: Row[], word: string) => {
+  const handleAdd = (newRows: Row[]) => {
     setRows((prev) => [...prev, ...newRows]);
   };
 
