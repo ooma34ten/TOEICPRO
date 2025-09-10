@@ -30,13 +30,31 @@ export default function WordForm({ onAdd }: WordFormProps) {
     }
     if (!text || text.trim() === "") return;
 
-    window.speechSynthesis.cancel(); 
+    // 読み上げキャンセル（短いテキストや連続再生前にのみ）
+    window.speechSynthesis.cancel();
+
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = "en-US"; 
-    utterance.rate = 1; 
-    utterance.pitch = 1;
-    window.speechSynthesis.speak(utterance);
-  };
+
+    // 英語音声を自動選択（US English優先）
+    const voices = window.speechSynthesis.getVoices();
+    const enVoice =
+      voices.find(
+        (v) =>
+          v.lang.startsWith("en-US") &&
+          (v.name.includes("Google") || v.name.includes("Microsoft") || v.name.includes("Samantha"))
+      ) || voices.find((v) => v.lang.startsWith("en")) || voices[0];
+    utterance.voice = enVoice;
+
+    // 自然な速度と抑揚
+    utterance.rate = 0.95; // 少しゆっくり目
+    utterance.pitch = 1.05; // 少し高めで自然な感じ
+
+    // 読み上げ終了時に通知（任意）
+    utterance.onend = () => console.log("読み上げ完了:", text);
+
+  window.speechSynthesis.speak(utterance);
+};
+
 
 
   const handleGenerate = async () => {
