@@ -1,8 +1,9 @@
-// src/app/words/review/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { speakText } from "@/lib/speech";
+
 
 type Word = {
   id: number;
@@ -34,7 +35,6 @@ export default function ReviewPage() {
     return arr;
   };
 
-  // 最後に正解した日 or 登録日を基準日として返す
   const getLastReviewDate = (w: Word) => {
     if (w.correct_dates && w.correct_dates.length > 0) {
       return new Date(w.correct_dates[w.correct_dates.length - 1]);
@@ -43,16 +43,13 @@ export default function ReviewPage() {
   };
 
   
-  
 
   useEffect(() => {
     const fetchWords = async () => {
       setLoading(true);
       setError(null);
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
 
       if (!user) {
         setError("ログインが必要です");
@@ -69,22 +66,10 @@ export default function ReviewPage() {
         setError(error.message);
       } else {
         const today = new Date();
-
         const reviewWords = (data || []).filter((w) => {
           const lastReview = getLastReviewDate(w);
-          const diffDays = Math.floor(
-            (today.getTime() - lastReview.getTime()) / (1000 * 60 * 60 * 24)
-          );
-
-          // 忘却曲線の間隔（日）
-          const schedule: Record<number, number> = {
-            0: 0, // 毎日出題
-            1: 1,
-            2: 2,
-            3: 4,
-            4: 7,
-            5: 15,
-          };
+          const diffDays = Math.floor((today.getTime() - lastReview.getTime()) / (1000 * 60 * 60 * 24));
+          const schedule: Record<number, number> = { 0: 0, 1: 1, 2: 2, 3: 4, 4: 7, 5: 15 };
           const cappedCount = Math.min(w.correct_count ?? 0, 5);
           const nextReview = schedule[cappedCount];
           return diffDays >= nextReview;
@@ -101,7 +86,8 @@ export default function ReviewPage() {
           };
           return importanceRank(b.importance) - importanceRank(a.importance);
         });
-        setWords(sortedAndShuffled);        
+
+        setWords(sortedAndShuffled);
       }
 
       setLoading(false);
@@ -123,16 +109,9 @@ export default function ReviewPage() {
       const newCount = (currentWord.correct_count || 0) + 1;
       const newDates = [...(currentWord.correct_dates || []), today];
 
-      await supabase
-        .from("words")
-        .update({ correct_count: newCount, correct_dates: newDates })
-        .eq("id", currentWord.id);
+      await supabase.from("words").update({ correct_count: newCount, correct_dates: newDates }).eq("id", currentWord.id);
     } else {
-      // NG の場合はカウントをリセット
-      await supabase
-        .from("words")
-        .update({ correct_count: 0 })
-        .eq("id", currentWord.id);
+      await supabase.from("words").update({ correct_count: 0 }).eq("id", currentWord.id);
     }
 
     if (currentIndex + 1 < words.length) {
@@ -146,16 +125,26 @@ export default function ReviewPage() {
   return (
     <div className="p-4">
       <h1 className="text-xl font-bold mb-4">復習テスト</h1>
-      <p className="mb-2">
-        {currentIndex + 1} / {words.length}
-      </p>
+      <p className="mb-2">{currentIndex + 1} / {words.length}</p>
 
       <div className="mb-4">
-        <p className="text-lg font-semibold mb-4">
-          単語: {currentWord.word}
-        </p>
-        <p className="text-lg font-semibold mb-4">
+        <span className="text-lg font-semibold">単語: {currentWord.word}</span>
+        {currentWord.word && (
+          <button
+            onClick={() => speakText(currentWord.word)}
+            className="ml-2 text-blue-500 hover:underline inline-flex items-center"
+          >
+            🔊
+          </button>
+        )}
+        <p className="text-lg font-semibold mb-2">
           例文: {currentWord.example_sentence}
+          <button
+            onClick={() => speakText(currentWord.example_sentence)}
+            className="ml-2 text-blue-500 hover:underline"
+          >
+            🔊
+          </button>
         </p>
 
         {!showAnswer ? (
@@ -168,23 +157,13 @@ export default function ReviewPage() {
         ) : (
           <>
             <div className="mb-4">
-              <p className="text-lg font-semibold mb-4">訳: {currentWord.translation}</p>
+              <p className="text-lg font-semibold mb-1">訳: {currentWord.translation}</p>
               <p className="text-sm text-gray-700">品詞: {currentWord.part_of_speech}</p>
               <p className="text-sm text-gray-700">意味: {currentWord.meaning}</p>
-              </div>
+            </div>
             <div className="space-x-4">
-              <button
-                onClick={() => handleAnswer(true)}
-                className="bg-green-500 text-white px-4 py-2 rounded"
-              >
-                OK
-              </button>
-              <button
-                onClick={() => handleAnswer(false)}
-                className="bg-red-500 text-white px-4 py-2 rounded"
-              >
-                NG
-              </button>
+              <button onClick={() => handleAnswer(true)} className="bg-green-500 text-white px-4 py-2 rounded">OK</button>
+              <button onClick={() => handleAnswer(false)} className="bg-red-500 text-white px-4 py-2 rounded">NG</button>
             </div>
           </>
         )}
@@ -192,3 +171,4 @@ export default function ReviewPage() {
     </div>
   );
 }
+// src/app/words/review/page.tsx

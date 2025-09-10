@@ -3,6 +3,7 @@
 
 import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { speakText } from "@/lib/speech";
 
 export interface Row {
   part_of_speech: string;
@@ -206,7 +207,7 @@ export default function WordForm({ onAdd }: WordFormProps) {
         </button>
         {correctedWord && (
           <button
-            onClick={() => speakWord(correctedWord)}
+            onClick={() => speakText(correctedWord)}
             className="bg-indigo-500 text-white px-3 py-1 rounded hover:bg-indigo-600 transition"
           >
             単語を読む 🔊
@@ -247,7 +248,7 @@ export default function WordForm({ onAdd }: WordFormProps) {
                   </td>
                   <td className="px-4 py-2">
                     <button
-                      onClick={() => speakWord(r.example)}
+                      onClick={() => speakText(r.example)}
                       className="bg-indigo-300 text-white px-2 py-1 rounded hover:bg-indigo-400 transition text-sm"
                     >
                       🔊
