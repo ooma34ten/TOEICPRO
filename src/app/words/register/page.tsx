@@ -3,6 +3,7 @@
 
 import { useState } from "react";
 import WordForm, { Row } from "@/components/WordForm";
+import { speakText } from "@/lib/speech";
 
 export default function RegisterPage() {
   const [rows, setRows] = useState<Row[]>([]);
@@ -30,15 +31,8 @@ export default function RegisterPage() {
                   <p><strong>重要度:</strong> {row.importance}</p>
                 </div>
                 <button
-                  onClick={() => {
-                    if ("speechSynthesis" in window) {
-                      window.speechSynthesis.cancel();
-                      const utterance = new SpeechSynthesisUtterance(row.example);
-                      utterance.lang = "en-US";
-                      window.speechSynthesis.speak(utterance);
-                    }
-                  }}
-                  className="text-blue-500 hover:underline ml-4"
+                  onClick={() => speakText(row.example)}
+                  className="bg-indigo-300 text-white px-2 py-1 rounded hover:bg-indigo-400 transition text-sm"
                 >
                   🔊
                 </button>

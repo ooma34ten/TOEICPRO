@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { speakText } from "@/lib/speech";
 
 type Word = {
   id: number;
@@ -208,6 +209,12 @@ export default function WordListPage() {
                     ) : (
                       w.word
                     )}
+                    <button
+                      onClick={() => speakText(w.word)}
+                      className="bg-indigo-300 text-white px-2 py-1 rounded hover:bg-indigo-400 transition text-sm"
+                    >
+                      🔊
+                    </button>
                   </td>
                   <td className="border p-2">
                     {editingWordId === w.id ? (
@@ -251,6 +258,12 @@ export default function WordListPage() {
                     ) : (
                       w.example_sentence
                     )}
+                    <button
+                      onClick={() => speakText(w.example_sentence)}
+                      className="bg-indigo-300 text-white px-2 py-1 rounded hover:bg-indigo-400 transition text-sm"
+                    >
+                      🔊
+                    </button>
                   </td>
                   <td className="border p-2">
                     {editingWordId === w.id ? (

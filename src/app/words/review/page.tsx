@@ -111,7 +111,7 @@ export default function ReviewPage() {
 
       await supabase.from("words").update({ correct_count: newCount, correct_dates: newDates }).eq("id", currentWord.id);
     } else {
-      await supabase.from("words").update({ correct_count: 0 }).eq("id", currentWord.id);
+      await supabase.from("words").update({ correct_count: 0,correct_dates: [] }).eq("id", currentWord.id);
     }
 
     if (currentIndex + 1 < words.length) {
