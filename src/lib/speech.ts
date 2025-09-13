@@ -1,22 +1,40 @@
-// src/lib/speech.ts
-export const speakText = (text: string) => {
+let cachedVoices: SpeechSynthesisVoice[] = [];
+
+export const initVoices = () => {
+  return new Promise<void>((resolve) => {
+    const voices = window.speechSynthesis.getVoices();
+    if (voices.length > 0) {
+      cachedVoices = voices;
+      resolve();
+    } else {
+      window.speechSynthesis.onvoiceschanged = () => {
+        cachedVoices = window.speechSynthesis.getVoices();
+        resolve();
+      };
+    }
+  });
+};
+
+export const speakText = async (text: string) => {
   if (!("speechSynthesis" in window)) {
     alert("このブラウザは音声読み上げに対応していません");
     return;
   }
-  if (!text || text.trim() === "") return;
+  if (!text.trim()) return;
 
-  window.speechSynthesis.cancel();
+  // ✅ 最初の読み上げ前に声の準備を保証
+  if (cachedVoices.length === 0) {
+    await initVoices();
+  }
 
   const utterance = new SpeechSynthesisUtterance(text);
 
-  const voices = window.speechSynthesis.getVoices();
   const enVoice =
-    voices.find(
+    cachedVoices.find(
       (v) =>
         v.lang.startsWith("en-US") &&
         (v.name.includes("Google") || v.name.includes("Microsoft") || v.name.includes("Samantha"))
-    ) || voices.find((v) => v.lang.startsWith("en")) || voices[0];
+    ) || cachedVoices.find((v) => v.lang.startsWith("en")) || cachedVoices[0];
   utterance.voice = enVoice;
 
   utterance.rate = 0.95;

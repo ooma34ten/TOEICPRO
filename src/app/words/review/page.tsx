@@ -160,6 +160,7 @@ export default function ReviewPage() {
               <p className="text-lg font-semibold mb-1">訳: {currentWord.translation}</p>
               <p className="text-sm text-gray-700">品詞: {currentWord.part_of_speech}</p>
               <p className="text-sm text-gray-700">意味: {currentWord.meaning}</p>
+              <p className="text-sm text-gray-700">重要度: {currentWord.importance}</p>
             </div>
             <div className="space-x-4">
               <button onClick={() => handleAnswer(true)} className="bg-green-500 text-white px-4 py-2 rounded">OK</button>

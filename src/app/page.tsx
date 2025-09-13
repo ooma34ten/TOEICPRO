@@ -36,6 +36,10 @@ export default function Home() {
           <h2 className="text-2xl font-bold text-red-500 mb-2">単語登録</h2>
           <p className="text-gray-600 text-center">学習したい単語を登録できます。</p>
         </Link>
+        <Link href="/words/progress" className="p-6 bg-white rounded-xl shadow-md hover:shadow-lg flex flex-col items-center">
+          <h2 className="text-2xl font-bold text-yellow-500 mb-2">学習進捗</h2>
+          <p className="text-gray-600 text-center">学習記録を観覧できます。</p>
+        </Link>
       </div>
     </div>
   );

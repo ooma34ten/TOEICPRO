@@ -181,6 +181,13 @@ export default function WordForm({ onAdd }: WordFormProps) {
         )}
       </div>
 
+      <button
+        onClick={handleSave}
+        className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 transition mt-4"
+      >
+        保存
+      </button>
+
       {holdWord !== correctedWord && (
         <p className="text-red-500 text-base">入力文字を修正しました: 【{correctedWord}】</p>
       )}
@@ -227,12 +234,7 @@ export default function WordForm({ onAdd }: WordFormProps) {
         </div>
       )}
 
-      <button
-        onClick={handleSave}
-        className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 transition mt-4"
-      >
-        保存
-      </button>
+      
     </div>
   );
 }
