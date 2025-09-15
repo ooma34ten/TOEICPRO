@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { useRouter } from "next/navigation";  
 import {
   ComposedChart,
   Line,
@@ -43,6 +44,15 @@ export default function ProgressPage() {
   const [registerData, setRegisterData] = useState<RegisterData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!data.session) router.replace("/auth/login");
+      else setLoading(false);
+    })();
+  }, [router]);
 
   useEffect(() => {
     const fetchProgress = async () => {

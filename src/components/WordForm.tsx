@@ -11,6 +11,7 @@ export interface Row {
   example: string;
   translation: string;
   importance: string;
+  selected?: boolean;
 }
 
 interface WordFormProps {
@@ -80,6 +81,7 @@ export default function WordForm({ onAdd }: WordFormProps) {
         example: m.example ?? "",
         translation: m.translation ?? "",
         importance: m.importance ?? "",
+        selected: true,
       }));
 
       if (!newRows.length) {
@@ -104,6 +106,14 @@ export default function WordForm({ onAdd }: WordFormProps) {
       return;
     }
 
+    // ✅ 選択されたものだけ
+    const selectedRows = rows.filter((r) => r.selected);
+
+    if (!selectedRows.length) {
+      setMsg("保存対象が選択されていません");
+      return;
+    }
+
     setMsg("保存中...");
 
     try {
@@ -119,10 +129,29 @@ export default function WordForm({ onAdd }: WordFormProps) {
 
       const userId = user.id;
 
+      // 重複チェックはそのまま
+      const { data: existing, error: fetchError } = await supabase
+        .from("words")
+        .select("id")
+        .eq("word", correctedWord)
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (fetchError) {
+        setMsg("既存チェックエラー: " + fetchError.message);
+        return;
+      }
+
+      if (existing) {
+        setMsg(`すでに保存済み: 【${correctedWord}】`);
+        return;
+      }
+
+      // ✅ 選択されたものだけ送信
       const res = await fetch("/api/save-word", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ word: correctedWord, rows, userId }),
+        body: JSON.stringify({ word: correctedWord, rows: selectedRows, userId }),
       });
 
       const data = await res.json();
@@ -141,6 +170,8 @@ export default function WordForm({ onAdd }: WordFormProps) {
       console.error("Save word exception:", e);
     }
   };
+
+
 
   const importanceColor = (importance: string) => {
     switch (importance) {
@@ -199,6 +230,7 @@ export default function WordForm({ onAdd }: WordFormProps) {
           <table className="min-w-full border border-gray-300 rounded">
             <thead className="bg-gray-100">
               <tr>
+                <th className="px-4 py-2 border-b">選択</th>
                 <th className="px-4 py-2 border-b">品詞</th>
                 <th className="px-4 py-2 border-b">意味</th>
                 <th className="px-4 py-2 border-b">例文</th>
@@ -210,6 +242,17 @@ export default function WordForm({ onAdd }: WordFormProps) {
             <tbody>
               {rows.map((r, idx) => (
                 <tr key={idx} className="odd:bg-white even:bg-gray-50">
+                  <td className="px-4 py-2 text-center">
+                    <input
+                      type="checkbox"
+                      checked={r.selected ?? true}
+                      onChange={(e) => {
+                        const updated = [...rows];
+                        updated[idx].selected = e.target.checked;
+                        setRows(updated);
+                      }}
+                    />
+                  </td>
                   <td className="px-4 py-2 font-medium">{r.part_of_speech}</td>
                   <td className="px-4 py-2">{r.meaning}</td>
                   <td className="px-4 py-2">{r.example}</td>
@@ -239,3 +282,4 @@ export default function WordForm({ onAdd }: WordFormProps) {
   );
 }
 
+// src/components/WordForm.tsx

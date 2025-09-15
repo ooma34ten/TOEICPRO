@@ -2,24 +2,24 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { useRouter } from "next/navigation";
 
 export default function ContactPage() {
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    message: "",
-  });
+  const [formData, setFormData] = useState({ name: "", email: "", message: "" });
   const [status, setStatus] = useState("");
   const [userId, setUserId] = useState<string | null>(null);
+  const router = useRouter();
 
-  // 🔹 初回レンダリング時にログイン中のユーザーを取得
   useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUserId(user?.id ?? null);
-    };
-    getUser();
-  }, []);
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!data.session) {
+        router.replace("/auth/login");
+      } else {
+        setUserId(data.session.user.id);
+      }
+    })();
+  }, [router]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -27,6 +27,10 @@ export default function ContactPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!userId) {
+      setStatus("ログインしてください");
+      return;
+    }
     setStatus("送信中...");
 
     try {
@@ -43,16 +47,18 @@ export default function ContactPage() {
         const data = await res.json();
         setStatus("送信失敗: " + (data.error || "不明なエラー"));
       }
-    } catch (error) {
+    } catch {
       setStatus("通信エラーが発生しました。");
     }
   };
 
+  if (!userId) {
+    return <p className="text-red-600 text-center mt-6">ログインしてください</p>;
+  }
+
   return (
     <div className="max-w-xl mx-auto p-6">
       <h1 className="text-2xl font-bold mb-4">お問い合わせ</h1>
-      {!userId && <p className="text-red-600">※ ログインしていません</p>}
-
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="block mb-1">名前（ニックネーム可）</label>
@@ -76,7 +82,6 @@ export default function ContactPage() {
             className="w-full border rounded p-2"
           />
         </div>
-
         <div>
           <label className="block mb-1">メッセージ</label>
           <textarea
@@ -91,7 +96,6 @@ export default function ContactPage() {
         <button
           type="submit"
           className="bg-blue-600 text-white rounded px-4 py-2"
-          disabled={!userId}
         >
           送信
         </button>
@@ -100,5 +104,4 @@ export default function ContactPage() {
     </div>
   );
 }
-
-//src/app/words/contact/page.tsx
+// src/app/words/contact/page.tsx

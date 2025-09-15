@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { supabase } from "@/lib/supabaseClient";
 
 interface WordRow {
   part_of_speech: string;
@@ -26,6 +27,33 @@ export async function POST(req: Request) {
       );
     }
 
+    // 重複チェック（配列で取得）
+    const { data: existingRows, error: fetchError } = await supabase
+      .from("words")
+      .select("id")
+      .eq("word", word)
+      .eq("user_id", userId);
+
+    // 重複チェック
+    if (fetchError) {
+      return NextResponse.json(
+        { success: false, message: "既存チェックエラー: " + fetchError.message },
+        { status: 500 }
+      );
+    }
+
+    if (existingRows && existingRows.length > 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: `すでに保存済み: 【${word}】 (${existingRows.length}件)`
+        },
+        { status: 400 }
+      );
+    }
+
+
+    // ✅ 新規保存
     const insertData = rows.map((r) => ({
       user_id: userId,
       word,
@@ -64,4 +92,3 @@ export async function POST(req: Request) {
     );
   }
 }
-//src/app/api/save-word/route.ts

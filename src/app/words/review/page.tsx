@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { speakText } from "@/lib/speech";
+import { useRouter } from "next/navigation";
 
 
 type Word = {
@@ -24,6 +25,7 @@ export default function ReviewPage() {
   const [error, setError] = useState<string | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
+  const router = useRouter();
 
   // Fisher–Yates shuffle
   const shuffleArray = (array: Word[]) => {
@@ -42,6 +44,15 @@ export default function ReviewPage() {
     return new Date(w.registered_at);
   };
 
+
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!data.session) router.replace("/auth/login");
+      else setLoading(false);
+    })();
+  }, [router]);
   
 
   useEffect(() => {

@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { speakText } from "@/lib/speech";
+import { useRouter } from "next/navigation";
 
 type Word = {
   id: number;
@@ -33,6 +34,17 @@ export default function WordListPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
   const totalPages = Math.ceil(filteredWords.length / itemsPerPage);
+
+  const router = useRouter();
+
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!data.session) router.replace("/auth/login");
+      else setLoading(false);
+    })();
+  }, [router]);
 
   // 単語取得
   useEffect(() => {
