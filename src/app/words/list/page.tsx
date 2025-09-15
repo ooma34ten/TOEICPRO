@@ -153,7 +153,13 @@ export default function WordListPage() {
   );
 
   return (
+
     <div className="p-4">
+      {/* 概要 */}
+      <div className="bg-white p-4 rounded-xl shadow space-y-1">
+        <p>登録語数: <b>{words.length}</b></p>
+      </div>
+
       <h1 className="text-xl font-bold mb-4">登録済み単語一覧</h1>
 
       {/* フィルター */}

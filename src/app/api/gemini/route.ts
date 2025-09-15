@@ -33,6 +33,7 @@ export async function POST(req: Request) {
                     "word": "example",
                     "definitions": [
                       {
+                        "word": "単語（英語）",
                         "part_of_speech": "品詞（日本語）",
                         "meaning": "意味",
                         "example": "TOEICでよく出る例文。",

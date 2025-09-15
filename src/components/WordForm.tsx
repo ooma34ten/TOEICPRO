@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { speakText } from "@/lib/speech";
 
 export interface Row {
+  word: string;
   part_of_speech: string;
   meaning: string;
   example: string;
@@ -76,6 +77,7 @@ export default function WordForm({ onAdd }: WordFormProps) {
       }
 
       const newRows: Row[] = (parsed.definitions || parsed.meanings || []).map((m: GeminiRow) => ({
+        word: m.word?? "",
         part_of_speech: m.part_of_speech ?? "",
         meaning: m.meaning ?? m.definition ?? "",
         example: m.example ?? "",
@@ -226,58 +228,43 @@ export default function WordForm({ onAdd }: WordFormProps) {
       <p className="mb-4 text-gray-700">{msg}</p>
 
       {rows.length > 0 && (
-        <div className="overflow-x-auto">
-          <table className="min-w-full border border-gray-300 rounded">
-            <thead className="bg-gray-100">
-              <tr>
-                <th className="px-4 py-2 border-b">選択</th>
-                <th className="px-4 py-2 border-b">品詞</th>
-                <th className="px-4 py-2 border-b">意味</th>
-                <th className="px-4 py-2 border-b">例文</th>
-                <th className="px-4 py-2 border-b">翻訳</th>
-                <th className="px-4 py-2 border-b">重要度</th>
-                <th className="px-4 py-2 border-b">読み上げ</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r, idx) => (
-                <tr key={idx} className="odd:bg-white even:bg-gray-50">
-                  <td className="px-4 py-2 text-center">
-                    <input
-                      type="checkbox"
-                      checked={r.selected ?? true}
-                      onChange={(e) => {
-                        const updated = [...rows];
-                        updated[idx].selected = e.target.checked;
-                        setRows(updated);
-                      }}
-                    />
-                  </td>
-                  <td className="px-4 py-2 font-medium">{r.part_of_speech}</td>
-                  <td className="px-4 py-2">{r.meaning}</td>
-                  <td className="px-4 py-2">{r.example}</td>
-                  <td className="px-4 py-2">{r.translation}</td>
-                  <td className="px-4 py-2">
-                    <span className={`px-2 py-1 rounded text-sm ${importanceColor(r.importance)}`}>
-                      {r.importance}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2">
-                    <button
-                      onClick={() => speakText(r.example)}
-                      className="bg-indigo-300 text-white px-2 py-1 rounded hover:bg-indigo-400 transition text-sm"
-                    >
-                      🔊
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      
+      <div className="space-y-4">
+        {rows.map((r, idx) => (
+          <div
+            key={idx}
+            className="border rounded-lg p-4 bg-white shadow flex flex-col gap-2"
+          >
+            <div>
+              <span className="font-semibold">単語: </span>{r.word}
+            </div>
+            <div>
+              <span className="font-semibold">品詞: </span>{r.part_of_speech}
+            </div>
+            <div>
+              <span className="font-semibold">意味: </span>{r.meaning}
+            </div>
+            <div>
+              <span className="font-semibold">例文: </span>{r.example}
+            </div>
+            <div>
+              <span className="font-semibold">翻訳: </span>{r.translation}
+            </div>
+            <div>
+              <span className="font-semibold">重要度: </span>
+              <span className={`px-2 py-1 rounded text-sm ${importanceColor(r.importance)}`}>
+                {r.importance}
+              </span>
+            </div>
+            <button
+              onClick={() => speakText(r.example)}
+              className="mt-2 bg-indigo-500 text-white px-3 py-1 rounded hover:bg-indigo-600 transition text-sm"
+            >
+              読み上げ 🔊
+            </button>
+          </div>
+        ))}
+      </div>
+    )} 
     </div>
   );
 }

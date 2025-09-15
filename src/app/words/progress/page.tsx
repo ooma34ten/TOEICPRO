@@ -170,7 +170,7 @@ export default function ProgressPage() {
 
       {/* 日別登録数・累積登録数 */}
       <div className="bg-white p-4 rounded-xl shadow">
-        <h2 className="text-lg font-semibold mb-2">登録単語数・累積登録数・完全記憶累計</h2>
+        <h2 className="text-lg font-semibold mb-2">登録単語数・累積登録数</h2>
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={registerData}>
@@ -203,7 +203,7 @@ export default function ProgressPage() {
 
       {/* 完全記憶累計 */}
       <div className="bg-white p-4 rounded-xl shadow">
-        <h2 className="text-lg font-semibold mb-2">正解数推移</h2>
+        <h2 className="text-lg font-semibold mb-2">完全記憶累計</h2>
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={registerData}>

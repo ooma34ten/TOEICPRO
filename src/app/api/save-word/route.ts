@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { supabase } from "@/lib/supabaseClient";
 
 interface WordRow {
+  word: string;
   part_of_speech: string;
   meaning: string;
   example: string;
@@ -56,7 +57,7 @@ export async function POST(req: Request) {
     // ✅ 新規保存
     const insertData = rows.map((r) => ({
       user_id: userId,
-      word,
+      word: r.word,
       part_of_speech: r.part_of_speech,
       meaning: r.meaning,
       example_sentence: r.example,

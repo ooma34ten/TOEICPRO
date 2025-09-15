@@ -17,18 +17,17 @@ export default function RegisterPage() {
 
     const { data, error } = await supabase.auth.signUp({ email, password });
 
+    // Supabase が返したエラーがある場合
     if (error) {
-      if (error.message.includes("already registered")) {
-        return setMsg("このメールアドレスはすでに登録されています。ログインしてください。");
-      }
       return setMsg(error.message);
     }
 
-    if (!data.user) {
-      // Supabase が「すでに登録済み」の場合は user が null になることがある
+    // 既存ユーザーの場合
+    if (data.user?.identities?.length === 0) {
       return setMsg("このメールアドレスはすでに登録されています。ログインしてください。");
     }
 
+    // 新規登録が成功した場合
     setMsg("登録完了！メール確認後ログインしてください。");
   };
 

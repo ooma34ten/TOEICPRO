@@ -14,6 +14,11 @@ export default function RegisterPage() {
 
   return (
     <div className="p-6">
+
+      {/* 概要 */}
+      <div className="bg-white p-4 rounded-xl shadow space-y-1">
+        <p>登録語数: <b>{rows.length}</b></p>
+      </div>
       <h1 className="text-2xl font-bold mb-4">TOEIC単語登録</h1>
       <WordForm onAdd={handleAdd} />
 
@@ -22,21 +27,33 @@ export default function RegisterPage() {
           <h2 className="text-xl font-semibold mb-2">生成履歴</h2>
           <ul className="space-y-2">
             {rows.slice().reverse().map((row, idx) => (
-              <li key={idx} className="border p-2 rounded flex items-center justify-between">
-                <div>
+              <li key={idx} className="border p-2 rounded bg-white shadow">
+                <div className="mb-2">
+                  <p><strong>単語:</strong> {row.word}</p>
                   <p><strong>品詞:</strong> {row.part_of_speech}</p>
                   <p><strong>意味:</strong> {row.meaning}</p>
                   <p><strong>例文:</strong> {row.example}</p>
                   <p><strong>翻訳:</strong> {row.translation}</p>
                   <p><strong>重要度:</strong> {row.importance}</p>
                 </div>
-                <button
-                  onClick={() => speakText(row.example)}
-                  className="bg-indigo-300 text-white px-2 py-1 rounded hover:bg-indigo-400 transition text-sm"
-                >
-                  🔊
-                </button>
+
+                {/* ボタンを下にまとめる */}
+                <div className="flex gap-2 mt-2">
+                  <button
+                    onClick={() => speakText(row.word)}
+                    className="bg-indigo-300 text-white px-2 py-1 rounded hover:bg-indigo-400 transition text-sm"
+                  >
+                    単語 🔊
+                  </button>
+                  <button
+                    onClick={() => speakText(row.example)}
+                    className="bg-indigo-300 text-white px-2 py-1 rounded hover:bg-indigo-400 transition text-sm"
+                  >
+                    例文 🔊
+                  </button>
+                </div>
               </li>
+
             ))}
           </ul>
         </div>
