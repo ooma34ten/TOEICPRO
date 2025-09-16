@@ -195,6 +195,12 @@ export default function WordForm({ onAdd }: WordFormProps) {
           type="text"
           value={inputWord}
           onChange={(e) => setInputWord(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault(); // フォーム送信を防ぐ
+              handleGenerate();
+            }
+          }}
           placeholder="単語を入力"
           className="border border-gray-300 rounded px-3 py-2 flex-1"
         />
@@ -228,43 +234,61 @@ export default function WordForm({ onAdd }: WordFormProps) {
       <p className="mb-4 text-gray-700">{msg}</p>
 
       {rows.length > 0 && (
-      <div className="space-y-4">
-        {rows.map((r, idx) => (
-          <div
-            key={idx}
-            className="border rounded-lg p-4 bg-white shadow flex flex-col gap-2"
-          >
-            <div>
-              <span className="font-semibold">単語: </span>{r.word}
-            </div>
-            <div>
-              <span className="font-semibold">品詞: </span>{r.part_of_speech}
-            </div>
-            <div>
-              <span className="font-semibold">意味: </span>{r.meaning}
-            </div>
-            <div>
-              <span className="font-semibold">例文: </span>{r.example}
-            </div>
-            <div>
-              <span className="font-semibold">翻訳: </span>{r.translation}
-            </div>
-            <div>
-              <span className="font-semibold">重要度: </span>
-              <span className={`px-2 py-1 rounded text-sm ${importanceColor(r.importance)}`}>
-                {r.importance}
-              </span>
-            </div>
-            <button
-              onClick={() => speakText(r.example)}
-              className="mt-2 bg-indigo-500 text-white px-3 py-1 rounded hover:bg-indigo-600 transition text-sm"
-            >
-              読み上げ 🔊
-            </button>
-          </div>
-        ))}
-      </div>
-    )} 
+        <div className="space-y-4">
+          {rows
+            // 並べ替え処理を追加
+            .slice() // 元配列を壊さないようコピー
+            .sort((a, b) => {
+              // ★の数を数えて降順に
+              const aStars = (a.importance || "").length;
+              const bStars = (b.importance || "").length;
+              return bStars - aStars;
+            })
+            .map((r, idx) => (
+              <div
+                key={idx}
+                className="border rounded-lg p-4 bg-white shadow flex flex-col gap-2"
+              >
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={r.selected ?? false}
+                    onChange={(e) => {
+                      const updated = [...rows];
+                      updated[idx].selected = e.target.checked;
+                      setRows(updated);
+                    }}
+                  />
+                  <span className="font-semibold">単語: </span>{r.word}
+                </div>
+                <div>
+                  <span className="font-semibold">品詞: </span>{r.part_of_speech}
+                </div>
+                <div>
+                  <span className="font-semibold">意味: </span>{r.meaning}
+                </div>
+                <div>
+                  <span className="font-semibold">例文: </span>{r.example}
+                </div>
+                <div>
+                  <span className="font-semibold">翻訳: </span>{r.translation}
+                </div>
+                <div>
+                  <span className="font-semibold">重要度: </span>
+                  <span className={`px-2 py-1 rounded text-sm ${importanceColor(r.importance)}`}>
+                    {r.importance}
+                  </span>
+                </div>
+                <button
+                  onClick={() => speakText(r.example)}
+                  className="mt-2 bg-indigo-500 text-white px-3 py-1 rounded hover:bg-indigo-600 transition text-sm"
+                >
+                  読み上げ 🔊
+                </button>
+              </div>
+            ))}
+        </div>
+      )}
     </div>
   );
 }
