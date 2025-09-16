@@ -1,4 +1,3 @@
-// src/app/words/list/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -27,16 +26,7 @@ export default function WordListPage() {
   const [selectedPart, setSelectedPart] = useState("");
   const [selectedImportance, setSelectedImportance] = useState("");
 
-  const [editingWordId, setEditingWordId] = useState<number | null>(null);
-  const [editData, setEditData] = useState<Partial<Word>>({});
-
-  // ページネーション用
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
-  const totalPages = Math.ceil(filteredWords.length / itemsPerPage);
-
   const router = useRouter();
-
 
   useEffect(() => {
     (async () => {
@@ -68,9 +58,8 @@ export default function WordListPage() {
         .eq("user_id", user.id)
         .order("registered_at", { ascending: false });
 
-      if (error) {
-        setError(error.message);
-      } else {
+      if (error) setError(error.message);
+      else {
         setWords(data || []);
         setFilteredWords(data || []);
       }
@@ -80,29 +69,22 @@ export default function WordListPage() {
     fetchWords();
   }, []);
 
-  // フィルター処理
+  // フィルター
   useEffect(() => {
     let filtered = words;
 
     if (search) {
-      const lowerSearch = search.toLowerCase();
+      const lower = search.toLowerCase();
       filtered = filtered.filter(
         (w) =>
-          w.word.toLowerCase().includes(lowerSearch) ||
-          w.meaning.toLowerCase().includes(lowerSearch)
+          w.word.toLowerCase().includes(lower) ||
+          w.meaning.toLowerCase().includes(lower)
       );
     }
-
-    if (selectedPart) {
-      filtered = filtered.filter((w) => w.part_of_speech === selectedPart);
-    }
-
-    if (selectedImportance) {
-      filtered = filtered.filter((w) => w.importance === selectedImportance);
-    }
+    if (selectedPart) filtered = filtered.filter((w) => w.part_of_speech === selectedPart);
+    if (selectedImportance) filtered = filtered.filter((w) => w.importance === selectedImportance);
 
     setFilteredWords(filtered);
-    setCurrentPage(1); // フィルター変更時は1ページ目に戻す
   }, [search, selectedPart, selectedImportance, words]);
 
   if (loading) return <p>読み込み中...</p>;
@@ -111,52 +93,9 @@ export default function WordListPage() {
   const partOptions = Array.from(new Set(words.map((w) => w.part_of_speech)));
   const importanceOptions = Array.from(new Set(words.map((w) => w.importance)));
 
-  // 編集開始
-  const handleEdit = (word: Word) => {
-    setEditingWordId(word.id);
-    setEditData({ ...word });
-  };
-
-  // 編集キャンセル
-  const handleCancel = () => {
-    setEditingWordId(null);
-    setEditData({});
-  };
-
-  // 編集保存
-  const handleSave = async (id: number) => {
-    const { error } = await supabase.from("words").update(editData).eq("id", id);
-    if (error) {
-      alert(error.message);
-      return;
-    }
-    setWords(words.map((w) => (w.id === id ? { ...w, ...editData } : w)));
-    setEditingWordId(null);
-    setEditData({});
-  };
-
-  // 削除
-  const handleDelete = async (id: number) => {
-    if (!confirm("本当に削除しますか？")) return;
-    const { error } = await supabase.from("words").delete().eq("id", id);
-    if (error) {
-      alert(error.message);
-      return;
-    }
-    setWords(words.filter((w) => w.id !== id));
-  };
-
-  // ページネーション用データ
-  const paginatedWords = filteredWords.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
-
   return (
-
     <div className="p-4">
-      {/* 概要 */}
-      <div className="bg-white p-4 rounded-xl shadow space-y-1">
+      <div className="bg-white p-4 rounded-xl shadow space-y-1 mb-4">
         <p>登録語数: <b>{words.length}</b></p>
       </div>
 
@@ -178,9 +117,7 @@ export default function WordListPage() {
         >
           <option value="">品詞すべて</option>
           {partOptions.map((p) => (
-            <option key={p} value={p}>
-              {p}
-            </option>
+            <option key={p} value={p}>{p}</option>
           ))}
         </select>
         <select
@@ -190,195 +127,107 @@ export default function WordListPage() {
         >
           <option value="">重要度すべて</option>
           {importanceOptions.map((i) => (
-            <option key={i} value={i}>
-              {i}
-            </option>
+            <option key={i} value={i}>{i}</option>
           ))}
         </select>
       </div>
 
-      {paginatedWords.length === 0 ? (
-        <p>該当する単語はありません。</p>
-      ) : (
-        <>
-          <table className="w-full border-collapse border mb-4">
-            <thead>
-              <tr className="bg-gray-100">
-                <th className="border p-2">単語</th>
-                <th className="border p-2">品詞</th>
-                <th className="border p-2">意味</th>
-                <th className="border p-2">例文</th>
-                <th className="border p-2">訳</th>
-                <th className="border p-2">重要度</th>
-                <th className="border p-2">登録日</th>
-                <th className="border p-2">操作</th>
+      {/* PC用テーブル */}
+      <div className="hidden md:block overflow-x-auto">
+        <table className="w-full border-collapse border mb-4">
+          <thead>
+            <tr className="bg-gray-100">
+              <th className="border p-2">単語</th>
+              <th className="border p-2">品詞</th>
+              <th className="border p-2">意味</th>
+              <th className="border p-2">例文</th>
+              <th className="border p-2">訳</th>
+              <th className="border p-2">重要度</th>
+              <th className="border p-2">登録日</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredWords.map((w) => (
+              <tr key={w.id}>
+                <td className="border p-2 flex items-center gap-2">
+                  {w.word}
+                  <button
+                    onClick={() => speakText(w.word)}
+                    className="bg-indigo-300 text-white px-2 py-1 rounded hover:bg-indigo-400 text-sm"
+                  >
+                    🔊
+                  </button>
+                </td>
+                <td className="border p-2">{w.part_of_speech}</td>
+                <td className="border p-2">{w.meaning}</td>
+                <td className="border p-2 flex items-center gap-2">
+                  {w.example_sentence}
+                  <button
+                    onClick={() => speakText(w.example_sentence)}
+                    className="bg-indigo-300 text-white px-2 py-1 rounded hover:bg-indigo-400 text-sm"
+                  >
+                    🔊
+                  </button>
+                </td>
+                <td className="border p-2">{w.translation}</td>
+                <td className="border p-2">{w.importance}</td>
+                <td className="border p-2">{new Date(w.registered_at).toLocaleDateString("ja-JP")}</td>
               </tr>
-            </thead>
-            <tbody>
-              {paginatedWords.map((w) => (
-                <tr key={w.id}>
-                  <td className="border p-2">
-                    {editingWordId === w.id ? (
-                      <input
-                        value={editData.word || ""}
-                        onChange={(e) => setEditData({ ...editData, word: e.target.value })}
-                        className="border p-1 w-full"
-                      />
-                    ) : (
-                      w.word
-                    )}
-                    <button
-                      onClick={() => speakText(w.word)}
-                      className="bg-indigo-300 text-white px-2 py-1 rounded hover:bg-indigo-400 transition text-sm"
-                    >
-                      🔊
-                    </button>
-                  </td>
-                  <td className="border p-2">
-                    {editingWordId === w.id ? (
-                      <select
-                        value={editData.part_of_speech || ""}
-                        onChange={(e) =>
-                          setEditData({ ...editData, part_of_speech: e.target.value })
-                        }
-                        className="border p-1 w-full"
-                      >
-                        {partOptions.map((p) => (
-                          <option key={p} value={p}>
-                            {p}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      w.part_of_speech
-                    )}
-                  </td>
-                  <td className="border p-2">
-                    {editingWordId === w.id ? (
-                      <input
-                        value={editData.meaning || ""}
-                        onChange={(e) => setEditData({ ...editData, meaning: e.target.value })}
-                        className="border p-1 w-full"
-                      />
-                    ) : (
-                      w.meaning
-                    )}
-                  </td>
-                  <td className="border p-2">
-                    {editingWordId === w.id ? (
-                      <input
-                        value={editData.example_sentence || ""}
-                        onChange={(e) =>
-                          setEditData({ ...editData, example_sentence: e.target.value })
-                        }
-                        className="border p-1 w-full"
-                      />
-                    ) : (
-                      w.example_sentence
-                    )}
-                    <button
-                      onClick={() => speakText(w.example_sentence)}
-                      className="bg-indigo-300 text-white px-2 py-1 rounded hover:bg-indigo-400 transition text-sm"
-                    >
-                      🔊
-                    </button>
-                  </td>
-                  <td className="border p-2">
-                    {editingWordId === w.id ? (
-                      <input
-                        value={editData.translation || ""}
-                        onChange={(e) =>
-                          setEditData({ ...editData, translation: e.target.value })
-                        }
-                        className="border p-1 w-full"
-                      />
-                    ) : (
-                      w.translation
-                    )}
-                  </td>
-                  <td className="border p-2">
-                    {editingWordId === w.id ? (
-                      <select
-                        value={editData.importance || ""}
-                        onChange={(e) =>
-                          setEditData({ ...editData, importance: e.target.value })
-                        }
-                        className="border p-1 w-full"
-                      >
-                        {importanceOptions.map((i) => (
-                          <option key={i} value={i}>
-                            {i}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      w.importance
-                    )}
-                  </td>
-                  <td className="border p-2">
-                    {new Date(w.registered_at).toLocaleDateString("ja-JP")}
-                  </td>
-                  <td className="border p-2 flex gap-1">
-                    {editingWordId === w.id ? (
-                      <>
-                        <button
-                          onClick={() => handleSave(w.id)}
-                          className="bg-green-500 text-white px-2 py-1 rounded"
-                        >
-                          保存
-                        </button>
-                        <button
-                          onClick={handleCancel}
-                          className="bg-gray-300 px-2 py-1 rounded"
-                        >
-                          キャンセル
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <button
-                          onClick={() => handleEdit(w)}
-                          className="bg-blue-500 text-white px-2 py-1 rounded"
-                        >
-                          編集
-                        </button>
-                        <button
-                          onClick={() => handleDelete(w.id)}
-                          className="bg-red-500 text-white px-2 py-1 rounded"
-                        >
-                          削除
-                        </button>
-                      </>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
-          {/* ページネーション */}
-          <div className="flex justify-center gap-2">
-            <button
-              onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
-              disabled={currentPage === 1}
-              className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
-            >
-              前へ
-            </button>
-            <span className="px-3 py-1">
-              {currentPage} / {totalPages}
-            </span>
-            <button
-              onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
-              disabled={currentPage === totalPages}
-              className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
-            >
-              次へ
-            </button>
+      {/* モバイル用カード */}
+      <div className="grid gap-4 md:hidden">
+        {filteredWords.map((w) => (
+          <div key={w.id} className="border rounded p-3 bg-white shadow space-y-1">
+            <div className="flex items-center">
+              <span className="font-semibold mr-0.5">単語:</span>
+              <span>{w.word}</span>
+              <button
+                onClick={() => speakText(w.word)}
+                className="ml-auto bg-indigo-300 text-white px-2 py-1 rounded hover:bg-indigo-400 text-sm"
+              >
+                🔊
+              </button>
+            </div>
+            <div className="flex justify-start">
+              <span className="font-semibold mr-0.5">品詞:</span> <span>{w.part_of_speech}</span>
+            </div>
+            <div className="flex justify-start">
+              <span className="font-semibold mr-0.5">意味:</span> <span>{w.meaning}</span>
+            </div>
+            <div className="flex">
+              {/* ラベルは1列固定 */}
+              <span className="font-semibold mr-1 flex-shrink-0">例文:</span>
+              
+              {/* 文章は折り返して2列まで表示 */}
+              <span className="flex-1 break-words">
+                {w.example_sentence}
+              </span>
+
+              {/* 音声ボタンは右端 */}
+              <button
+                onClick={() => speakText(w.example_sentence)}
+                className="ml-2 bg-indigo-300 text-white px-2 py-1 rounded hover:bg-indigo-400 text-sm flex-shrink-0"
+              >
+                🔊
+              </button>
+            </div>
+            <div className="flex justify-start">
+              <span className="font-semibold mr-0.5">訳:</span> <span>{w.translation}</span>
+            </div>
+            <div className="flex justify-start">
+              <span className="font-semibold mr-0.5">重要度:</span> <span>{w.importance}</span>
+            </div>
+            <div className="flex justify-start">
+              <span className="font-semibold mr-0.5">登録日:</span> <span>{new Date(w.registered_at).toLocaleDateString("ja-JP")}</span>
+            </div>
           </div>
-        </>
-      )}
+        ))}
+      </div>
     </div>
   );
 }
-// src/app/words/review/page.tsx
+// src/app/words/list/page.tsx
