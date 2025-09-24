@@ -36,6 +36,7 @@ export default function Header() {
         <Link href="/words/review" className="underline hover:no-underline">復習モード</Link>
         <Link href="/words/progress" className="underline hover:no-underline">学習進捗</Link>
         <Link href="/words/contact" className="underline hover:no-underline">お問い合わせ</Link>
+        <Link href="/words/subscribe" className="underline hover:no-underline">サブスク</Link>
         <Link href="/words/setting" className="underline hover:no-underline">設定</Link>
         <Link href="/words/privacy" className="underline hover:no-underline">プライバシーポリシー</Link>
         <Link href="/words/terms" className="underline hover:no-underline">利用規約</Link>

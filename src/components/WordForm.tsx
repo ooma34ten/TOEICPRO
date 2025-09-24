@@ -153,18 +153,32 @@ export default function WordForm({ onAdd }: WordFormProps) {
       const res = await fetch("/api/save-word", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ word: correctedWord, rows: selectedRows, userId }),
+        body: JSON.stringify({ rows: selectedRows, userId }),
       });
 
       const data = await res.json();
 
-      if (data.success) {
-        setMsg(`保存完了: ${data.results.length}件`);
-        setRows([]);
-      } else {
+      if (data.limitExceeded) {
+        setMsg(data.message || "保存可能件数を超えました");
+        if (data.action?.url) {
+          if (confirm(data.message + "\nサブスクページに移動しますか？")) {
+            window.location.href = data.action.url;
+          }
+        }
+        return;
+      }
+      
+      if (!data.success) {
         setMsg("保存失敗: " + (data.message || "不明なエラー"));
         console.error("Save word error details:", data);
+        return;
       }
+
+      setMsg(`保存完了: ${data.results.length}件`);
+      setRows([]);
+
+      onAdd(data.results, correctedWord);
+
     } catch (e: unknown) {
       let message = "不明なエラーです";
       if (e instanceof Error) message = e.message;

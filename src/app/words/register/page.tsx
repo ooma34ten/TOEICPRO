@@ -22,34 +22,49 @@ export default function RegisterPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
-  const fetchWords = async () => {
-    // 現在のユーザー情報を取得
-    const { data: { user } } = await supabase.auth.getUser();
+    const fetchWords = async () => {
+      // 現在のユーザー情報を取得
+      const { data: { user } } = await supabase.auth.getUser();
 
-    if (!user) {
-      setErrorMessage("ログインが必要です");
-      return;
-    }
+      if (!user) {
+        setErrorMessage("ログインが必要です");
+        return;
+      }
 
-    const { data, error } = await supabase
-      .from("words")
-      .select("*")
-      .eq("user_id", user.id) // ← uuid 型の user.id を利用
-      .order("registered_at", { ascending: false });
+      const { data, error } = await supabase
+        .from("words")
+        .select("*")
+        .eq("user_id", user.id) // ← uuid 型の user.id を利用
+        .order("registered_at", { ascending: false });
 
-    if (error) {
-      setErrorMessage(error.message);
-    } else {
-      setWords(data || []);
-    }
-  };
+      if (error) {
+        setErrorMessage(error.message);
+      } else {
+        setWords(data || []);
+      }
+    };
 
-  fetchWords();
-}, []);
+    fetchWords();
+  }, []);
 
-  const handleAdd = (newRows: Row[]) => {
+  const handleAdd = (newRows: Row[], word: string) => {
     setRows((prev) => [...prev, ...newRows]);
+
+    // 保存済み一覧にも追加
+    const formatted: Word[] = newRows.map((r) => ({
+      id: Date.now() + Math.random(), // 仮のid、DBから返る場合はそれを使う
+      word: r.word,
+      part_of_speech: r.part_of_speech,
+      meaning: r.meaning,
+      example_sentence: r.example,
+      translation: r.translation,
+      importance: r.importance,
+      registered_at: new Date().toISOString(),
+    }));
+
+    setWords((prev) => [...formatted, ...prev]);
   };
+
 
   return (
     <div className="p-6">

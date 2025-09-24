@@ -23,33 +23,27 @@ export default function SettingsPage() {
   }, [router]);
 
   const handleDeleteAccount = async () => {
-    if (!confirm("本当にアカウントを削除しますか？この操作は元に戻せません。")) return;
+    if (!confirm("アカウント削除すると、すべての単語データが削除されます。本当に削除しますか？")) return;
     if (!userId) return;
 
-    setStatus("アカウント削除中...");
+    setStatus("削除中...");
 
-    try {
-      // 1. ユーザー関連のデータ削除（例：単語テーブル）
-      const { error: wordError } = await supabase
-        .from("words")
-        .delete()
-        .eq("user_id", userId);
+    const res = await fetch("/api/self-delete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId }),
+    });
 
-      if (wordError) throw wordError;
-
-      // 2. 認証ユーザー削除
-      const { error: authError } = await supabase.auth.admin.deleteUser(userId);
-      if (authError) throw authError;
-
-      setStatus("アカウントを削除しました。");
+    const data = await res.json();
+    if (res.ok) {
+      setStatus("削除完了");
+      await supabase.auth.signOut(); // セッション破棄
       router.replace("/auth/register");
-    } catch (error: unknown) {
-      let message = "不明なエラーが発生しました";
-      if (error instanceof Error) message = error.message;
-      setStatus("削除失敗: " + message);
-      console.error(error);
+    } else {
+      setStatus("削除失敗: " + data.error);
     }
   };
+
 
   if (loading) return <div>読み込み中…</div>;
 
