@@ -87,14 +87,21 @@ export default function SubscriptionPage() {
         setSubscription(data!);
         setMessage(data!.is_active ? "サブスク加入完了" : "サブスク解約完了");
       }
-    } catch (err: any) {
-      // エラーが発生した場合は元に戻す
-      setMessage("処理に失敗しました: " + err.message);
+    } catch (err: unknown) {
+      // err が Error 型かどうかを確認してメッセージを取得
+      let message = "不明なエラーです";
+      if (err instanceof Error) {
+        message = err.message;
+      }
+
+      setMessage("処理に失敗しました: " + message);
+
       const { data, error } = await supabase
         .from("subscriptions")
         .select("*")
         .eq("user_id", user.id)
         .maybeSingle();
+
       setSubscription(data || null);
     }
   };
