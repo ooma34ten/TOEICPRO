@@ -17,12 +17,14 @@ export async function POST(req: Request) {
       sig!,
       process.env.STRIPE_WEBHOOK_SECRET!
     );
-  } catch (err) {
+  } catch (error) {
+    console.error("Stripe webhook error:", error);
     return NextResponse.json(
       { error: "Webhook signature verification failed" },
       { status: 400 }
     );
   }
+
 
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;

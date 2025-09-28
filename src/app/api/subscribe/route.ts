@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createServerComponentClient } from "@supabase/auth-helpers-nextjs";
-import { createSupabaseCookies } from "@/lib/supabaseCookies";
 import { cookies } from "next/headers";
 
 // Stripe 初期化

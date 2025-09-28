@@ -1,29 +1,34 @@
 "use client";
 
-import { use, useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import type { User } from "@supabase/supabase-js";
 
 
 export default function SubscribePage() {
-  const [user, setUser] = useState<any | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(false);
 
   const fetchWords = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
-    console.log("ユーザーデータ=", user);
+    //console.log("ユーザーデータ=", user);
     setUser(user); // state に保存
   }, []);
 
 
 
   async function createCustomer() {
-    console.log("ユーザーデータ2=", user);
     setLoading(true);
-    console.log("ユーザーデータ2=", user);
+
+    if (!user) {
+      alert("ユーザー情報が取得できませんでした。");
+      setLoading(false);
+      return;
+    }
     const res = await fetch("/api/test", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: user.email,userId: user.id }), 
+      body: JSON.stringify({ email: user.email, userId: user.id }), 
     });
     const data = await res.json();
     console.log("データ",data);
