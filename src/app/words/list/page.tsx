@@ -87,6 +87,19 @@ export default function WordListPage() {
     setFilteredWords(filtered);
   }, [search, selectedPart, selectedImportance, words]);
 
+  // ✅ 単語削除処理
+  const handleDelete = async (id: number) => {
+    if (!confirm("この単語を削除しますか？")) return;
+
+    const { error } = await supabase.from("words").delete().eq("id", id);
+    if (error) {
+      alert("削除に失敗しました: " + error.message);
+      return;
+    }
+
+    setWords((prev) => prev.filter((w) => w.id !== id));
+  };
+
   if (loading) return <p>読み込み中...</p>;
   if (error) return <p className="text-red-500">{error}</p>;
 
@@ -137,20 +150,24 @@ export default function WordListPage() {
         <table className="w-full border-collapse border mb-4">
           <thead>
             <tr className="bg-gray-100">
-              <th className="border p-2">単語</th>
+              <th className="border-t border-b border-l-0 border-r-0  p-2">単語</th>
+              <th className="border-t border-b p-2"></th>
               <th className="border p-2">品詞</th>
               <th className="border p-2">意味</th>
-              <th className="border p-2">例文</th>
+              <th className="border-t border-b border-l-0 border-r-0 border p-2">例文</th>
+              <th className="border-t border-b p-2"></th>
               <th className="border p-2">訳</th>
               <th className="border p-2">重要度</th>
               <th className="border p-2">登録日</th>
+              <th className="border p-2">操作</th>
             </tr>
           </thead>
           <tbody>
             {filteredWords.map((w) => (
               <tr key={w.id}>
-                <td className="border p-2 flex items-center gap-2">
-                  {w.word}
+                <td className="border-l-0 border-r-0 border p-2">{w.word}</td>
+                {/* 縦線なしの音声ボタン列 */}
+                <td className="border-t border-b border-l-0 border-r-0 p-2 text-center">
                   <button
                     onClick={() => speakText(w.word)}
                     className="bg-indigo-300 text-white px-2 py-1 rounded hover:bg-indigo-400 text-sm"
@@ -158,10 +175,12 @@ export default function WordListPage() {
                     🔊
                   </button>
                 </td>
+
                 <td className="border p-2">{w.part_of_speech}</td>
                 <td className="border p-2">{w.meaning}</td>
-                <td className="border p-2 flex items-center gap-2">
-                  {w.example_sentence}
+
+                <td className="border-t border-b border-l-0 border-r-0 border p-2">{w.example_sentence}</td>
+                <td className="border-t border-b border-l-0 border-r-0 border-t border-b p-2 text-center">
                   <button
                     onClick={() => speakText(w.example_sentence)}
                     className="bg-indigo-300 text-white px-2 py-1 rounded hover:bg-indigo-400 text-sm"
@@ -169,9 +188,18 @@ export default function WordListPage() {
                     🔊
                   </button>
                 </td>
+
                 <td className="border p-2">{w.translation}</td>
                 <td className="border p-2">{w.importance}</td>
                 <td className="border p-2">{new Date(w.registered_at).toLocaleDateString("ja-JP")}</td>
+                <td className="border p-2 text-center">
+                  <button
+                    onClick={() => handleDelete(w.id)}
+                    className="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600 text-sm"
+                  >
+                    削除
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -192,22 +220,11 @@ export default function WordListPage() {
                 🔊
               </button>
             </div>
-            <div className="flex justify-start">
-              <span className="font-semibold mr-0.5">品詞:</span> <span>{w.part_of_speech}</span>
-            </div>
-            <div className="flex justify-start">
-              <span className="font-semibold mr-0.5">意味:</span> <span>{w.meaning}</span>
-            </div>
+            <div><span className="font-semibold mr-0.5">品詞:</span> {w.part_of_speech}</div>
+            <div><span className="font-semibold mr-0.5">意味:</span> {w.meaning}</div>
             <div className="flex">
-              {/* ラベルは1列固定 */}
               <span className="font-semibold mr-1 flex-shrink-0">例文:</span>
-              
-              {/* 文章は折り返して2列まで表示 */}
-              <span className="flex-1 break-words">
-                {w.example_sentence}
-              </span>
-
-              {/* 音声ボタンは右端 */}
+              <span className="flex-1 break-words">{w.example_sentence}</span>
               <button
                 onClick={() => speakText(w.example_sentence)}
                 className="ml-2 bg-indigo-300 text-white px-2 py-1 rounded hover:bg-indigo-400 text-sm flex-shrink-0"
@@ -215,14 +232,18 @@ export default function WordListPage() {
                 🔊
               </button>
             </div>
-            <div className="flex justify-start">
-              <span className="font-semibold mr-0.5">訳:</span> <span>{w.translation}</span>
-            </div>
-            <div className="flex justify-start">
-              <span className="font-semibold mr-0.5">重要度:</span> <span>{w.importance}</span>
-            </div>
-            <div className="flex justify-start">
-              <span className="font-semibold mr-0.5">登録日:</span> <span>{new Date(w.registered_at).toLocaleDateString("ja-JP")}</span>
+            <div><span className="font-semibold mr-0.5">訳:</span> {w.translation}</div>
+            <div><span className="font-semibold mr-0.5">重要度:</span> {w.importance}</div>
+            
+            <div className="flex">
+              <span className="font-semibold mr-1 flex-shrink-0">登録日:</span>
+              <span className="flex-1 break-words">{new Date(w.registered_at).toLocaleDateString("ja-JP")}</span>
+              <button
+                onClick={() => handleDelete(w.id)}
+                className="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600 text-sm"
+              >
+                削除
+              </button>
             </div>
           </div>
         ))}

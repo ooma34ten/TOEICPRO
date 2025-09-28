@@ -1,6 +1,7 @@
+// src/app/words/register/page.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import WordForm, { Row } from "@/components/WordForm";
 import { speakText } from "@/lib/speech";
 import { supabase } from "@/lib/supabaseClient";
@@ -10,7 +11,7 @@ type Word = {
   word: string;
   part_of_speech: string;
   meaning: string;
-  example_sentence: string; // DBに合わせる
+  example_sentence: string;
   translation: string;
   importance: string;
   registered_at: string;
@@ -21,10 +22,10 @@ export default function RegisterPage() {
   const [words, setWords] = useState<Word[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  useEffect(() => {
-  const fetchWords = async () => {
-    // 現在のユーザー情報を取得
+  // 🔹 fetchWords を useCallback で定義（保存後にも使える）
+  const fetchWords = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
+    console.log("fetchWords user=", user);
 
     if (!user) {
       setErrorMessage("ログインが必要です");
@@ -34,7 +35,7 @@ export default function RegisterPage() {
     const { data, error } = await supabase
       .from("words")
       .select("*")
-      .eq("user_id", user.id) // ← uuid 型の user.id を利用
+      .eq("user_id", user.id)
       .order("registered_at", { ascending: false });
 
     if (error) {
@@ -42,24 +43,30 @@ export default function RegisterPage() {
     } else {
       setWords(data || []);
     }
-  };
+  }, []);
 
-  fetchWords();
-}, []);
+  // 初回ロード
+  useEffect(() => {
+    fetchWords();
+  }, [fetchWords]);
 
+  // 🔹 WordForm から呼ばれる
   const handleAdd = (newRows: Row[]) => {
     setRows((prev) => [...prev, ...newRows]);
+    // 保存後に最新データを再取得
+    fetchWords();
   };
 
   return (
     <div className="p-6">
       {/* 概要 */}
+      <WordForm onAdd={handleAdd} />
       <div className="bg-white p-4 rounded-xl shadow space-y-1">
         <p>登録語数: <b>{words.length}</b></p>
       </div>
 
       <h1 className="text-2xl font-bold mb-4">TOEIC単語登録</h1>
-      <WordForm onAdd={handleAdd} />
+      
 
       {errorMessage && (
         <p className="text-red-500">Error: {errorMessage}</p>
@@ -101,5 +108,4 @@ export default function RegisterPage() {
     </div>
   );
 }
-// src/app/words/register/page.tsx
-
+//src/app/words/register/page.tsx
