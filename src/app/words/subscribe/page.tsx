@@ -3,9 +3,18 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import type { User } from "@supabase/supabase-js";
+import initStripe from "stripe";
 
+const getAllPlans = async () => {
+  const stripe = new initStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLIC_KEY!);
+
+  const { data: plans} = await stripe.prices.list();
+  return plans;
+};
 
 export default function SubscribePage() {
+  const plans = getAllPlans();
+
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -33,6 +42,12 @@ export default function SubscribePage() {
     const data = await res.json();
     console.log("データ",data);
     setLoading(false);
+
+    if (data.url) {
+      window.location.href = data.url;
+    } else {
+      alert(data.error || "エラーが発生しました");
+    }
   }
 
   const handleSubscribe = async (plan: "basic" | "premium") => {
@@ -59,6 +74,7 @@ export default function SubscribePage() {
 
   return (
     <div className="p-4">
+      <pre>{JSON.stringify(plans, null, 2)}</pre>
       <button
         className="bg-blue-500 text-white px-4 py-2 rounded mr-2"
         onClick={() => handleSubscribe("basic")}
