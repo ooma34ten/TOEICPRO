@@ -32,6 +32,12 @@ export async function POST(req: NextRequest) {
         const subscriptionId = session.subscription as string;
         const customerId = session.customer as string;
 
+        // checkout.session.completed の後に subscription を取得
+        const stripeSubscription = await stripe.subscriptions.retrieve(
+          session.subscription as string
+        );
+        const planName = stripeSubscription.items.data[0].price.nickname;
+
         // Supabase の subscriptions テーブルを更新
         await supabase
           .from("subscriptions")
@@ -39,6 +45,7 @@ export async function POST(req: NextRequest) {
             stripe_customer: customerId,
             stripe_subscription: subscriptionId,
             user_id: session.metadata?.userId, // Checkout 作成時に metadata に userId を入れておく
+            plan: planName,
             is_active: true,
           })
           .eq("user_id", session.metadata?.userId);
@@ -50,7 +57,11 @@ export async function POST(req: NextRequest) {
         const deletedSub = event.data.object as Stripe.Subscription;
         await supabase
           .from("subscriptions")
-          .update({ is_active: false })
+          .update({
+            is_active: false,
+            stripe_subscription: null,
+            plan: null,
+          })
           .eq("stripe_subscription", deletedSub.id);
         console.log("サブスク解約:", deletedSub.id);
         break;

@@ -1,4 +1,4 @@
-// src/app/api/test/route.ts
+// src/app/api/subscribe/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
   console.log("userId=", userId);
 
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
-  const priceId = process.env.STRIPE_PREMIUM_PRICE_ID!;
+  const priceId = process.env.STRIPE_STANDARD_PRICE_ID!;
 
   try {
     // 顧客作成
@@ -25,15 +25,17 @@ export async function POST(req: NextRequest) {
     console.log("APP_URL:", process.env.NEXT_PUBLIC_APP_URL);
 
 
-    const { error } = await supabase
+    /*const { error } = await supabase
       .from("subscriptions")
-      .update({ stripe_customer: customer.id })
+      .update({ 
+        stripe_customer: customer.id,
+       })
       .eq("user_id", userId);
 
     if (error) {
       console.error("更新エラー:", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
-    }
+    }*/
 
     // Checkout セッション作成（customer を渡すのが重要）
     const session = await stripe.checkout.sessions.create({
