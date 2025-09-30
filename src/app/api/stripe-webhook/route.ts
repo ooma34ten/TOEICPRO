@@ -1,80 +1,69 @@
-// src/app/api/stripe-webhook/route.ts
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
-import { supabaseAdmin } from "@/lib/supabaseAdmin"; // サーバー権限用の Supabase client
+import { createClient } from "@supabase/supabase-js";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: "2025-08-27.basil",
+});
 
-export async function POST(req: Request) {
-  const body = await req.text();
-  const sig = req.headers.get("stripe-signature");
+// Supabase クライアント
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
-  let event: Stripe.Event;
+export async function POST(req: NextRequest) {
+  const body = await req.text(); // Webhook は raw text で受け取る必要あり
+  const signature = req.headers.get("stripe-signature")!;
 
   try {
-    event = stripe.webhooks.constructEvent(
+    // Webhook の署名を検証
+    const event = stripe.webhooks.constructEvent(
       body,
-      sig!,
+      signature,
       process.env.STRIPE_WEBHOOK_SECRET!
     );
-  } catch (error) {
-    console.error("Stripe webhook error:", error);
-    return NextResponse.json(
-      { error: "Webhook signature verification failed" },
-      { status: 400 }
-    );
-  }
 
+    switch (event.type) {
+      case "checkout.session.completed":
+        const session = event.data.object as Stripe.Checkout.Session;
 
-  if (event.type === "checkout.session.completed") {
-    const session = event.data.object as Stripe.Checkout.Session;
+        // subscription ID と customer ID を取得
+        const subscriptionId = session.subscription as string;
+        const customerId = session.customer as string;
 
-    const email = session.customer_email;
-    if (email) {
-      // ユーザーを Supabase から検索
-      const { data: user } = await supabaseAdmin
-        .from("users")
-        .select("id")
-        .eq("email", email)
-        .maybeSingle();
-
-      if (user) {
-        await supabaseAdmin
+        // Supabase の subscriptions テーブルを更新
+        await supabase
           .from("subscriptions")
           .upsert({
-            user_id: user.id,
-            plan: "basic",
+            stripe_customer: customerId,
+            stripe_subscription: subscriptionId,
+            user_id: session.metadata?.userId, // Checkout 作成時に metadata に userId を入れておく
             is_active: true,
-          });
-      }
+          })
+          .eq("user_id", session.metadata?.userId);
+
+        console.log("サブスク加入完了:", subscriptionId);
+        break;
+
+      case "customer.subscription.deleted":
+        const deletedSub = event.data.object as Stripe.Subscription;
+        await supabase
+          .from("subscriptions")
+          .update({ is_active: false })
+          .eq("stripe_subscription", deletedSub.id);
+        console.log("サブスク解約:", deletedSub.id);
+        break;
+
+      // 他のイベントも必要に応じて追加可能
+      default:
+        console.log(`Unhandled event type ${event.type}`);
     }
+
+    return NextResponse.json({ received: true });
+  } catch (err) {
+    console.error("Webhook error:", err);
+    return NextResponse.json({ error: "Webhook error" }, { status: 400 });
   }
-
-  if (event.type === "customer.subscription.deleted") {
-    const subscription = event.data.object as Stripe.Subscription;
-
-    // subscription.customer は ID（string | Stripe.Customer）なので型に注意
-    const customerId = subscription.customer as string;
-
-    const customer = await stripe.customers.retrieve(customerId) as Stripe.Customer;
-    const email = customer.email;
-
-    if (email) {
-        const { data: user } = await supabaseAdmin
-        .from("users")
-        .select("id")
-        .eq("email", email)
-        .maybeSingle();
-
-        if (user) {
-        await supabaseAdmin
-            .from("subscriptions")
-            .update({ is_active: false })
-            .eq("user_id", user.id);
-        }
-    }
-    }
-
-
-  return NextResponse.json({ received: true });
 }
+// src/app/api/stripe-webhook/route.ts

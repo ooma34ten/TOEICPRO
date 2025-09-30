@@ -1,54 +1,59 @@
+// src/app/api/test/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs";
-import { cookies } from "next/headers";
-
-// Stripe 初期化
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2025-08-27.basil",
-});
+import { createClient } from "@supabase/supabase-js";
 
 export async function POST(req: NextRequest) {
+  const body = await req.json();
+  const { email, userId } = body;
+
+  console.log("userId=", userId);
+
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+  const priceId = process.env.STRIPE_PREMIUM_PRICE_ID!;
+
   try {
-    const query = req.nextUrl.searchParams.get("API_ROUTE_SECRET");
-    if (query !== process.env.API_ROUTE_SECRET) {
-      return NextResponse.json({
-        message: "APIをたたく権限がありません", 
-      });
+    // 顧客作成
+    const customer = await stripe.customers.create({ email });
+    console.log("created stripe customer:", customer.id);
+
+    // Supabase の subscriptions テーブルに保存（暫定）
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+    console.log("APP_URL:", process.env.NEXT_PUBLIC_APP_URL);
+
+
+    const { error } = await supabase
+      .from("subscriptions")
+      .update({ stripe_customer: customer.id })
+      .eq("user_id", userId);
+
+    if (error) {
+      console.error("更新エラー:", error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
     }
-    // Supabase Client 作成（Cookie ラッパーで安全）
-    const supabase = createServerComponentClient({
-      cookies: () => Promise.resolve(cookies()),
-    });
 
-    // ログインユーザーの取得
-    const { data: { session }, error } = await supabase.auth.getSession();
-    if (error || !session?.user) {
-      return NextResponse.json({ error: "ログインしてください" }, { status: 401 });
-    }
-
-    const { plan } = await req.json();
-
-    // Stripe Checkout セッション作成
-    const checkoutSession = await stripe.checkout.sessions.create({
-      customer_email: session.user.email ?? undefined,
+    // Checkout セッション作成（customer を渡すのが重要）
+    const session = await stripe.checkout.sessions.create({
+      customer: customer.id,
       payment_method_types: ["card"],
-      line_items: [
-        {
-          price: plan === "basic"
-            ? process.env.STRIPE_BASIC_PRICE_ID!
-            : process.env.STRIPE_PREMIUM_PRICE_ID!,
-          quantity: 1,
-        },
-      ],
+      line_items: [{ price: priceId, quantity: 1 }],
       mode: "subscription",
-      success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/words/subscribe?success=true`,
-      cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/words/subscribe?canceled=true`,
+      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/words/subscribe`,
+      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/words/subscribe`,
+      metadata: { userId },
     });
 
-    return NextResponse.json({ url: checkoutSession.url });
-  } catch (err) {
-    console.error("Stripe Checkout セッション作成エラー:", err);
-    return NextResponse.json({ error: "セッション作成に失敗しました" }, { status: 500 });
+    return NextResponse.json({ url: session.url });
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      console.error("Stripe Checkout error:", error.message);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    return NextResponse.json({ error: "Unknown error" }, { status: 500 });
   }
+
 }
+//src/app/api/subscribe/route.ts
