@@ -6,75 +6,80 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2025-08-27.basil",
 });
 
-// Supabase クライアント
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
 export async function POST(req: NextRequest) {
-  const body = await req.text(); // Webhook は raw text で受け取る必要あり
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  if (!webhookSecret) {
+    console.error("STRIPE_WEBHOOK_SECRET is not defined");
+    return NextResponse.json({ error: "Webhook secret not set" }, { status: 500 });
+  }
+
+  const body = await req.text();
   const signature = req.headers.get("stripe-signature")!;
 
+  let event: Stripe.Event;
+
   try {
-    // Webhook の署名を検証
-    const event = stripe.webhooks.constructEvent(
-      body,
-      signature,
-      process.env.STRIPE_WEBHOOK_SECRET!
-    );
+    event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
+  } catch (err) {
+    console.error("Webhook signature verification failed:", err);
+    return NextResponse.json({ error: "Webhook signature verification failed" }, { status: 400 });
+  }
 
+  try {
     switch (event.type) {
-      case "checkout.session.completed":
+      case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
-
-        // subscription ID と customer ID を取得
         const subscriptionId = session.subscription as string;
         const customerId = session.customer as string;
+        const userId = session.metadata?.userId;
 
-        // checkout.session.completed の後に subscription を取得
-        const stripeSubscription = await stripe.subscriptions.retrieve(
-          session.subscription as string
-        );
+        if (!userId) {
+          console.error("No userId in metadata");
+          break;
+        }
+
+        const stripeSubscription = await stripe.subscriptions.retrieve(subscriptionId);
         const planName = stripeSubscription.items.data[0].price.nickname;
 
-        // Supabase の subscriptions テーブルを更新
         await supabase
           .from("subscriptions")
           .upsert({
             stripe_customer: customerId,
             stripe_subscription: subscriptionId,
-            user_id: session.metadata?.userId, // Checkout 作成時に metadata に userId を入れておく
+            user_id: userId,
             plan: planName,
             is_active: true,
           })
-          .eq("user_id", session.metadata?.userId);
+          .eq("user_id", userId);
 
-        console.log("サブスク加入完了:", subscriptionId);
+        console.log("Subscription added:", subscriptionId);
         break;
+      }
 
-      case "customer.subscription.deleted":
+      case "customer.subscription.deleted": {
         const deletedSub = event.data.object as Stripe.Subscription;
         await supabase
           .from("subscriptions")
-          .update({
-            is_active: false,
-            stripe_subscription: null,
-            plan: null,
-          })
+          .update({ is_active: false, stripe_subscription: null, plan: null })
           .eq("stripe_subscription", deletedSub.id);
-        console.log("サブスク解約:", deletedSub.id);
-        break;
 
-      // 他のイベントも必要に応じて追加可能
+        console.log("Subscription deleted:", deletedSub.id);
+        break;
+      }
+
       default:
-        console.log(`Unhandled event type ${event.type}`);
+        console.log(`Unhandled event type: ${event.type}`);
     }
 
     return NextResponse.json({ received: true });
   } catch (err) {
-    console.error("Webhook error:", err);
-    return NextResponse.json({ error: "Webhook error" }, { status: 400 });
+    console.error("Error handling webhook event:", err);
+    return NextResponse.json({ error: "Webhook handling error" }, { status: 500 });
   }
 }
 // src/app/api/stripe-webhook/route.ts
