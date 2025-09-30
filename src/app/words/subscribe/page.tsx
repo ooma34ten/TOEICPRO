@@ -36,7 +36,7 @@ export default function SubscribePage() {
       return;
     }
     setLoading(true);
-    const res = await fetch("/api/test", {
+    const res = await fetch("/api/subscribe", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: user.email, userId: user.id }),
@@ -98,7 +98,7 @@ export default function SubscribePage() {
             onClick={createCustomer}
             disabled={loading}
           >
-            Premium プランに加入する
+            スタンダード プランに加入する
           </button>
         </>
       )}

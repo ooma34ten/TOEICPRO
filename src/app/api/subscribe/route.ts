@@ -24,7 +24,6 @@ export async function POST(req: NextRequest) {
     );
     console.log("APP_URL:", process.env.NEXT_PUBLIC_APP_URL);
 
-
     /*const { error } = await supabase
       .from("subscriptions")
       .update({ 
