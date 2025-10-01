@@ -19,12 +19,12 @@ export async function POST(req: NextRequest) {
 
   // --- 既存の顧客を確認 ---
   const { data: userData, error: userError } = await supabase
-    .from("subscriptions") // 顧客IDは users に保存する想定
+    .from("subscriptions")
     .select("stripe_customer")
     .eq("user_id", userId)
     .maybeSingle();
   let customerId: string;
-
+  console.log("stripe_customer=", userData?.stripe_customer, userError);
   if (userData?.stripe_customer) {
     // 既存の Stripe 顧客ID を再利用
     customerId = userData.stripe_customer;
