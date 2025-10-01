@@ -22,13 +22,7 @@ export async function POST(req: NextRequest) {
     .from("subscriptions") // 顧客IDは users に保存する想定
     .select("stripe_customer")
     .eq("id", userId)
-    .single();
-
-  if (userError) {
-    console.error("ユーザー取得エラー:", userError);
-    return NextResponse.json({ error: userError.message }, { status: 500 });
-  }
-
+    .maybeSingle();
   let customerId: string;
 
   if (userData?.stripe_customer) {
@@ -39,17 +33,20 @@ export async function POST(req: NextRequest) {
     const customer = await stripe.customers.create({ email });
     customerId = customer.id;
 
-    // Supabase に保存
-    const { error: updateError } = await supabase
+    // 存在しなければ新規作成、存在すれば更新
+    const { error: upsertError } = await supabase
       .from("subscriptions")
-      .update({ stripe_customer: customerId })
-      .eq("id", userId);
+      .upsert({
+        id: userId,             // userId を主キーにして upsert
+        stripe_customer: customerId,
+      });
 
-    if (updateError) {
-      console.error("顧客ID保存エラー:", updateError);
-      return NextResponse.json({ error: updateError.message }, { status: 500 });
+    if (upsertError) {
+      console.error("顧客ID保存エラー:", upsertError);
+      return NextResponse.json({ error: upsertError.message }, { status: 500 });
     }
   }
+
 
   try {
     // --- Checkout セッション作成 ---
