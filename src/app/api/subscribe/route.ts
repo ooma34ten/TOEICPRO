@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
   const { data: userData, error: userError } = await supabase
     .from("subscriptions") // 顧客IDは users に保存する想定
     .select("stripe_customer")
-    .eq("id", userId)
+    .eq("user_id", userId)
     .maybeSingle();
   let customerId: string;
 
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
     const { error: upsertError } = await supabase
       .from("subscriptions")
       .upsert({
-        id: userId,             // userId を主キーにして upsert
+        user_id: userId,             // userId を主キーにして upsert
         stripe_customer: customerId,
       });
 
