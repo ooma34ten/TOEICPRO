@@ -43,8 +43,12 @@ export async function POST(req: NextRequest) {
           break;
         }
 
-        const stripeSubscription = await stripe.subscriptions.retrieve(subscriptionId);
-        const planName = stripeSubscription.items.data[0].price.nickname;
+        const stripeSubscription = await stripe.subscriptions.retrieve(subscriptionId, {
+          expand: ["items.data.price.product"], // product 情報を展開する
+        });
+
+        const productName = (stripeSubscription.items.data[0].price.product as Stripe.Product).name;
+        console.log(productName); // "スタンダード"
 
         await supabase
           .from("subscriptions")
@@ -52,7 +56,7 @@ export async function POST(req: NextRequest) {
             stripe_customer: customerId,
             stripe_subscription: subscriptionId,
             user_id: userId,
-            plan: planName,
+            plan: productName,
             is_active: true,
           })
           .eq("user_id", userId);
