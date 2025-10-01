@@ -3,42 +3,58 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
 
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
 export async function POST(req: NextRequest) {
   const body = await req.json();
   const { email, userId } = body;
 
-  console.log("userId=", userId);
-
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
   const priceId = process.env.STRIPE_STANDARD_PRICE_ID!;
 
-  try {
-    // 顧客作成
+  console.log("userId=", userId);
+
+  // --- 既存の顧客を確認 ---
+  const { data: userData, error: userError } = await supabase
+    .from("users") // 顧客IDは users に保存する想定
+    .select("stripe_customer")
+    .eq("id", userId)
+    .single();
+
+  if (userError) {
+    console.error("ユーザー取得エラー:", userError);
+    return NextResponse.json({ error: userError.message }, { status: 500 });
+  }
+
+  let customerId: string;
+
+  if (userData?.stripe_customer) {
+    // 既存の Stripe 顧客ID を再利用
+    customerId = userData.stripe_customer;
+  } else {
+    // 新規に Stripe 顧客を作成
     const customer = await stripe.customers.create({ email });
-    console.log("created stripe customer:", customer.id);
+    customerId = customer.id;
 
-    // Supabase の subscriptions テーブルに保存（暫定）
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-    console.log("APP_URL:", process.env.NEXT_PUBLIC_APP_URL);
+    // Supabase に保存
+    const { error: updateError } = await supabase
+      .from("users")
+      .update({ stripe_customer: customerId })
+      .eq("id", userId);
 
-    /*const { error } = await supabase
-      .from("subscriptions")
-      .update({ 
-        stripe_customer: customer.id,
-       })
-      .eq("user_id", userId);
+    if (updateError) {
+      console.error("顧客ID保存エラー:", updateError);
+      return NextResponse.json({ error: updateError.message }, { status: 500 });
+    }
+  }
 
-    if (error) {
-      console.error("更新エラー:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }*/
-
-    // Checkout セッション作成（customer を渡すのが重要）
+  try {
+    // --- Checkout セッション作成 ---
     const session = await stripe.checkout.sessions.create({
-      customer: customer.id,
+      customer: customerId, // 既存 or 新規
       payment_method_types: ["card"],
       line_items: [{ price: priceId, quantity: 1 }],
       mode: "subscription",
@@ -55,6 +71,5 @@ export async function POST(req: NextRequest) {
     }
     return NextResponse.json({ error: "Unknown error" }, { status: 500 });
   }
-
 }
 //src/app/api/subscribe/route.ts
