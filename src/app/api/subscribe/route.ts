@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
 
   // --- 既存の顧客を確認 ---
   const { data: userData, error: userError } = await supabase
-    .from("users") // 顧客IDは users に保存する想定
+    .from("subscriptions") // 顧客IDは users に保存する想定
     .select("stripe_customer")
     .eq("id", userId)
     .single();
@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
 
     // Supabase に保存
     const { error: updateError } = await supabase
-      .from("users")
+      .from("subscriptions")
       .update({ stripe_customer: customerId })
       .eq("id", userId);
 
