@@ -53,12 +53,11 @@ export async function POST(req: NextRequest) {
         await supabase
           .from("subscriptions")
           .upsert({
-            user_id: userId,
-            stripe_customer: customerId,
             stripe_subscription: subscriptionId,
             plan: productName,
             is_active: true,
-          });
+          })
+          .eq("user_id", userId);
 
         console.log("Subscription added:", subscriptionId);
         break;
