@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
             plan: productName,
             is_active: true,
           })
-          .eq("user_id", userId);
+          .eq("stripe_customer", customerId);
 
         console.log("Subscription added:", subscriptionId);
         break;
