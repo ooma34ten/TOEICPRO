@@ -5,7 +5,7 @@ import { createClient } from "@supabase/supabase-js";
 export async function POST(req: NextRequest) {
   const body = await req.json();
   const { userId } = body;
-
+  
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
   const supabase = createClient(
@@ -32,12 +32,6 @@ export async function POST(req: NextRequest) {
     await stripe.subscriptions.update(subs.stripe_subscription, {
       cancel_at_period_end: true,
     });
-
-    // Supabase の状態更新
-    await supabase
-      .from("subscriptions")
-      .update({ is_active: false })
-      .eq("user_id", userId);
 
     return NextResponse.json({ success: true });
   } catch (err: unknown) {

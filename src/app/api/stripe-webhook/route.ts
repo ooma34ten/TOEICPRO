@@ -36,12 +36,12 @@ export async function POST(req: NextRequest) {
         const session = event.data.object as Stripe.Checkout.Session;
         const subscriptionId = session.subscription as string;
         const customerId = session.customer as string;
-        const userId = session.metadata?.userId;
+        /*const userId = invoice.metadata?.userId;
 
         if (!userId) {
           console.error("No userId in metadata");
           break;
-        }
+        }*/
 
         const stripeSubscription = await stripe.subscriptions.retrieve(subscriptionId, {
           expand: ["items.data.price.product"], // product 情報を展開する
@@ -49,15 +49,33 @@ export async function POST(req: NextRequest) {
 
         const productName = (stripeSubscription.items.data[0].price.product as Stripe.Product).name;
         console.log(productName); // "スタンダード"
-
-        await supabase
+        console.log("カスタマーID:", customerId);
+        //console.log("ユーザーID:", userId);
+        // 既存行を検索
+        const { data: existing, error: selectError } = await supabase
           .from("subscriptions")
-          .upsert({
-            stripe_subscription: subscriptionId,
-            plan: productName,
-            is_active: true,
-          })
-          .eq("stripe_customer", customerId);
+          .select("*")
+          .eq("stripe_customer", customerId)
+          .single(); // 1件だけ取得
+
+        if (selectError) {
+          console.error("Supabase select error:", selectError);
+        } else if (!existing) {
+          console.log("既存のサブスクリプションがないため更新せず終了");
+        } else {
+          // 更新
+          const { data, error: updateError } = await supabase
+            .from("subscriptions")
+            .update({
+              stripe_subscription: subscriptionId,
+              plan: productName,
+              is_active: true,
+            })
+            .eq("stripe_customer", customerId);
+
+          if (updateError) console.error("Supabase update error:", updateError);
+          else console.log("既存行を更新しました:", data);
+        }
 
         console.log("Subscription added:", subscriptionId);
         break;
