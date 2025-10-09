@@ -26,6 +26,8 @@ export default function WordForm({ onAdd }: WordFormProps) {
   const [rows, setRows] = useState<Row[]>([]);
   const [msg, setMsg] = useState("");
 
+  
+
   const handleGenerate = async () => {
     if (!inputWord.trim()) {
       setMsg("単語を入力してください");
@@ -33,67 +35,171 @@ export default function WordForm({ onAdd }: WordFormProps) {
     }
 
     try {
+      // 入力単語を小文字に統一
+      const lowerWord = inputWord.trim().toLowerCase();
+
+      // --- スペルチェック ---
       setMsg("スペル確認中...");
       const spellRes = await fetch("/api/spell-check", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ word: inputWord }),
+        body: JSON.stringify({ word: lowerWord }),
       });
 
       const { correctedWord } = await spellRes.json();
-      setCorrectedWord(correctedWord);
+      const finalWord = correctedWord.toLowerCase(); // 修正結果も小文字に統一
+      setCorrectedWord(finalWord);
 
-      if (correctedWord !== inputWord) {
-        setMsg(`修正されました: ${inputWord} → ${correctedWord}`);
+      if (finalWord !== lowerWord) {
+        setMsg(`修正されました: ${inputWord} → ${finalWord}`);
       } else {
         setMsg("修正不要");
       }
 
       setHoldWord(inputWord);
 
-      setMsg("生成中...");
-      const res = await fetch("/api/gemini", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: correctedWord }),
-      });
+      // --- Supabase で既存単語取得 ---
+      setMsg("検索中...");
+      const { data: existingWords, error } = await supabase
+        .from("words_master")
+        .select("*")
+        .eq("word", correctedWord);
 
-      const data = await res.json();
-
-      if (!data.answer) {
-        setMsg("回答がありません");
+      if (error) {
+        console.error("取得エラー:", error);
+        setMsg("データ取得エラー");
         return;
       }
 
-      const clean = data.answer.replace(/^```json\s*[\r\n]?/, "").replace(/```$/, "").trim();
+      let displayRows: Row[] = [];
 
-      type GeminiRow = Partial<Row> & { definition?: string };
-      let parsed: { word?: string; definitions?: GeminiRow[]; meanings?: GeminiRow[] } = {};
-      try {
-        parsed = JSON.parse(clean);
-      } catch {
-        setMsg("JSON形式で返っていません: " + clean);
-        return;
+      if (existingWords.length === 0) {
+        // --- Gemini API で新規単語生成 ---
+        setMsg("生成中...");
+        const geminiRes = await fetch("/api/gemini", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ question: correctedWord }),
+        });
+        const geminiData = await geminiRes.json();
+
+        if (!geminiData.answer) {
+          setMsg("回答がありません");
+          return;
+        }
+
+        const clean = geminiData.answer.replace(/^```json\s*[\r\n]?/, "").replace(/```$/, "").trim();
+
+        type GeminiRow = Partial<Row> & { definition?: string };
+        let parsed: { word?: string; definitions?: GeminiRow[]; meanings?: GeminiRow[] } = {};
+
+        try {
+          parsed = JSON.parse(clean);
+        } catch {
+          setMsg("JSON形式で返っていません: " + clean);
+          return;
+        }
+
+        const newRows: Row[] = (parsed.definitions || parsed.meanings || []).map((m: GeminiRow) => ({
+          word: m.word ?? correctedWord,
+          part_of_speech: m.part_of_speech ?? "",
+          meaning: m.meaning ?? m.definition ?? "",
+          example: m.example ?? "",
+          translation: m.translation ?? "",
+          importance: m.importance ?? "",
+          selected: true,
+        }));
+
+        if (!newRows.length) {
+          setMsg("意味が生成されませんでした");
+          return;
+        }
+
+        // --- Supabase に保存 ---
+        const saveRes = await fetch("/api/add-to-master", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ words: newRows }),
+        });
+        const saveResult = await saveRes.json();
+
+        if (!saveResult.success) {
+          console.error("新規品詞登録APIエラー:", saveResult.message);
+        } else {
+          console.log("新規品詞登録API完了");
+        }
+
+        displayRows = newRows;
+      } else {
+        // --- 既存単語を UI に表示 ---
+        displayRows = existingWords.map((r) => ({
+          word: r.word,
+          part_of_speech: r.part_of_speech,
+          meaning: r.meaning,
+          example: r.example_sentence ?? "",
+          translation: r.translation ?? "",
+          importance: r.importance ?? "",
+          selected: true,
+        }));
+
+        // --- 裏で Gemini API で新しい品詞パターン生成 ---
+        const geminiRes = await fetch("/api/gemini", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ question: correctedWord }),
+        });
+        const geminiData = await geminiRes.json();
+
+        if (geminiData?.answer) {
+          const clean = geminiData.answer.replace(/^```json\s*[\r\n]?/, "").replace(/```$/, "").trim();
+
+          type GeminiRow = Partial<Row> & { definition?: string };
+          let parsed: { word?: string; definitions?: GeminiRow[]; meanings?: GeminiRow[] } = {};
+
+          try {
+            parsed = JSON.parse(clean);
+          } catch {
+            console.warn("Gemini応答がJSON形式でない:", clean);
+          }
+
+          const generatedRows: Row[] = (parsed.definitions || parsed.meanings || []).map((m: GeminiRow) => ({
+            word: m.word ?? correctedWord,
+            part_of_speech: m.part_of_speech ?? "",
+            meaning: m.meaning ?? m.definition ?? "",
+            example: m.example ?? "",
+            translation: m.translation ?? "",
+            importance: m.importance ?? "",
+          }));
+
+          if (generatedRows.length > 0) {
+            const existingPairs = new Set(existingWords.map((r) => `${r.word}_${r.part_of_speech}`));
+            const newCombinations = generatedRows.filter(
+              (g) => !existingPairs.has(`${g.word}_${g.part_of_speech}`)
+            );
+
+            if (newCombinations.length > 0) {
+              console.log("新しい品詞パターンを登録:", newCombinations);
+
+              const saveRes = await fetch("/api/add-to-master", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ words: newCombinations }),
+              });
+
+              const saveResult = await saveRes.json();
+              if (!saveResult.success) {
+                console.error("新規品詞登録APIエラー:", saveResult.message);
+              } else {
+                console.log("新規品詞登録API完了");
+              }
+            }
+          }
+        }
       }
 
-      const newRows: Row[] = (parsed.definitions || parsed.meanings || []).map((m: GeminiRow) => ({
-        word: m.word?? "",
-        part_of_speech: m.part_of_speech ?? "",
-        meaning: m.meaning ?? m.definition ?? "",
-        example: m.example ?? "",
-        translation: m.translation ?? "",
-        importance: m.importance ?? "",
-        selected: true,
-      }));
-
-      if (!newRows.length) {
-        setMsg("意味が生成されませんでした");
-        return;
-      }
-
-      setRows(newRows);
+      setRows(displayRows);
       setMsg("生成完了");
-      onAdd(newRows, parsed.word || correctedWord);
+      onAdd(displayRows, correctedWord);
     } catch (e: unknown) {
       let message = "不明なエラーです";
       if (e instanceof Error) message = e.message;
@@ -102,13 +208,13 @@ export default function WordForm({ onAdd }: WordFormProps) {
     }
   };
 
+
   const handleSave = async () => {
     if (!rows.length) {
       setMsg("保存するデータがありません");
       return;
     }
 
-    // ✅ 選択されたものだけ
     const selectedRows = rows.filter((r) => r.selected);
 
     if (!selectedRows.length) {
@@ -131,25 +237,62 @@ export default function WordForm({ onAdd }: WordFormProps) {
 
       const userId = user.id;
 
-      // 重複チェックはそのまま
-      const { data: existing, error: fetchError } = await supabase
-        .from("words")
-        .select("id")
-        .eq("word", correctedWord)
-        .eq("user_id", userId)
-        .maybeSingle();
+      // 🔹 選択中のすべての単語についてループ
+      const newRowsToSave: Row[] = [];
+      console.log("保存処理開始:", selectedRows);
 
-      if (fetchError) {
-        setMsg("既存チェックエラー: " + fetchError.message);
+      for (let i = 0; i < selectedRows.length; i++) {
+        const word = selectedRows[i].word;
+
+        // 🔸 1. words_masterに存在するか確認
+        const { data: existing, error: fetchError } = await supabase
+          .from("words_master")
+          .select("id")
+          .eq("word", word);
+
+        if (fetchError) {
+          console.error("既存チェックエラー:", fetchError);
+          continue; // この単語はスキップ
+        }
+
+        let wordId: string | null = null;
+
+        if (existing && existing.length > 0) {
+          wordId = existing[0].id;
+        }
+
+        // 🔸 2. user_wordsにすでに登録されているか確認
+        if (wordId) {
+          const { data: existing2, error: fetchError2 } = await supabase
+            .from("user_words")
+            .select("id")
+            .eq("word_id", wordId)
+            .eq("user_id", userId);
+
+          if (fetchError2) {
+            console.error("ユーザー重複チェックエラー:", fetchError2);
+            continue;
+          }
+
+          if (existing2 && existing2.length > 0) {
+            console.log(`すでに保存済み: ${word}`);
+            continue; // 🔸登録済みならスキップ
+          }
+        }
+
+        // 🔸 3. 未登録のものだけ保存リストに追加
+        newRowsToSave.push(selectedRows[i]);
+      }
+
+      if (newRowsToSave.length === 0) {
+        setMsg("すべての単語がすでに保存済みです");
         return;
       }
 
-      if (existing) {
-        setMsg(`すでに保存済み: 【${correctedWord}】`);
-        return;
-      }
+      console.log("保存対象:", selectedRows);
+      console.log("新規保存対象:", newRowsToSave);
 
-      // ✅ 選択されたものだけ送信
+      // 🔸 4. 未登録のものだけサーバーに保存
       const res = await fetch("/api/save-word", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -167,7 +310,7 @@ export default function WordForm({ onAdd }: WordFormProps) {
         }
         return;
       }
-      
+
       if (!data.success) {
         setMsg("保存失敗: " + (data.message || "不明なエラー"));
         console.error("Save word error details:", data);
@@ -176,9 +319,6 @@ export default function WordForm({ onAdd }: WordFormProps) {
 
       setMsg(`保存完了: ${data.results.length}件`);
       setRows([]);
-
-      onAdd(data.results, correctedWord);
-
     } catch (e: unknown) {
       let message = "不明なエラーです";
       if (e instanceof Error) message = e.message;
@@ -268,11 +408,14 @@ export default function WordForm({ onAdd }: WordFormProps) {
                     type="checkbox"
                     checked={r.selected ?? false}
                     onChange={(e) => {
-                      const updated = [...rows];
-                      updated[idx].selected = e.target.checked;
-                      setRows(updated);
+                      setRows((prev) =>
+                        prev.map((row) =>
+                          row.meaning === r.meaning ? { ...row, selected: e.target.checked } : row
+                        )
+                      );
                     }}
                   />
+
                   <span className="font-semibold">単語: </span>{r.word}
                 </div>
                 <div>

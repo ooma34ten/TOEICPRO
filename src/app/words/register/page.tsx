@@ -33,10 +33,12 @@ export default function RegisterPage() {
     }
 
     const { data, error } = await supabase
-      .from("words")
+      .from("user_words")
       .select("*")
       .eq("user_id", user.id)
       .order("registered_at", { ascending: false });
+
+    console.log("fetchWords data=", data, " error=", error);
 
     if (error) {
       setErrorMessage(error.message);

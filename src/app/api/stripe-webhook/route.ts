@@ -36,12 +36,6 @@ export async function POST(req: NextRequest) {
         const session = event.data.object as Stripe.Checkout.Session;
         const subscriptionId = session.subscription as string;
         const customerId = session.customer as string;
-        /*const userId = invoice.metadata?.userId;
-
-        if (!userId) {
-          console.error("No userId in metadata");
-          break;
-        }*/
 
         const stripeSubscription = await stripe.subscriptions.retrieve(subscriptionId, {
           expand: ["items.data.price.product"], // product 情報を展開する

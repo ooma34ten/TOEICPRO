@@ -6,7 +6,7 @@ import { speakText } from "@/lib/speech";
 import { useRouter } from "next/navigation";
 
 type Word = {
-  id: number;
+  id: string;
   word: string;
   part_of_speech: string;
   meaning: string;
@@ -28,6 +28,7 @@ export default function WordListPage() {
 
   const router = useRouter();
 
+  // 🔐 ログインチェック
   useEffect(() => {
     (async () => {
       const { data } = await supabase.auth.getSession();
@@ -36,7 +37,7 @@ export default function WordListPage() {
     })();
   }, [router]);
 
-  // 単語取得
+  // 📥 単語取得（user_words + words_master 結合）
   useEffect(() => {
     const fetchWords = async () => {
       setLoading(true);
@@ -52,24 +53,54 @@ export default function WordListPage() {
         return;
       }
 
+      // ✅ user_words と words_master を結合
       const { data, error } = await supabase
-        .from("words")
-        .select("*")
+        .from("user_words")
+        .select(
+          `
+          id,
+          registered_at,
+          words_master (
+            word,
+            part_of_speech,
+            meaning,
+            example_sentence,
+            translation,
+            importance
+          )
+        `
+        )
         .eq("user_id", user.id)
         .order("registered_at", { ascending: false });
 
-      if (error) setError(error.message);
-      else {
-        setWords(data || []);
-        setFilteredWords(data || []);
+      if (error) {
+        setError(error.message);
+        setLoading(false);
+        return;
       }
+
+      // ✅ フラットな配列に変換
+      const formatted: Word[] =
+        data?.map((item: any) => ({
+          id: item.id,
+          registered_at: item.registered_at,
+          word: item.words_master?.word || "",
+          part_of_speech: item.words_master?.part_of_speech || "",
+          meaning: item.words_master?.meaning || "",
+          example_sentence: item.words_master?.example_sentence || "",
+          translation: item.words_master?.translation || "",
+          importance: item.words_master?.importance || "",
+        })) || [];
+
+      setWords(formatted);
+      setFilteredWords(formatted);
       setLoading(false);
     };
 
     fetchWords();
   }, []);
 
-  // フィルター
+  // 🔍 フィルター
   useEffect(() => {
     let filtered = words;
 
@@ -81,17 +112,19 @@ export default function WordListPage() {
           w.meaning.toLowerCase().includes(lower)
       );
     }
-    if (selectedPart) filtered = filtered.filter((w) => w.part_of_speech === selectedPart);
-    if (selectedImportance) filtered = filtered.filter((w) => w.importance === selectedImportance);
+    if (selectedPart)
+      filtered = filtered.filter((w) => w.part_of_speech === selectedPart);
+    if (selectedImportance)
+      filtered = filtered.filter((w) => w.importance === selectedImportance);
 
     setFilteredWords(filtered);
   }, [search, selectedPart, selectedImportance, words]);
 
-  // ✅ 単語削除処理
-  const handleDelete = async (id: number) => {
+  // 🗑 単語削除（user_words のみ削除）
+  const handleDelete = async (id: string) => {
     if (!confirm("この単語を削除しますか？")) return;
 
-    const { error } = await supabase.from("words").delete().eq("id", id);
+    const { error } = await supabase.from("user_words").delete().eq("id", id);
     if (error) {
       alert("削除に失敗しました: " + error.message);
       return;
@@ -104,17 +137,21 @@ export default function WordListPage() {
   if (error) return <p className="text-red-500">{error}</p>;
 
   const partOptions = Array.from(new Set(words.map((w) => w.part_of_speech)));
-  const importanceOptions = Array.from(new Set(words.map((w) => w.importance)));
+  const importanceOptions = Array.from(
+    new Set(words.map((w) => w.importance))
+  );
 
   return (
     <div className="p-4">
       <div className="bg-white p-4 rounded-xl shadow space-y-1 mb-4">
-        <p>登録語数: <b>{words.length}</b></p>
+        <p>
+          登録語数: <b>{words.length}</b>
+        </p>
       </div>
 
       <h1 className="text-xl font-bold mb-4">登録済み単語一覧</h1>
 
-      {/* フィルター */}
+      {/* 🔎 フィルター */}
       <div className="flex flex-col md:flex-row gap-2 mb-4">
         <input
           type="text"
@@ -130,7 +167,9 @@ export default function WordListPage() {
         >
           <option value="">品詞すべて</option>
           {partOptions.map((p) => (
-            <option key={p} value={p}>{p}</option>
+            <option key={p} value={p}>
+              {p}
+            </option>
           ))}
         </select>
         <select
@@ -140,22 +179,24 @@ export default function WordListPage() {
         >
           <option value="">重要度すべて</option>
           {importanceOptions.map((i) => (
-            <option key={i} value={i}>{i}</option>
+            <option key={i} value={i}>
+              {i}
+            </option>
           ))}
         </select>
       </div>
 
-      {/* PC用テーブル */}
+      {/* 💻 PC表示 */}
       <div className="hidden md:block overflow-x-auto">
         <table className="w-full border-collapse border mb-4">
           <thead>
             <tr className="bg-gray-100">
-              <th className="border-t border-b border-l-0 border-r-0  p-2">単語</th>
-              <th className="border-t border-b p-2"></th>
+              <th className="border p-2">単語</th>
+              <th className="border p-2"></th>
               <th className="border p-2">品詞</th>
               <th className="border p-2">意味</th>
-              <th className="border-t border-b border-l-0 border-r-0 border p-2">例文</th>
-              <th className="border-t border-b p-2"></th>
+              <th className="border p-2">例文</th>
+              <th className="border p-2"></th>
               <th className="border p-2">訳</th>
               <th className="border p-2">重要度</th>
               <th className="border p-2">登録日</th>
@@ -165,9 +206,8 @@ export default function WordListPage() {
           <tbody>
             {filteredWords.map((w) => (
               <tr key={w.id}>
-                <td className="border-l-0 border-r-0 border p-2">{w.word}</td>
-                {/* 縦線なしの音声ボタン列 */}
-                <td className="border-t border-b border-l-0 border-r-0 p-2 text-center">
+                <td className="border p-2">{w.word}</td>
+                <td className="border p-2 text-center">
                   <button
                     onClick={() => speakText(w.word)}
                     className="bg-indigo-300 text-white px-2 py-1 rounded hover:bg-indigo-400 text-sm"
@@ -175,12 +215,10 @@ export default function WordListPage() {
                     🔊
                   </button>
                 </td>
-
                 <td className="border p-2">{w.part_of_speech}</td>
                 <td className="border p-2">{w.meaning}</td>
-
-                <td className="border-t border-b border-l-0 border-r-0 border p-2">{w.example_sentence}</td>
-                <td className="border-t border-b border-l-0 border-r-0 border-t border-b p-2 text-center">
+                <td className="border p-2">{w.example_sentence}</td>
+                <td className="border p-2 text-center">
                   <button
                     onClick={() => speakText(w.example_sentence)}
                     className="bg-indigo-300 text-white px-2 py-1 rounded hover:bg-indigo-400 text-sm"
@@ -188,10 +226,11 @@ export default function WordListPage() {
                     🔊
                   </button>
                 </td>
-
                 <td className="border p-2">{w.translation}</td>
                 <td className="border p-2">{w.importance}</td>
-                <td className="border p-2">{new Date(w.registered_at).toLocaleDateString("ja-JP")}</td>
+                <td className="border p-2">
+                  {new Date(w.registered_at).toLocaleDateString("ja-JP")}
+                </td>
                 <td className="border p-2 text-center">
                   <button
                     onClick={() => handleDelete(w.id)}
@@ -206,10 +245,13 @@ export default function WordListPage() {
         </table>
       </div>
 
-      {/* モバイル用カード */}
+      {/* 📱 モバイル表示 */}
       <div className="grid gap-4 md:hidden">
         {filteredWords.map((w) => (
-          <div key={w.id} className="border rounded p-3 bg-white shadow space-y-1">
+          <div
+            key={w.id}
+            className="border rounded p-3 bg-white shadow space-y-1"
+          >
             <div className="flex items-center">
               <span className="font-semibold mr-0.5">単語:</span>
               <span>{w.word}</span>
@@ -220,8 +262,13 @@ export default function WordListPage() {
                 🔊
               </button>
             </div>
-            <div><span className="font-semibold mr-0.5">品詞:</span> {w.part_of_speech}</div>
-            <div><span className="font-semibold mr-0.5">意味:</span> {w.meaning}</div>
+            <div>
+              <span className="font-semibold mr-0.5">品詞:</span>{" "}
+              {w.part_of_speech}
+            </div>
+            <div>
+              <span className="font-semibold mr-0.5">意味:</span> {w.meaning}
+            </div>
             <div className="flex">
               <span className="font-semibold mr-1 flex-shrink-0">例文:</span>
               <span className="flex-1 break-words">{w.example_sentence}</span>
@@ -232,12 +279,19 @@ export default function WordListPage() {
                 🔊
               </button>
             </div>
-            <div><span className="font-semibold mr-0.5">訳:</span> {w.translation}</div>
-            <div><span className="font-semibold mr-0.5">重要度:</span> {w.importance}</div>
-            
+            <div>
+              <span className="font-semibold mr-0.5">訳:</span>{" "}
+              {w.translation}
+            </div>
+            <div>
+              <span className="font-semibold mr-0.5">重要度:</span>{" "}
+              {w.importance}
+            </div>
             <div className="flex">
               <span className="font-semibold mr-1 flex-shrink-0">登録日:</span>
-              <span className="flex-1 break-words">{new Date(w.registered_at).toLocaleDateString("ja-JP")}</span>
+              <span className="flex-1 break-words">
+                {new Date(w.registered_at).toLocaleDateString("ja-JP")}
+              </span>
               <button
                 onClick={() => handleDelete(w.id)}
                 className="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600 text-sm"
@@ -251,4 +305,3 @@ export default function WordListPage() {
     </div>
   );
 }
-// src/app/words/list/page.tsx

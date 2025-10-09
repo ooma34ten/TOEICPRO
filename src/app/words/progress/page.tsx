@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { useRouter } from "next/navigation";  
+import { useRouter } from "next/navigation";
 import {
   ComposedChart,
   Line,
@@ -15,15 +15,22 @@ import {
   LineChart,
 } from "recharts";
 
-type Word = {
+type WordMaster = {
   id: string;
-  correct_count: number;
-  correct_dates?: string[];
   importance?: string;
-  registered_at: string;
 };
 
-type ProgressData = { 
+type UserWord = {
+  id: string;
+  user_id: string;
+  word_id: string;
+  correct_count: number;
+  correct_dates?: string[];
+  registered_at: string;
+  words_master: WordMaster[]; // ← 配列に変更
+};
+
+type ProgressData = {
   date: string;
   corrects: number;
 };
@@ -32,7 +39,7 @@ type RegisterData = {
   date: string;
   registered: number;
   cumulative: number;
-  masteredCumulative: number; // 追加
+  masteredCumulative: number;
 };
 
 export default function ProgressPage() {
@@ -46,6 +53,7 @@ export default function ProgressPage() {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
+  // ログインチェック
   useEffect(() => {
     (async () => {
       const { data } = await supabase.auth.getSession();
@@ -54,6 +62,7 @@ export default function ProgressPage() {
     })();
   }, [router]);
 
+  // 学習データ取得
   useEffect(() => {
     const fetchProgress = async () => {
       setLoading(true);
@@ -66,10 +75,23 @@ export default function ProgressPage() {
         return;
       }
 
+      // 新しいDB構造に対応
       const { data: words, error } = await supabase
-        .from("words")
-        .select("id, correct_count, correct_dates, importance, registered_at")
-        .eq("user_id", user.id);
+        .from("user_words")
+        .select(`
+          id,
+          user_id,
+          word_id,
+          correct_count,
+          correct_dates,
+          registered_at,
+          words_master (
+            id,
+            importance
+          )
+        `)
+        .eq("user_id", user.id)
+        .order("registered_at", { ascending: true });
 
       if (error) {
         setError(error.message);
@@ -77,13 +99,14 @@ export default function ProgressPage() {
         return;
       }
 
-      const arr = (words ?? []) as Word[];
+      const arr = (words ?? []) as UserWord[];
 
-      // 概要計算
+      // 概要集計
       setCount(arr.length);
       setMastered(arr.filter((x) => (x.correct_count ?? 0) >= 6).length);
       setUnlearned(arr.filter((x) => (x.correct_count ?? 0) === 0).length);
 
+      // 正答率
       let totalCorrect = 0;
       let totalAnswers = 0;
       arr.forEach((w) => {
@@ -92,7 +115,7 @@ export default function ProgressPage() {
       });
       setAccuracy(totalAnswers > 0 ? Math.round((totalCorrect / totalAnswers) * 100) : 0);
 
-      // 日別正解数集計
+      // 日別正解数
       const countByDate: Record<string, number> = {};
       arr.forEach((w) => {
         (w.correct_dates || []).forEach((d) => {
@@ -104,7 +127,7 @@ export default function ProgressPage() {
         .map(([date, corrects]) => ({ date, corrects }));
       setDailyData(dailyChart);
 
-      // 日別登録数・累積登録数・完全記憶累計計算
+      // 日別登録数・累積登録数・完全記憶累計
       const registerByDate: Record<string, number> = {};
       arr.forEach((w) => {
         const date = w.registered_at.split("T")[0];
@@ -119,12 +142,12 @@ export default function ProgressPage() {
         const registered = registerByDate[date] ?? 0;
         cumulative += registered;
 
-        // その日までに完全記憶になった単語数を累計
         const masteredCountUntilDate = arr.filter(
           (w) =>
             (w.correct_count ?? 0) >= 6 &&
             w.registered_at.split("T")[0] <= date
         ).length;
+
         masteredCumulative = masteredCountUntilDate;
 
         return { date, registered, cumulative, masteredCumulative };
@@ -152,7 +175,7 @@ export default function ProgressPage() {
         <p>正答率: <b>{accuracy}%</b></p>
       </div>
 
-      {/* 日別正解数 */}
+      {/* 正解数推移 */}
       <div className="bg-white p-4 rounded-xl shadow">
         <h2 className="text-lg font-semibold mb-2">正解数推移</h2>
         <div className="h-64">
@@ -168,7 +191,7 @@ export default function ProgressPage() {
         </div>
       </div>
 
-      {/* 日別登録数・累積登録数 */}
+      {/* 登録単語数・累積登録数 */}
       <div className="bg-white p-4 rounded-xl shadow">
         <h2 className="text-lg font-semibold mb-2">登録単語数・累積登録数</h2>
         <div className="h-64">
@@ -179,14 +202,12 @@ export default function ProgressPage() {
               <YAxis yAxisId="left" allowDecimals={false} />
               <YAxis yAxisId="right" orientation="right" allowDecimals={false} />
               <Tooltip />
-              {/* 累積登録数棒グラフ（半透明） */}
               <Bar
                 yAxisId="right"
                 dataKey="cumulative"
                 fill="rgba(59, 130, 246, 0.5)"
                 name="累積登録数"
               />
-              {/* 日別登録数ライン */}
               <Line
                 yAxisId="left"
                 type="monotone"
@@ -195,7 +216,6 @@ export default function ProgressPage() {
                 strokeWidth={2}
                 name="日別登録数"
               />
-              
             </ComposedChart>
           </ResponsiveContainer>
         </div>
@@ -225,5 +245,3 @@ export default function ProgressPage() {
     </div>
   );
 }
-
-// src/app/words/progress/page.tsx

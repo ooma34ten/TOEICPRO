@@ -27,7 +27,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // ① サブスク情報を取得（配列対応）
+    // ① サブスク情報を取得
     const { data: subsList, error: subsError } = await supabaseAdmin
       .from("subscriptions")
       .select("is_active")
@@ -40,83 +40,107 @@ export async function POST(req: Request) {
       );
     }
 
-    const subs = subsList?.[0];
-    const isSubscribed = subs?.is_active ?? false;
+    const isSubscribed = subsList?.[0]?.is_active ?? false;
 
     // ② 未加入ユーザーの場合は200件まで制限
     if (!isSubscribed) {
-  const { data: existingWords } = await supabaseAdmin
-    .from("words")
-    .select("id")
-    .eq("user_id", userId);
+      const { data: existingWords } = await supabaseAdmin
+        .from("user_words")
+        .select("words_id")
+        .eq("user_id", userId);
 
-  const existingCount = existingWords?.length ?? 0;
-  const remaining = 200 - existingCount;
+      const existingCount = existingWords?.length ?? 0;
+      const remaining = 200 - existingCount;
 
-  if (existingCount + rows.length > 200) {
-    // 400を返さずにサブスク誘導情報を返す
-    return NextResponse.json({
-      success: false,
-      message: `サブスク未加入のため、保存可能な単語は残り ${remaining} 件までです`,
-      action: {
-        label: "サブスクに加入する",
-        url: "/words/subscribe",
-      },
-      limitExceeded: true, // フロントで判定用
-      remaining,
-    });
-  }
-}
-
-
-    // ③ 重複チェック（複数単語対応）
-    const wordList = rows.map(r => r.word);
-
-    const { data: existingRows } = await supabaseAdmin
-      .from("words")
-      .select("word")
-      .in("word", wordList)
-      .eq("user_id", userId);
-
-    if (existingRows && existingRows.length > 0) {
-      const existingWords = existingRows.map(r => r.word).join(", ");
-      return NextResponse.json(
-        { success: false, message: `すでに保存済み: 【${existingWords}】` },
-        { status: 400 }
-      );
+      if (existingCount + rows.length > 200) {
+        return NextResponse.json({
+          success: false,
+          message: `サブスク未加入のため、保存可能な単語は残り ${remaining} 件までです`,
+          action: {
+            label: "サブスクに加入する",
+            url: "/words/subscribe",
+          },
+          limitExceeded: true,
+          remaining,
+        });
+      }
     }
 
-    // ④ 保存
-    const insertData = rows.map((r) => ({
-      user_id: userId,
-      word: r.word,
-      part_of_speech: r.part_of_speech,
-      meaning: r.meaning,
-      example_sentence: r.example,
-      translation: r.translation,
-      importance: r.importance,
-      correct_count: 0,
-      correct_dates: [],
-    }));
+    // ③ words_master から既存単語をチェック
+    const wordList = rows.map((r) => r.word);
+    const meaningList = rows.map((r) => r.meaning);
+    const { data: existingMaster, error: selectError } = await supabaseAdmin
+      .from("words_master")
+      .select("id, word")
+      .in("word", wordList)
+      .in("meaning", meaningList); // --- IGNORE ---
 
-    const { data, error } = await supabaseAdmin
-      .from("words")
-      .insert(insertData)
-      .select("*"); // 配列として返す
 
-    if (error) {
+
+    if (selectError) {
       return NextResponse.json(
-        { success: false, message: error.message },
+        { success: false, message: "既存チェックエラー: " + selectError.message },
         { status: 500 }
       );
     }
 
-    return NextResponse.json({ success: true, results: data || [] });
 
+
+    let newMasterData: { id: string; word: string }[] = [];
+
+
+    // ⑤ すべての単語の id を統合
+    const allWordsData = [
+      ...(existingMaster ?? []),
+      ...newMasterData,
+    ];
+
+    const wordIds = allWordsData.map((w) => w.id);
+
+    // ⑥ user_words に同じ word_id が存在しないか確認
+    const { data: existingUserWords } = await supabaseAdmin
+      .from("user_words")
+      .select("word_id")
+      .eq("user_id", userId)
+      .in("word_id", wordIds);
+
+    const existingUserIds = new Set(existingUserWords?.map((w) => w.word_id) ?? []);
+    const newUserWordData = allWordsData
+      .filter((w) => !existingUserIds.has(w.id))
+      .map((w) => ({
+        user_id: userId,
+        word_id: w.id,
+        correct_count: 0,
+        correct_dates: [],
+      }));
+    
+
+    if (newUserWordData.length === 0) {
+      return NextResponse.json(
+        { success: false, message: "すでにすべての単語が保存済みです" },
+        { status: 400 }
+      );
+    }
+
+    // ⑦ user_words に保存
+    const { error: userWordsError } = await supabaseAdmin
+      .from("user_words")
+      .insert(newUserWordData);
+
+    if (userWordsError) {
+      return NextResponse.json(
+        { success: false, message: userWordsError.message },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json(
+      { success: true, message: "単語を保存しました", results: newUserWordData },
+      { status: 200 }
+    );
   } catch (e: unknown) {
     let message = "不明なエラーです";
     if (e instanceof Error) message = e.message;
     return NextResponse.json({ success: false, message }, { status: 500 });
   }
 }
-// src/app/api/save-word/route.ts
