@@ -2,30 +2,44 @@ import { NextResponse } from "next/server";
 import nspell from "nspell";
 import dictionary from "dictionary-en";
 
-// spell オブジェクトをキャッシュ
+// spell インスタンスをキャッシュ
 let spell: ReturnType<typeof nspell> | null = null;
 
 async function getSpell(): Promise<ReturnType<typeof nspell>> {
   if (spell) return spell;
 
-  // dictionary-en は ESM default export なので await で取得
   const dict = await dictionary;
 
-  // nspell に渡す
-  spell = nspell(dict as unknown as Record<string, unknown>);
+  // Uint8Array -> 文字列に変換
+  const aff = new TextDecoder().decode(dict.aff);
+  const dic = new TextDecoder().decode(dict.dic);
+
+  // nspell に文字列として渡す
+  spell = nspell(aff, dic);
+
   return spell;
 }
 
 export async function POST(req: Request) {
-  const { word } = await req.json();
-  const spellInstance = await getSpell();
+  try {
+    const { word } = (await req.json()) as { word: string };
 
-  let correctedWord = word;
-  if (!spellInstance.correct(word)) {
-    const suggestions = spellInstance.suggest(word);
-    if (suggestions.length > 0) correctedWord = suggestions[0];
+    if (!word || typeof word !== "string") {
+      return NextResponse.json({ error: "Invalid word" }, { status: 400 });
+    }
+
+    const spellInstance = await getSpell();
+
+    let correctedWord = word;
+
+    if (!spellInstance.correct(word)) {
+      const suggestions = spellInstance.suggest(word);
+      if (suggestions.length > 0) correctedWord = suggestions[0];
+    }
+
+    return NextResponse.json({ correctedWord });
+  } catch (err) {
+    console.error(err);
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
-
-  return NextResponse.json({ correctedWord });
 }
-// src/app/api/spell-check/route.ts
