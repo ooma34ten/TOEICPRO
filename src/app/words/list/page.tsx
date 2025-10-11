@@ -5,7 +5,8 @@ import { supabase } from "@/lib/supabaseClient";
 import { speakText } from "@/lib/speech";
 import { useRouter } from "next/navigation";
 
-type Word = {
+// words_master テーブル
+export interface WordsMaster {
   id: string;
   word: string;
   part_of_speech: string;
@@ -14,7 +15,29 @@ type Word = {
   translation: string;
   importance: string;
   registered_at: string;
-};
+}
+
+// user_words テーブル
+export interface UserWordRow {
+  id: string;
+  registered_at: string;
+  word_id: string | null;
+  words_master: WordsMaster | null; // ← ここが重要
+}
+
+// 変換後に使う型
+export interface Word {
+  id: string;
+  registered_at: string;
+  word: string;
+  part_of_speech: string;
+  meaning: string;
+  example_sentence: string;
+  translation: string;
+  importance: string;
+}
+
+
 
 export default function WordListPage() {
   const [words, setWords] = useState<Word[]>([]);
@@ -56,11 +79,11 @@ export default function WordListPage() {
       // ✅ user_words と words_master を結合
       const { data, error } = await supabase
         .from("user_words")
-        .select(
-          `
+        .select(`
           id,
           registered_at,
-          words_master (
+          word_id,
+          words_master!inner (
             word,
             part_of_speech,
             meaning,
@@ -68,8 +91,7 @@ export default function WordListPage() {
             translation,
             importance
           )
-        `
-        )
+        `)
         .eq("user_id", user.id)
         .order("registered_at", { ascending: false });
 
@@ -79,18 +101,19 @@ export default function WordListPage() {
         return;
       }
 
-      // ✅ フラットな配列に変換
       const formatted: Word[] =
-        data?.map((item: any) => ({
+        (data as UserWordRow[])?.map((item) => ({
           id: item.id,
           registered_at: item.registered_at,
-          word: item.words_master?.word || "",
-          part_of_speech: item.words_master?.part_of_speech || "",
-          meaning: item.words_master?.meaning || "",
-          example_sentence: item.words_master?.example_sentence || "",
-          translation: item.words_master?.translation || "",
-          importance: item.words_master?.importance || "",
-        })) || [];
+          word: item.words_master?.word ?? "",
+          part_of_speech: item.words_master?.part_of_speech ?? "",
+          meaning: item.words_master?.meaning ?? "",
+          example_sentence: item.words_master?.example_sentence ?? "",
+          translation: item.words_master?.translation ?? "",
+          importance: item.words_master?.importance ?? "",
+        })) ?? [];
+
+
 
       setWords(formatted);
       setFilteredWords(formatted);

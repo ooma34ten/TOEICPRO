@@ -17,7 +17,14 @@ export async function POST(req: Request) {
     const { error } = await supabaseAdmin
       .from("words_master")
       .insert(
-        words.map((r: any) => ({
+        words.map((r: {
+          word: string;
+          part_of_speech: string;
+          meaning: string;
+          example: string;
+          translation: string;
+          importance: number;
+        }) => ({
           word: r.word,
           part_of_speech: r.part_of_speech,
           meaning: r.meaning,

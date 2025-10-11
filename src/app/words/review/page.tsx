@@ -109,7 +109,7 @@ export default function ReviewPage() {
         }
 
         // words_master が配列で返ってくる可能性に対応
-        const userWords: UserWord[] = data.map((item: any) => {
+        const userWords: UserWord[] = data.map((item) => {
           const master = Array.isArray(item.words_master)
             ? item.words_master[0]
             : item.words_master;
