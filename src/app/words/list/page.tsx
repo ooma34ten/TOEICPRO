@@ -22,8 +22,9 @@ export interface UserWordRow {
   id: string;
   registered_at: string;
   word_id: string | null;
-  words_master: WordsMaster | null; // ← ここが重要
+  words_master: WordsMaster | WordsMaster[] | null;
 }
+
 
 // 変換後に使う型
 export interface Word {
@@ -102,16 +103,22 @@ export default function WordListPage() {
       }
 
       const formatted: Word[] =
-        (data as UserWordRow[])?.map((item) => ({
-          id: item.id,
-          registered_at: item.registered_at,
-          word: item.words_master?.word ?? "",
-          part_of_speech: item.words_master?.part_of_speech ?? "",
-          meaning: item.words_master?.meaning ?? "",
-          example_sentence: item.words_master?.example_sentence ?? "",
-          translation: item.words_master?.translation ?? "",
-          importance: item.words_master?.importance ?? "",
-        })) ?? [];
+        (data as UserWordRow[])?.map((item) => {
+          const wm = Array.isArray(item.words_master)
+            ? item.words_master[0]
+            : item.words_master;
+
+          return {
+            id: item.id,
+            registered_at: item.registered_at,
+            word: wm?.word ?? "",
+            part_of_speech: wm?.part_of_speech ?? "",
+            meaning: wm?.meaning ?? "",
+            example_sentence: wm?.example_sentence ?? "",
+            translation: wm?.translation ?? "",
+            importance: wm?.importance ?? "",
+          };
+        }) ?? [];
 
 
 
