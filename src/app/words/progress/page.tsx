@@ -33,6 +33,7 @@ type UserWord = {
 type ProgressData = {
   date: string;
   corrects: number;
+  cumulative1: number;
 };
 
 type RegisterData = {
@@ -115,17 +116,24 @@ export default function ProgressPage() {
       });
       setAccuracy(totalAnswers > 0 ? Math.round((totalCorrect / totalAnswers) * 100) : 0);
 
-      // 日別正解数
+      // 日別正解数・総正解数
       const countByDate: Record<string, number> = {};
       arr.forEach((w) => {
         (w.correct_dates || []).forEach((d) => {
           countByDate[d] = (countByDate[d] || 0) + 1;
         });
       });
+
+      let cumulative1 = 0;
       const dailyChart: ProgressData[] = Object.entries(countByDate)
-        .sort(([a], [b]) => (a > b ? 1 : -1))
-        .map(([date, corrects]) => ({ date, corrects }));
+        .sort(([a], [b]) => new Date(a).getTime() - new Date(b).getTime())
+        .map(([date, corrects]) => {
+          cumulative1 += corrects;
+          return { date, corrects, cumulative1 }; // ← 累積を追加
+        });
+
       setDailyData(dailyChart);
+
 
       // 日別登録数・累積登録数・完全記憶累計
       const registerByDate: Record<string, number> = {};
@@ -175,21 +183,40 @@ export default function ProgressPage() {
         <p>正答率: <b>{accuracy}%</b></p>
       </div>
 
-      {/* 正解数推移 */}
+      {/* 正解数・総正解数推移 */}
       <div className="bg-white p-4 rounded-xl shadow">
-        <h2 className="text-lg font-semibold mb-2">正解数推移</h2>
+        <h2 className="text-lg font-semibold mb-2">正解数・総正解数推移</h2>
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={dailyData}>
+            <ComposedChart data={dailyData}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="date" />
-              <YAxis allowDecimals={false} />
+              <YAxis yAxisId="left" allowDecimals={false} />
+              <YAxis yAxisId="right" orientation="right" allowDecimals={false} />
               <Tooltip />
-              <Line type="monotone" dataKey="corrects" stroke="#3b82f6" strokeWidth={2} />
-            </LineChart>
+
+              {/* 日別正解数（棒グラフ） */}
+              <Bar
+                yAxisId="left"
+                dataKey="cumulative1"
+                fill="rgba(59, 130, 246, 0.5)"
+                name="累積正解数"
+              />
+
+              {/* 累積正解数（折れ線） */}
+              <Line
+                yAxisId="right"
+                type="monotone"
+                dataKey="corrects"
+                stroke="#3b82f6"
+                strokeWidth={2}
+                name="日別正解数"
+              />
+            </ComposedChart>
           </ResponsiveContainer>
         </div>
       </div>
+
 
       {/* 登録単語数・累積登録数 */}
       <div className="bg-white p-4 rounded-xl shadow">

@@ -161,28 +161,38 @@ export default function ReviewPage() {
         });
 
         // 重要度順ソート → シャッフル
-        const sorted = reviewWords.sort((a, b) => {
-          const rank = (imp: string): number => {
-            switch (imp) {
-              case "★★★★★":
-                return 5;
-              case "★★★★":
-                return 4;
-              case "★★★":
-                return 3;
-              case "★★":
-                return 2;
-              case "★":
-                return 1;
-              default:
-                return 0;
-            }
-          };
-          return rank(b.words_master.importance) - rank(a.words_master.importance);
+        // 重要度ごとに数値化する関数
+        const rank = (imp: string): number => {
+          switch (imp) {
+            case "★★★★★": return 5;
+            case "★★★★": return 4;
+            case "★★★": return 3;
+            case "★★": return 2;
+            case "★": return 1;
+            default: return 0;
+          }
+        };
+
+        // 重要度ごとにグループ化してシャッフル
+        const groupedByImportance: Record<number, UserWord[]> = {};
+        reviewWords.forEach((w) => {
+          const r = rank(w.words_master.importance);
+          if (!groupedByImportance[r]) groupedByImportance[r] = [];
+          groupedByImportance[r].push(w);
         });
 
-        const shuffled = shuffleArray(sorted);
-        setWords(shuffled);
+        // グループ内をシャッフル
+        const shuffledByImportance: UserWord[] = [];
+        [5,4,3,2,1].forEach((r) => {
+          if (groupedByImportance[r]) {
+            const shuffled = shuffleArray(groupedByImportance[r]);
+            shuffledByImportance.push(...shuffled);
+          }
+        });
+
+        // 最終的に state にセット
+        setWords(shuffledByImportance);
+
       } catch (err) {
         console.error(err);
         setError("データ取得中にエラーが発生しました。");
@@ -274,6 +284,7 @@ export default function ReviewPage() {
               <p className="text-sm text-gray-700">品詞: {m.part_of_speech}</p>
               <p className="text-sm text-gray-700">意味: {m.meaning}</p>
               <p className="text-sm text-gray-700">重要度: {m.importance}</p>
+              <p className="text-sm text-gray-700">正解数: {current.correct_count}回</p>
             </div>
             <div className="space-x-4">
               <button

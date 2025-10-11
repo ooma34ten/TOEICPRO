@@ -41,6 +41,8 @@ export async function POST(req: NextRequest) {
           expand: ["items.data.price.product"], // product 情報を展開する
         });
 
+        console.log("stripeSubscription:", stripeSubscription);
+
         const productName = (stripeSubscription.items.data[0].price.product as Stripe.Product).name;
         console.log(productName); // "スタンダード"
         console.log("カスタマーID:", customerId);
@@ -64,6 +66,9 @@ export async function POST(req: NextRequest) {
               stripe_subscription: subscriptionId,
               plan: productName,
               is_active: true,
+              cancel_at_period_end: null,
+              current_period_end: null,
+              updated_at: new Date().toISOString()
             })
             .eq("stripe_customer", customerId);
 
@@ -77,12 +82,51 @@ export async function POST(req: NextRequest) {
 
       case "customer.subscription.deleted": {
         const deletedSub = event.data.object as Stripe.Subscription;
-        await supabase
+
+        console.log("deletedSub:", deletedSub);
+
+        const { data: existing } = await supabase
           .from("subscriptions")
-          .update({ is_active: false, stripe_subscription: null, plan: null })
+          .select("*")
+          .eq("stripe_subscription", deletedSub.id)
+          .single();
+        console.log("existing:", existing);
+        if (!existing) return;;
+        
+        const { data, error } = await supabase
+          .from("subscriptions")
+          .update({ is_active: false,
+                    stripe_subscription: null, 
+                    plan: null,
+                    cancel_at_period_end: null,
+                    current_period_end: null,
+                    updated_at: new Date().toISOString()
+                 })
           .eq("stripe_subscription", deletedSub.id);
+        console.log("update result:", data, error);
 
         console.log("Subscription deleted:", deletedSub.id);
+        break;
+      }
+
+      case "customer.subscription.updated": {
+        const updatedSub = event.data.object as Stripe.Subscription;
+        const cancelAtPeriodEnd =  updatedSub.cancel_at_period_end;
+        const current_period_end_unix = updatedSub.items.data[0].current_period_end;
+        const current_period_end = new Date(current_period_end_unix * 1000);
+
+        console.log("cancelAtPeriodEnd:", cancelAtPeriodEnd);
+        console.log("current_period_end:", current_period_end);
+
+        await supabase
+          .from("subscriptions")
+          .update({ 
+                    cancel_at_period_end: cancelAtPeriodEnd,
+                    current_period_end: current_period_end,
+                    updated_at: new Date().toISOString()
+                 })
+          .eq("stripe_subscription", updatedSub.id);
+
         break;
       }
 

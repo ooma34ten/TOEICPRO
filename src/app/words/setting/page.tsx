@@ -23,8 +23,29 @@ export default function SettingsPage() {
   }, [router]);
 
   const handleDeleteAccount = async () => {
+    
+
+    const { data: profile, error } = await supabase
+      .from("subscriptions")
+      .select("is_active")
+      .eq("user_id", userId)
+      .single(); // 1件だけ取得 
+
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    if (profile.is_active = true) {
+      alert("アカウント削除の前に、まずサブスクリプションをキャンセルしてください。");
+      router.replace("/words/subscribe");
+      return;
+    }
+
     if (!confirm("アカウント削除すると、すべての単語データが削除されます。本当に削除しますか？")) return;
     if (!userId) return;
+
+    if (status === "削除中...") return; // 多重クリック防止
 
     setStatus("削除中...");
 
