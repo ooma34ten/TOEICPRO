@@ -86,7 +86,7 @@ export async function POST(req: Request) {
 
 
 
-    let newMasterData: { id: string; word: string }[] = [];
+    const newMasterData: { id: string; word: string }[] = [];
 
 
     // ⑤ すべての単語の id を統合
