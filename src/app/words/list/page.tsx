@@ -22,6 +22,7 @@ export interface UserWordRow {
   id: string;
   registered_at: string;
   word_id: string | null;
+  correct_count: number | null;
   words_master: WordsMaster | WordsMaster[] | null;
 }
 
@@ -30,6 +31,7 @@ export interface UserWordRow {
 export interface Word {
   id: string;
   registered_at: string;
+  correct_count: number | null;
   word: string;
   part_of_speech: string;
   meaning: string;
@@ -51,6 +53,45 @@ export default function WordListPage() {
   const [selectedImportance, setSelectedImportance] = useState("");
 
   const router = useRouter();
+
+  // 重要度の色マッピング関数
+  const getImportanceClasses = (importance: string) => {
+    const count = importance.length; // ★の数を取得
+    switch (count) {
+      case 1:
+        return "bg-gray-100 text-gray-800"; // 目立たない
+      case 2:
+        return "bg-yellow-100 text-yellow-700";
+      case 3:
+        return "bg-yellow-200 text-yellow-800";
+      case 4:
+        return "bg-orange-200 text-orange-800";
+      case 5:
+        return "bg-red-300 text-red-900"; // 目立つ
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  // 品詞に応じた色マッピング
+  const getPartOfSpeechClasses = (part: string) => {
+    switch (part) {
+      case "名詞":
+        return "bg-blue-100 text-blue-700";
+      case "動詞":
+        return "bg-green-100 text-green-700";
+      case "形容詞":
+        return "bg-purple-100 text-purple-700";
+      case "副詞":
+        return "bg-pink-100 text-pink-700";
+      case "接続詞":
+        return "bg-yellow-100 text-yellow-800";
+      case "前置詞":
+        return "bg-orange-100 text-orange-800";
+      default:
+        return "bg-gray-100 text-gray-700"; // その他
+    }
+  };
 
   // 🔐 ログインチェック
   useEffect(() => {
@@ -84,6 +125,7 @@ export default function WordListPage() {
           id,
           registered_at,
           word_id,
+          correct_count,
           words_master!inner (
             word,
             part_of_speech,
@@ -111,6 +153,7 @@ export default function WordListPage() {
           return {
             id: item.id,
             registered_at: item.registered_at,
+            correct_count: item.correct_count,
             word: wm?.word ?? "",
             part_of_speech: wm?.part_of_speech ?? "",
             meaning: wm?.meaning ?? "",
@@ -216,122 +259,82 @@ export default function WordListPage() {
         </select>
       </div>
 
-      {/* 💻 PC表示 */}
-      <div className="hidden md:block overflow-x-auto">
-        <table className="w-full border-collapse border mb-4">
-          <thead>
-            <tr className="bg-gray-100">
-              <th className="border p-2">単語</th>
-              <th className="border p-2"></th>
-              <th className="border p-2">品詞</th>
-              <th className="border p-2">意味</th>
-              <th className="border p-2">例文</th>
-              <th className="border p-2"></th>
-              <th className="border p-2">訳</th>
-              <th className="border p-2">重要度</th>
-              <th className="border p-2">登録日</th>
-              <th className="border p-2">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredWords.map((w) => (
-              <tr key={w.id}>
-                <td className="border p-2">{w.word}</td>
-                <td className="border p-2 text-center">
-                  <button
-                    onClick={() => speakText(w.word)}
-                    className="bg-indigo-300 text-white px-2 py-1 rounded hover:bg-indigo-400 text-sm"
-                  >
-                    🔊
-                  </button>
-                </td>
-                <td className="border p-2">{w.part_of_speech}</td>
-                <td className="border p-2">{w.meaning}</td>
-                <td className="border p-2">{w.example_sentence}</td>
-                <td className="border p-2 text-center">
-                  <button
-                    onClick={() => speakText(w.example_sentence)}
-                    className="bg-indigo-300 text-white px-2 py-1 rounded hover:bg-indigo-400 text-sm"
-                  >
-                    🔊
-                  </button>
-                </td>
-                <td className="border p-2">{w.translation}</td>
-                <td className="border p-2">{w.importance}</td>
-                <td className="border p-2">
-                  {new Date(w.registered_at).toLocaleDateString("ja-JP")}
-                </td>
-                <td className="border p-2 text-center">
-                  <button
-                    onClick={() => handleDelete(w.id)}
-                    className="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600 text-sm"
-                  >
-                    削除
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="p-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+  {filteredWords.map((w) => (
+    <div
+      key={w.id}
+      className="bg-white shadow-md rounded-xl p-4 flex flex-col justify-between hover:shadow-lg transition-shadow"
+    >
+      {/* 上段：単語・品詞・重要度 */}
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-lg font-bold truncate">{w.word}</span>
+        <div className="flex gap-2">
+          <span
+            className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${getPartOfSpeechClasses(
+              w.part_of_speech
+            )}`}
+          >
+            {w.part_of_speech}
+          </span>
+          <span
+            className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${getImportanceClasses(
+              w.importance
+            )}`}
+          >
+            {w.importance}
+          </span>
+        </div>
       </div>
 
-      {/* 📱 モバイル表示 */}
-      <div className="grid gap-4 md:hidden">
-        {filteredWords.map((w) => (
-          <div
-            key={w.id}
-            className="border rounded p-3 bg-white shadow space-y-1"
-          >
-            <div className="flex items-center">
-              <span className="font-semibold mr-0.5">単語:</span>
-              <span>{w.word}</span>
-              <button
-                onClick={() => speakText(w.word)}
-                className="ml-auto bg-indigo-300 text-white px-2 py-1 rounded hover:bg-indigo-400 text-sm"
-              >
-                🔊
-              </button>
-            </div>
-            <div>
-              <span className="font-semibold mr-0.5">品詞:</span>{" "}
-              {w.part_of_speech}
-            </div>
-            <div>
-              <span className="font-semibold mr-0.5">意味:</span> {w.meaning}
-            </div>
-            <div className="flex">
-              <span className="font-semibold mr-1 flex-shrink-0">例文:</span>
-              <span className="flex-1 break-words">{w.example_sentence}</span>
-              <button
-                onClick={() => speakText(w.example_sentence)}
-                className="ml-2 bg-indigo-300 text-white px-2 py-1 rounded hover:bg-indigo-400 text-sm flex-shrink-0"
-              >
-                🔊
-              </button>
-            </div>
-            <div>
-              <span className="font-semibold mr-0.5">訳:</span>{" "}
-              {w.translation}
-            </div>
-            <div>
-              <span className="font-semibold mr-0.5">重要度:</span>{" "}
-              {w.importance}
-            </div>
-            <div className="flex">
-              <span className="font-semibold mr-1 flex-shrink-0">登録日:</span>
-              <span className="flex-1 break-words">
-                {new Date(w.registered_at).toLocaleDateString("ja-JP")}
-              </span>
-              <button
-                onClick={() => handleDelete(w.id)}
-                className="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600 text-sm"
-              >
-                削除
-              </button>
-            </div>
-          </div>
-        ))}
+      {/* 中段：意味・例文・訳 */}
+      <div className="space-y-2 text-sm">
+        <div>
+          <p className="font-medium">意味:</p>
+          <p className="text-gray-700 break-words">{w.meaning}</p>
+        </div>
+
+        <div>
+          <p className="font-medium flex items-center">
+            例文:
+            <button
+              onClick={() => speakText(w.example_sentence)}
+              className="ml-2 bg-indigo-300 text-white px-2 py-1 rounded hover:bg-indigo-400 text-xs"
+            >
+              🔊
+            </button>
+          </p>
+          <p className="text-gray-700 break-words">{w.example_sentence}</p>
+        </div>
+
+        <div>
+          <p className="font-medium">訳:</p>
+          <p className="text-gray-700 break-words">{w.translation}</p>
+        </div>
       </div>
+
+      {/* 下段：登録日・操作 */}
+      <div className="flex items-center justify-between mt-4 text-xs text-gray-500">
+        <span>{new Date(w.registered_at).toLocaleDateString("ja-JP")}</span>
+        <span>{`正解数 ${w.correct_count ?? 0}回`}</span>
+        <div className="flex gap-2">
+          <button
+            onClick={() => speakText(w.word)}
+            className="bg-indigo-300 text-white px-2 py-1 rounded hover:bg-indigo-400 text-xs"
+          >
+            🔊 単語
+          </button>
+          <button
+            onClick={() => handleDelete(w.id)}
+            className="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600 text-xs"
+          >
+            削除
+          </button>
+        </div>
+      </div>
+    </div>
+  ))}
+</div>
+
     </div>
   );
 }
