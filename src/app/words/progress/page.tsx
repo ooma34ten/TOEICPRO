@@ -172,20 +172,36 @@ export default function ProgressPage() {
   if (error) return <p className="text-red-500">{error}</p>;
 
   return (
-    <div className="space-y-6 p-4">
-      <h1 className="text-2xl font-bold">学習進捗</h1>
+    <div className="space-y-6 p-4 bg-gray-50 min-h-screen">
+      <h1 className="text-3xl font-bold text-center text-gray-800 mb-6">
+        学習進捗 📊
+      </h1>
 
-      {/* 概要 */}
-      <div className="bg-white p-4 rounded-xl shadow space-y-1">
-        <p>登録語数: <b>{count}</b></p>
-        <p>完全記憶（正解6回以上）: <b>{mastered}</b></p>
-        <p>未学習（正解0回）: <b>{unlearned}</b></p>
-        <p>正答率: <b>{accuracy}%</b></p>
+      {/* 概要カード */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-white shadow-md rounded-xl p-4 flex flex-col items-center space-y-2">
+          <span className="text-gray-500 text-sm">登録語数</span>
+          <span className="text-2xl font-bold text-indigo-600">{count}</span>
+        </div>
+        <div className="bg-white shadow-md rounded-xl p-4 flex flex-col items-center space-y-2">
+          <span className="text-gray-500 text-sm">完全記憶</span>
+          <span className="text-2xl font-bold text-green-600">{mastered}</span>
+        </div>
+        <div className="bg-white shadow-md rounded-xl p-4 flex flex-col items-center space-y-2">
+          <span className="text-gray-500 text-sm">未学習</span>
+          <span className="text-2xl font-bold text-red-500">{unlearned}</span>
+        </div>
+        <div className="bg-white shadow-md rounded-xl p-4 flex flex-col items-center space-y-2">
+          <span className="text-gray-500 text-sm">正答率</span>
+          <span className="text-2xl font-bold text-yellow-500">{accuracy}%</span>
+        </div>
       </div>
 
       {/* 正解数・総正解数推移 */}
       <div className="bg-white p-4 rounded-xl shadow">
-        <h2 className="text-lg font-semibold mb-2">正解数・総正解数推移</h2>
+        <h2 className="text-lg font-semibold mb-2 flex items-center gap-2 text-gray-700">
+          ✅ 正解数・総正解数推移
+        </h2>
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={dailyData}>
@@ -194,33 +210,32 @@ export default function ProgressPage() {
               <YAxis yAxisId="left" allowDecimals={false} />
               <YAxis yAxisId="right" orientation="right" allowDecimals={false} />
               <Tooltip />
-
-              {/* 日別正解数（棒グラフ） */}
               <Bar
                 yAxisId="left"
                 dataKey="cumulative1"
-                fill="rgba(59, 130, 246, 0.5)"
+                fill="rgba(59,130,246,0.3)"
                 name="累積正解数"
+                radius={[4, 4, 0, 0]}
               />
-
-              {/* 累積正解数（折れ線） */}
               <Line
                 yAxisId="right"
                 type="monotone"
                 dataKey="corrects"
                 stroke="#3b82f6"
-                strokeWidth={2}
+                strokeWidth={3}
                 name="日別正解数"
+                dot={{ r: 4, fill: "#2563eb" }}
               />
             </ComposedChart>
           </ResponsiveContainer>
         </div>
       </div>
 
-
       {/* 登録単語数・累積登録数 */}
       <div className="bg-white p-4 rounded-xl shadow">
-        <h2 className="text-lg font-semibold mb-2">登録単語数・累積登録数</h2>
+        <h2 className="text-lg font-semibold mb-2 flex items-center gap-2 text-gray-700">
+          📚 登録単語数・累積登録数
+        </h2>
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={registerData}>
@@ -232,16 +247,18 @@ export default function ProgressPage() {
               <Bar
                 yAxisId="right"
                 dataKey="cumulative"
-                fill="rgba(59, 130, 246, 0.5)"
+                fill="rgba(59,130,246,0.3)"
                 name="累積登録数"
+                radius={[4, 4, 0, 0]}
               />
               <Line
                 yAxisId="left"
                 type="monotone"
                 dataKey="registered"
                 stroke="#10b981"
-                strokeWidth={2}
+                strokeWidth={3}
                 name="日別登録数"
+                dot={{ r: 4, fill: "#059669" }}
               />
             </ComposedChart>
           </ResponsiveContainer>
@@ -250,7 +267,9 @@ export default function ProgressPage() {
 
       {/* 完全記憶累計 */}
       <div className="bg-white p-4 rounded-xl shadow">
-        <h2 className="text-lg font-semibold mb-2">完全記憶累計</h2>
+        <h2 className="text-lg font-semibold mb-2 flex items-center gap-2 text-gray-700">
+          🌟 完全記憶累計
+        </h2>
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={registerData}>
@@ -262,13 +281,15 @@ export default function ProgressPage() {
                 type="monotone"
                 dataKey="masteredCumulative"
                 stroke="#f59e0b"
-                strokeWidth={2}
+                strokeWidth={3}
                 name="完全記憶累計"
+                dot={{ r: 4, fill: "#b45309" }}
               />
             </LineChart>
           </ResponsiveContainer>
         </div>
       </div>
     </div>
+
   );
 }

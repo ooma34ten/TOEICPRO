@@ -52,6 +52,46 @@ export default function ReviewPage() {
     return new Date(w.registered_at);
   };
 
+
+  // 重要度の色マッピング関数
+  const getImportanceClasses = (importance: string) => {
+    const count = importance.length; // ★の数を取得
+    switch (count) {
+      case 1:
+        return "bg-gray-100 text-gray-800"; // 目立たない
+      case 2:
+        return "bg-yellow-100 text-yellow-700";
+      case 3:
+        return "bg-yellow-200 text-yellow-800";
+      case 4:
+        return "bg-orange-200 text-orange-800";
+      case 5:
+        return "bg-red-300 text-red-900"; // 目立つ
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  // 品詞に応じた色マッピング
+  const getPartOfSpeechClasses = (part: string) => {
+    switch (part) {
+      case "名詞":
+        return "bg-blue-100 text-blue-700";
+      case "動詞":
+        return "bg-green-100 text-green-700";
+      case "形容詞":
+        return "bg-purple-100 text-purple-700";
+      case "副詞":
+        return "bg-pink-100 text-pink-700";
+      case "接続詞":
+        return "bg-yellow-100 text-yellow-800";
+      case "前置詞":
+        return "bg-orange-100 text-orange-800";
+      default:
+        return "bg-gray-100 text-gray-700"; // その他
+    }
+  };
+
   /** ログイン確認 */
   useEffect(() => {
     (async () => {
@@ -245,64 +285,89 @@ export default function ReviewPage() {
   };
 
   return (
-    <div className="p-4">
-      <h1 className="text-xl font-bold mb-4">復習テスト</h1>
-      <p className="mb-2">
-        {currentIndex + 1} / {words.length}
-      </p>
-
-      <div className="mb-4">
-        <span className="text-lg font-semibold">単語: {m.word}</span>
-        <button
-          onClick={() => speakText(m.word)}
-          className="ml-2 text-blue-500 hover:underline inline-flex items-center"
-        >
-          🔊
-        </button>
-
-        <p className="text-lg font-semibold mb-2">
-          例文: {m.example_sentence}
-          <button
-            onClick={() => speakText(m.example_sentence)}
-            className="ml-2 text-blue-500 hover:underline"
-          >
-            🔊
-          </button>
+    <div className="p-4 flex justify-center">
+      <div className="w-full max-w-xl">
+        <h1 className="text-2xl font-bold text-center mb-6 text-gray-800">
+          復習テスト
+        </h1>
+        <p className="text-sm text-gray-500 mb-4 text-center">
+          {currentIndex + 1} / {words.length}
         </p>
 
-        {!showAnswer ? (
-          <button
-            onClick={() => setShowAnswer(true)}
-            className="bg-blue-500 text-white px-4 py-2 rounded"
-          >
-            答えを見る
-          </button>
-        ) : (
-          <>
-            <div className="mb-4">
-              <p className="text-lg font-semibold mb-1">訳: {m.translation}</p>
-              <p className="text-sm text-gray-700">品詞: {m.part_of_speech}</p>
-              <p className="text-sm text-gray-700">意味: {m.meaning}</p>
-              <p className="text-sm text-gray-700">重要度: {m.importance}</p>
-              <p className="text-sm text-gray-700">正解数: {current.correct_count}回</p>
+        <div className="bg-white shadow-lg rounded-2xl p-6 space-y-4">
+          {/* 単語 */}
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-bold text-indigo-600">{m.word}</h2>
+            <button
+              onClick={() => speakText(m.word)}
+              className="text-indigo-500 hover:text-indigo-700 text-xl"
+            >
+              🔊
+            </button>
+          </div>
+
+          {/* 例文 */}
+          <div className="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
+            <span className="text-lg">{m.example_sentence}</span>
+            <button
+              onClick={() => speakText(m.example_sentence)}
+              className="text-blue-500 hover:text-blue-700 text-xl"
+            >
+              🔊
+            </button>
+          </div>
+
+          {/* 答え部分 */}
+          {!showAnswer ? (
+            <button
+              onClick={() => setShowAnswer(true)}
+              className="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 rounded-xl transition"
+            >
+              答えを見る
+            </button>
+          ) : (
+            <div className="space-y-3">
+              <div className="bg-gray-50 p-4 rounded-lg space-y-2">
+                <p className="text-lg font-semibold">訳: {m.translation}</p>
+                <p className="text-sm text-gray-600 flex items-center gap-2">
+                  品詞: 
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${getPartOfSpeechClasses(m.part_of_speech)}`}
+                  >
+                    {m.part_of_speech}
+                  </span>
+                </p>
+                <p className="text-sm text-gray-600">意味: {m.meaning}</p>
+                <p className="text-sm text-gray-600 flex items-center gap-1">
+                  重要度: 
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${getImportanceClasses(m.importance)}`}
+                  >
+                    {m.importance}
+                  </span>
+                </p>
+                <p className="text-sm text-gray-600">正解数: {current.correct_count}回</p>
+              </div>
+
+              <div className="flex gap-4">
+                <button
+                  onClick={() => handleAnswer(true)}
+                  className="flex-1 bg-green-500 hover:bg-green-600 text-white font-semibold py-2 rounded-xl transition"
+                >
+                  OK
+                </button>
+                <button
+                  onClick={() => handleAnswer(false)}
+                  className="flex-1 bg-red-500 hover:bg-red-600 text-white font-semibold py-2 rounded-xl transition"
+                >
+                  NG
+                </button>
+              </div>
             </div>
-            <div className="space-x-4">
-              <button
-                onClick={() => handleAnswer(true)}
-                className="bg-green-500 text-white px-4 py-2 rounded"
-              >
-                OK
-              </button>
-              <button
-                onClick={() => handleAnswer(false)}
-                className="bg-red-500 text-white px-4 py-2 rounded"
-              >
-                NG
-              </button>
-            </div>
-          </>
-        )}
+          )}
+        </div>
       </div>
     </div>
+
   );
 }

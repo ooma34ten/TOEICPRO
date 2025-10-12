@@ -3,37 +3,70 @@
 export default function PrivacyPage() {
   return (
     <div className="max-w-3xl mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-4">プライバシーポリシー</h1>
-      <pre className="whitespace-pre-wrap">{`本アプリ「TOEIC単語学習Webアプリ」（以下「当アプリ」）は、ユーザーの個人情報を以下の通り取り扱います。
+      <h1 className="text-3xl font-bold mb-6 text-center text-gray-800">
+        プライバシーポリシー
+      </h1>
 
-1. 収集する情報
-- ユーザー登録情報：メールアドレス、パスワード
-- ユーザーの単語学習データ（単語、意味、例文、進捗など）
-- 問い合わせフォームで送信された内容
+      <div className="bg-white shadow-md rounded-xl p-6 space-y-6">
+        <section className="space-y-2">
+          <h2 className="text-xl font-semibold text-gray-700">1. 収集する情報</h2>
+          <ul className="list-disc list-inside text-gray-600 space-y-1">
+            <li>ユーザー登録情報：メールアドレス、パスワード</li>
+            <li>ユーザーの単語学習データ（単語、意味、例文、進捗など）</li>
+            <li>問い合わせフォームで送信された内容</li>
+          </ul>
+        </section>
 
-2. 利用目的
-- ユーザー登録情報の管理および認証
-- ユーザーごとの単語学習データ管理
-- サービス改善および問い合わせ対応
+        <section className="space-y-2">
+          <h2 className="text-xl font-semibold text-gray-700">2. 利用目的</h2>
+          <ul className="list-disc list-inside text-gray-600 space-y-1">
+            <li>ユーザー登録情報の管理および認証</li>
+            <li>ユーザーごとの単語学習データ管理</li>
+            <li>サービス改善および問い合わせ対応</li>
+          </ul>
+        </section>
 
-3. 第三者提供
-- ユーザーの個人情報は本人の同意なしに第三者に提供することはありません。
-- ただし、法令に基づき開示が必要な場合は除きます。
+        <section className="space-y-2">
+          <h2 className="text-xl font-semibold text-gray-700">3. 第三者提供</h2>
+          <ul className="list-disc list-inside text-gray-600 space-y-1">
+            <li>ユーザーの個人情報は本人の同意なしに第三者に提供することはありません。</li>
+            <li>ただし、法令に基づき開示が必要な場合は除きます。</li>
+          </ul>
+        </section>
 
-4. データの保管
-- ユーザーのデータはSupabase上に安全に保管されます。
-- パスワードはハッシュ化して管理されます。
+        <section className="space-y-2">
+          <h2 className="text-xl font-semibold text-gray-700">4. データの保管</h2>
+          <ul className="list-disc list-inside text-gray-600 space-y-1">
+            <li>ユーザーのデータはSupabase上に安全に保管されます。</li>
+            <li>パスワードはハッシュ化して管理されます。</li>
+          </ul>
+        </section>
 
-5. Cookie・ログ
-- 本アプリではサービス向上のためにアクセスログを取得する場合があります。
-- 個人を特定できる情報として使用することはありません。
+        <section className="space-y-2">
+          <h2 className="text-xl font-semibold text-gray-700">5. Cookie・ログ</h2>
+          <ul className="list-disc list-inside text-gray-600 space-y-1">
+            <li>本アプリではサービス向上のためにアクセスログを取得する場合があります。</li>
+            <li>個人を特定できる情報として使用することはありません。</li>
+          </ul>
+        </section>
 
-6. プライバシーポリシーの変更
-- 本プライバシーポリシーは予告なく変更されることがあります。
-- 変更後はアプリ内で通知または更新日を表示します。
+        <section className="space-y-2">
+          <h2 className="text-xl font-semibold text-gray-700">6. プライバシーポリシーの変更</h2>
+          <ul className="list-disc list-inside text-gray-600 space-y-1">
+            <li>本プライバシーポリシーは予告なく変更されることがあります。</li>
+            <li>変更後はアプリ内で通知または更新日を表示します。</li>
+          </ul>
+        </section>
 
-【お問い合わせ】
-プライバシーに関するお問い合わせはお問い合わせフォームよりご連絡ください。`}</pre>
+        <section className="space-y-2">
+          <h2 className="text-xl font-semibold text-gray-700">【お問い合わせ】</h2>
+          <p className="text-gray-600">
+            プライバシーに関するお問い合わせは
+            <span className="font-medium text-blue-600"> お問い合わせフォーム </span>
+            よりご連絡ください。
+          </p>
+        </section>
+      </div>
     </div>
   );
 }
