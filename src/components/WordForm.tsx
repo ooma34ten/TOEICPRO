@@ -4,6 +4,9 @@
 import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { speakText } from "@/lib/speech";
+import { Loader2, Volume2, Save, Wand2 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import toast, { Toaster } from "react-hot-toast";
 
 export interface Row {
   word: string;
@@ -25,6 +28,7 @@ export default function WordForm({ onAdd }: WordFormProps) {
   const [holdWord, setHoldWord] = useState("");
   const [rows, setRows] = useState<Row[]>([]);
   const [msg, setMsg] = useState("");
+  const [loading, setLoading] = useState(false);
 
   
 
@@ -33,6 +37,8 @@ export default function WordForm({ onAdd }: WordFormProps) {
       setMsg("単語を入力してください");
       return;
     }
+    setLoading(true);
+    setMsg("生成中...");
 
     try {
       // 入力単語を小文字に統一
@@ -203,8 +209,10 @@ export default function WordForm({ onAdd }: WordFormProps) {
     } catch (e: unknown) {
       let message = "不明なエラーです";
       if (e instanceof Error) message = e.message;
-      setMsg("生成エラー: " + message);
+      toast.error("生成エラー: " + message);
       console.error("Generate error:", e);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -214,6 +222,8 @@ export default function WordForm({ onAdd }: WordFormProps) {
       setMsg("保存するデータがありません");
       return;
     }
+
+    setLoading(true);
 
     const selectedRows = rows.filter((r) => r.selected);
 
@@ -243,11 +253,14 @@ export default function WordForm({ onAdd }: WordFormProps) {
 
       for (let i = 0; i < selectedRows.length; i++) {
         const word = selectedRows[i].word;
+        const example = selectedRows[i].example;
+
 
         // 🔸 1. words_masterに存在するか確認
         const { data: existing, error: fetchError } = await supabase
           .from("words_master")
           .select("id")
+          .eq("example_sentence", example)
           .eq("word", word);
 
         if (fetchError) {
@@ -322,8 +335,10 @@ export default function WordForm({ onAdd }: WordFormProps) {
     } catch (e: unknown) {
       let message = "不明なエラーです";
       if (e instanceof Error) message = e.message;
-      setMsg("保存エラー: " + message);
+      toast.error("保存エラー: " + message);
       console.error("Save word exception:", e);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -332,36 +347,34 @@ export default function WordForm({ onAdd }: WordFormProps) {
   const importanceColor = (importance: string) => {
     switch (importance) {
       case "★★★★★":
-        return "bg-red-200 text-red-800";
+        return "bg-red-100 text-red-700 border border-red-300";
       case "★★★★":
-        return "bg-yellow-200 text-yellow-800";
+        return "bg-orange-100 text-orange-700 border border-orange-300";
       case "★★★":
-        return "bg-green-200 text-green-800";
+        return "bg-yellow-100 text-yellow-700 border border-yellow-300";
       default:
-        return "bg-gray-200 text-gray-800";
+        return "bg-gray-100 text-gray-700 border border-gray-300";
     }
   };
 
   return (
-    <div className="my-6">
+    <div className="space-y-6">
+      <Toaster position="bottom-right" />
       <div className="flex gap-2 items-center mb-4">
-        <input
+         <input
           type="text"
           value={inputWord}
           onChange={(e) => setInputWord(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault(); // フォーム送信を防ぐ
-              handleGenerate();
-            }
-          }}
+          onKeyDown={(e) => e.key === "Enter" && handleGenerate()}
           placeholder="単語を入力"
-          className="border border-gray-300 rounded px-3 py-2 flex-1"
+          className="border border-gray-300 rounded-lg px-4 py-2 flex-1 focus:outline-none focus:ring-2 focus:ring-blue-400"
         />
         <button
           onClick={handleGenerate}
-          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition"
+          disabled={loading}
+          className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition disabled:bg-blue-300"
         >
+          {loading ? <Loader2 className="animate-spin" size={18} /> : <Wand2 size={18} />}
           生成
         </button>
         {correctedWord && (
@@ -369,83 +382,80 @@ export default function WordForm({ onAdd }: WordFormProps) {
             onClick={() => speakText(correctedWord)}
             className="bg-indigo-500 text-white px-3 py-1 rounded hover:bg-indigo-600 transition"
           >
-            単語を読む 🔊
+            <Volume2 size={16} /> 読む
           </button>
         )}
       </div>
 
-      <button
-        onClick={handleSave}
-        className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 transition mt-4"
-      >
-        保存
-      </button>
-
-      {holdWord !== correctedWord && (
+      {/* 保存ボタン */}
+      <div>
+        <button
+          onClick={handleSave}
+          disabled={loading}
+          className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition disabled:bg-green-300"
+        >
+          {loading ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
+          保存
+        </button>
+        {holdWord !== correctedWord && (
         <p className="text-red-500 text-base">入力文字を修正しました: 【{correctedWord}】</p>
-      )}
+        )}
+        <p className="mb-4 text-gray-700">{msg}</p>
+      </div>
 
-      <p className="mb-4 text-gray-700">{msg}</p>
+      
 
-      {rows.length > 0 && (
-        <div className="space-y-4">
-          {rows
-            // 並べ替え処理を追加
-            .slice() // 元配列を壊さないようコピー
-            .sort((a, b) => {
-              // ★の数を数えて降順に
-              const aStars = (a.importance || "").length;
-              const bStars = (b.importance || "").length;
-              return bStars - aStars;
-            })
-            .map((r, idx) => (
-              <div
-                key={idx}
-                className="border rounded-lg p-4 bg-white shadow flex flex-col gap-2"
-              >
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={r.selected ?? false}
-                    onChange={(e) => {
-                      setRows((prev) =>
-                        prev.map((row) =>
-                          row.meaning === r.meaning ? { ...row, selected: e.target.checked } : row
-                        )
-                      );
-                    }}
-                  />
-
-                  <span className="font-semibold">単語: </span>{r.word}
-                </div>
-                <div>
-                  <span className="font-semibold">品詞: </span>{r.part_of_speech}
-                </div>
-                <div>
-                  <span className="font-semibold">意味: </span>{r.meaning}
-                </div>
-                <div>
-                  <span className="font-semibold">例文: </span>{r.example}
-                </div>
-                <div>
-                  <span className="font-semibold">翻訳: </span>{r.translation}
-                </div>
-                <div>
-                  <span className="font-semibold">重要度: </span>
-                  <span className={`px-2 py-1 rounded text-sm ${importanceColor(r.importance)}`}>
-                    {r.importance}
-                  </span>
-                </div>
-                <button
-                  onClick={() => speakText(r.example)}
-                  className="mt-2 bg-indigo-500 text-white px-3 py-1 rounded hover:bg-indigo-600 transition text-sm"
+      {/* 単語カード */}
+      <AnimatePresence>
+        {rows.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="grid grid-cols-1 md:grid-cols-2 gap-4"
+          >
+            {rows
+              .slice()
+              .sort((a, b) => b.importance.length - a.importance.length)
+              .map((r, idx) => (
+                <motion.div
+                  key={idx}
+                  whileHover={{ scale: 1.02 }}
+                  className={`border rounded-2xl p-4 bg-white shadow-sm relative ${
+                    r.selected ? "ring-2 ring-blue-300" : ""
+                  }`}
                 >
-                  読み上げ 🔊
-                </button>
-              </div>
-            ))}
-        </div>
-      )}
+                  <div className="absolute top-3 right-3">
+                    <input
+                      type="checkbox"
+                      checked={r.selected ?? false}
+                      onChange={(e) =>
+                        setRows((prev) =>
+                          prev.map((row) => row.meaning === r.meaning ? { ...row, selected: e.target.checked } : row )
+                        )
+                      }
+                      className="w-5 h-5 accent-blue-500"
+                    />
+                  </div>
+                  <p className="text-lg font-semibold text-gray-900">{r.word}</p>
+                  <p className="text-sm text-gray-500 mb-2">{r.part_of_speech}</p>
+                  <p className="text-gray-800">{r.meaning}</p>
+                  <p className="italic text-gray-700 border-l-4 border-blue-300 pl-2 mt-1">{r.example}</p>
+                  <p className="text-gray-600 text-sm mt-1">翻訳: {r.translation}</p>
+                  <div className="mt-2">
+                    <span
+                      className={`inline-block px-2 py-1 rounded-md text-xs font-semibold ${importanceColor(
+                        r.importance
+                      )}`}
+                    >
+                      {r.importance}
+                    </span>
+                  </div>
+                </motion.div>
+              ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
