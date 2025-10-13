@@ -4,6 +4,7 @@
 import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { speakText } from "@/lib/speech";
+import { getImportanceClasses, getPartOfSpeechClasses } from "@/lib/utils";
 import { Loader2, Volume2, Save, Wand2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import toast, { Toaster } from "react-hot-toast";
@@ -421,37 +422,63 @@ export default function WordForm({ onAdd }: WordFormProps) {
                 <motion.div
                   key={idx}
                   whileHover={{ scale: 1.02 }}
-                  className={`border rounded-2xl p-4 bg-white shadow-sm relative ${
+                  className={`border rounded-2xl p-4 bg-white shadow-md relative flex flex-col gap-3 ${
                     r.selected ? "ring-2 ring-blue-300" : ""
                   }`}
                 >
+                  {/* チェックボックス */}
                   <div className="absolute top-3 right-3">
                     <input
                       type="checkbox"
                       checked={r.selected ?? false}
                       onChange={(e) =>
                         setRows((prev) =>
-                          prev.map((row) => row.meaning === r.meaning ? { ...row, selected: e.target.checked } : row )
+                          prev.map((row) =>
+                            row.meaning === r.meaning ? { ...row, selected: e.target.checked } : row
+                          )
                         )
                       }
                       className="w-5 h-5 accent-blue-500"
                     />
                   </div>
-                  <p className="text-lg font-semibold text-gray-900">{r.word}</p>
-                  <p className="text-sm text-gray-500 mb-2">{r.part_of_speech}</p>
-                  <p className="text-gray-800">{r.meaning}</p>
-                  <p className="italic text-gray-700 border-l-4 border-blue-300 pl-2 mt-1">{r.example}</p>
-                  <p className="text-gray-600 text-sm mt-1">翻訳: {r.translation}</p>
-                  <div className="mt-2">
+
+                  {/* 単語と品詞 */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xl font-bold text-gray-900">{r.word}</p>
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${getPartOfSpeechClasses(r.part_of_speech)}`}
+                      >
+                        {r.part_of_speech}
+                      </span>
+                    </div>
                     <span
-                      className={`inline-block px-2 py-1 rounded-md text-xs font-semibold ${importanceColor(
-                        r.importance
-                      )}`}
+                      className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${getImportanceClasses(r.importance)}`}
                     >
                       {r.importance}
                     </span>
                   </div>
+
+                  {/* 意味 */}
+                  <p className="text-gray-800">{r.meaning}</p>
+
+                  {/* 例文 */}
+                  <div className="bg-gray-50 border-l-4 border-blue-300 pl-3 py-2 italic text-gray-700">
+                    {r.example}
+                  </div>
+
+                  {/* 翻訳 */}
+                  <p className="text-gray-600 text-sm">{r.translation}</p>
+
+                  {/* アクションボタン */}
+                  <button
+                    onClick={() => speakText(r.example)}
+                    className="mt-2 self-start flex items-center gap-1 bg-indigo-500 text-white px-3 py-1 rounded hover:bg-indigo-600 transition"
+                  >
+                    <Volume2 size={16} /> 再生
+                  </button>
                 </motion.div>
+
               ))}
           </motion.div>
         )}
