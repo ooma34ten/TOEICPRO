@@ -40,7 +40,9 @@ export default function LoginPage() {
     setResetMsg("");
     if (!resetEmail) return setResetMsg("メールアドレスを入力してください。");
 
-    const { error } = await supabase.auth.resetPasswordForEmail(resetEmail);
+    const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+      redirectTo: "https://toeicpro.vercel.app/auth/reset-password"
+    });
 
     if (error) {
       setResetMsg(error.message);
@@ -48,6 +50,7 @@ export default function LoginPage() {
       setResetMsg("パスワード再設定メールを送信しました。メールを確認してください。");
     }
   };
+
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
