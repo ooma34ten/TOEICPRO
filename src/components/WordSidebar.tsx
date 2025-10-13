@@ -99,7 +99,7 @@ export default function WordSidebar() {
                         <p><span className="font-semibold text-blue-600">{row.word}</span></p>
                         <p><strong>品詞:</strong> {row.part_of_speech}</p>
                         <p><strong>意味:</strong> {row.meaning}</p>
-                        <p className="italic text-gray-600">"{row.example}"</p>
+                        <p className="italic text-gray-600">&quot;{row.example}&quot;</p>
                         <p className="text-gray-500 text-xs">{row.translation}</p>
                         <p className="text-xs text-yellow-600"><strong>重要度:</strong> {row.importance}</p>
                       </div>
