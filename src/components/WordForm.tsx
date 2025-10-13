@@ -242,7 +242,7 @@ export default function WordForm({ onAdd }: WordFormProps) {
       } = await supabase.auth.getUser();
 
       if (userError || !user?.id) {
-        setMsg("ログインが必要です");
+        setMsg("保存にはログインが必要です");
         return;
       }
 

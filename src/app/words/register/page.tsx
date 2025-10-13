@@ -29,7 +29,7 @@ export default function RegisterPage() {
     console.log("fetchWords user=", user);
 
     if (!user) {
-      setErrorMessage("ログインが必要です");
+      setErrorMessage("保存にはログインが必要です");
       return;
     }
 
