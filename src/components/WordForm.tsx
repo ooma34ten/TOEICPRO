@@ -344,20 +344,6 @@ export default function WordForm({ onAdd }: WordFormProps) {
   };
 
 
-
-  const importanceColor = (importance: string) => {
-    switch (importance) {
-      case "★★★★★":
-        return "bg-red-100 text-red-700 border border-red-300";
-      case "★★★★":
-        return "bg-orange-100 text-orange-700 border border-orange-300";
-      case "★★★":
-        return "bg-yellow-100 text-yellow-700 border border-yellow-300";
-      default:
-        return "bg-gray-100 text-gray-700 border border-gray-300";
-    }
-  };
-
   return (
     <div className="space-y-6">
       <Toaster position="bottom-right" />

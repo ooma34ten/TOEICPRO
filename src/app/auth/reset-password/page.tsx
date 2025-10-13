@@ -43,9 +43,14 @@ export default function ResetPasswordPage() {
         setMsg("パスワードが更新されました。ログインページへ移動します。");
         setTimeout(() => router.push("/auth/login"), 2000);
       }
-    } catch (err: any) {
-      setMsg(err.message);
+    } catch (err) {
+    if (err instanceof Error) {
+        setMsg(err.message);
+    } else {
+        setMsg("不明なエラーが発生しました。");
     }
+    }
+
   };
 
   return (
