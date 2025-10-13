@@ -10,6 +10,9 @@ function ResetPasswordContent() {
   const [password, setPassword] = useState("");
   const [msg, setMsg] = useState("");
 
+  // デバッグ用にトークン状態を表示
+  const [debugTokens, setDebugTokens] = useState({ accessToken: "", refreshToken: "" });
+
   const accessToken = searchParams.get("access_token");
   const refreshToken = searchParams.get("refresh_token");
 
@@ -17,6 +20,8 @@ function ResetPasswordContent() {
     if (!accessToken || !refreshToken) {
       setMsg("無効なリンクです。");
     }
+    // デバッグ用に状態にセット
+    setDebugTokens({ accessToken: accessToken || "", refreshToken: refreshToken || "" });
   }, [accessToken, refreshToken]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -50,8 +55,8 @@ function ResetPasswordContent() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="w-full max-w-sm bg-white rounded-xl shadow p-6">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
+      <div className="w-full max-w-sm bg-white rounded-xl shadow p-6 mb-4">
         <h1 className="text-2xl font-bold mb-4 text-center">パスワード再設定</h1>
         {msg && <p className="text-center text-red-500 mb-4">{msg}</p>}
         <form onSubmit={handleSubmit}>
@@ -69,6 +74,13 @@ function ResetPasswordContent() {
             更新
           </button>
         </form>
+      </div>
+
+      {/* デバッグ用トークン表示 */}
+      <div className="w-full max-w-sm bg-gray-100 rounded-xl shadow p-4">
+        <h2 className="text-lg font-semibold mb-2 text-center">デバッグ用トークン</h2>
+        <p className="break-all"><strong>access_token:</strong> {debugTokens.accessToken || "(なし)"}</p>
+        <p className="break-all"><strong>refresh_token:</strong> {debugTokens.refreshToken || "(なし)"}</p>
       </div>
     </div>
   );
