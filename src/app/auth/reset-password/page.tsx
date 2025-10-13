@@ -1,16 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
-export default function ResetPasswordPage() {
+function ResetPasswordContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [password, setPassword] = useState("");
   const [msg, setMsg] = useState("");
 
-  // URLからアクセストークンとリフレッシュトークンを取得
   const accessToken = searchParams.get("access_token");
   const refreshToken = searchParams.get("refresh_token");
 
@@ -28,13 +27,11 @@ export default function ResetPasswordPage() {
     if (!accessToken || !refreshToken) return setMsg("無効なリンクです。");
 
     try {
-      // 1. アクセストークンとリフレッシュトークンでセッションを設定
       await supabase.auth.setSession({
         access_token: accessToken,
         refresh_token: refreshToken,
       });
 
-      // 2. パスワードを更新
       const { error } = await supabase.auth.updateUser({ password });
 
       if (error) {
@@ -44,13 +41,12 @@ export default function ResetPasswordPage() {
         setTimeout(() => router.push("/auth/login"), 2000);
       }
     } catch (err) {
-    if (err instanceof Error) {
+      if (err instanceof Error) {
         setMsg(err.message);
-    } else {
+      } else {
         setMsg("不明なエラーが発生しました。");
+      }
     }
-    }
-
   };
 
   return (
@@ -75,5 +71,13 @@ export default function ResetPasswordPage() {
         </form>
       </div>
     </div>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={<div className="text-center mt-10">読み込み中...</div>}>
+      <ResetPasswordContent />
+    </Suspense>
   );
 }
