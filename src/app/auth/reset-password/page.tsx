@@ -3,12 +3,15 @@
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import { Loader2 } from "lucide-react";
 
 function ResetPasswordContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [password, setPassword] = useState("");
   const [msg, setMsg] = useState("");
+   // 🔹 ローディング状態
+  const [loading, setLoading] = useState(false);
 
   // トークンをURLハッシュから読み取ってセッション設定
   useEffect(() => {
@@ -25,6 +28,7 @@ function ResetPasswordContent() {
   }, []);
 
   const handleReset = async (e: React.FormEvent) => {
+    setLoading(true);
     e.preventDefault();
     const { error } = await supabase.auth.updateUser({ password });
     if (error) {
@@ -33,6 +37,7 @@ function ResetPasswordContent() {
       setMsg("パスワードが更新されました。ログイン画面へ戻ります。");
       setTimeout(() => router.push("/auth/login"), 2000);
     }
+    setLoading(false);
   };
 
   return (
@@ -51,6 +56,7 @@ function ResetPasswordContent() {
           type="submit"
           className="w-full bg-blue-600 text-white p-2 rounded"
         >
+          {loading && <Loader2 className="animate-spin" size={18} />}
           更新する
         </button>
       </form>

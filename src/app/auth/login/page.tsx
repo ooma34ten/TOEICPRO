@@ -4,12 +4,17 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import Link from "next/link";
+import { Loader2 } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [msg, setMsg] = useState("");
+
+  // 🔹 ローディング状態
+  const [loading, setLoading] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
 
   // 🔹 モーダル制御
   const [showModal, setShowModal] = useState(false);
@@ -18,39 +23,60 @@ export default function LoginPage() {
 
   const passwordRef = useRef<HTMLInputElement | null>(null);
 
+  // 🔹 既にログイン中ならリダイレクト
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) router.replace("/");
     });
   }, [router]);
 
+  // 🔹 ログイン処理
   const handleLogin = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
+    e?.preventDefault();
     setMsg("");
-    if (!email || !password) return setMsg("メールとパスワードを入力してください。");
+    if (!email || !password) {
+      return setMsg("メールアドレスとパスワードを入力してください。");
+    }
 
+    setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) return setMsg(error.message);
+    setLoading(false);
 
+    if (error) {
+      let errorMsg = "ログインに失敗しました。";
+      if (error.message.includes("Invalid login credentials")) {
+        errorMsg = "メールアドレスまたはパスワードが正しくありません。";
+      } else if (error.message.includes("Email not confirmed")) {
+        errorMsg = "メールアドレスが確認されていません。メールをご確認ください。";
+      } else if (error.message.includes("rate limit")) {
+        errorMsg = "試行回数が多すぎます。しばらくしてからお試しください。";
+      } else {
+        errorMsg = "エラー: " + error.message;
+      }
+      return setMsg(errorMsg);
+    }
+
+    // ✅ ログイン成功
     router.replace("/");
   };
 
-  // 🔹 パスワード再設定
+  // 🔹 パスワード再設定処理
   const handleResetPassword = async () => {
     setResetMsg("");
     if (!resetEmail) return setResetMsg("メールアドレスを入力してください。");
 
+    setResetLoading(true);
     const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-      redirectTo: "https://toeicpro.vercel.app/auth/reset-password"
+      redirectTo: "https://toeicpro.vercel.app/auth/reset-password",
     });
+    setResetLoading(false);
 
     if (error) {
-      setResetMsg(error.message);
+      setResetMsg("メール送信に失敗しました。もう一度お試しください。");
     } else {
       setResetMsg("パスワード再設定メールを送信しました。メールを確認してください。");
     }
   };
-
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -62,8 +88,8 @@ export default function LoginPage() {
             className="w-full border rounded px-3 py-2 mb-3"
             placeholder="メールアドレス"
             value={email}
-            onChange={e => setEmail(e.target.value)}
-            onKeyDown={e => {
+            onChange={(e) => setEmail(e.target.value)}
+            onKeyDown={(e) => {
               if (e.key === "Enter") {
                 e.preventDefault();
                 passwordRef.current?.focus();
@@ -76,12 +102,16 @@ export default function LoginPage() {
             className="w-full border rounded px-3 py-2 mb-4"
             placeholder="パスワード"
             value={password}
-            onChange={e => setPassword(e.target.value)}
+            onChange={(e) => setPassword(e.target.value)}
           />
           <button
             type="submit"
-            className="w-full bg-blue-600 text-white py-2 rounded mb-2"
+            disabled={loading}
+            className={`w-full py-2 rounded mb-2 flex items-center justify-center gap-2 ${
+              loading ? "bg-blue-400" : "bg-blue-600 hover:bg-blue-700"
+            } text-white transition`}
           >
+            {loading && <Loader2 className="animate-spin" size={18} />}
             ログイン
           </button>
 
@@ -95,7 +125,7 @@ export default function LoginPage() {
         </form>
 
         <p className="text-sm text-center text-gray-500 mt-3">
-          新規登録は{" "}
+          新規登録（無料）は{" "}
           <Link href="/auth/register" className="text-blue-500">
             こちら
           </Link>
@@ -114,13 +144,17 @@ export default function LoginPage() {
               placeholder="メールアドレス"
               className="w-full border rounded px-3 py-2 mb-4"
               value={resetEmail}
-              onChange={e => setResetEmail(e.target.value)}
+              onChange={(e) => setResetEmail(e.target.value)}
             />
             <div className="flex justify-between items-center">
               <button
                 onClick={handleResetPassword}
-                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
+                disabled={resetLoading}
+                className={`px-4 py-2 rounded text-white flex items-center justify-center gap-2 transition ${
+                  resetLoading ? "bg-blue-400" : "bg-blue-600 hover:bg-blue-700"
+                }`}
               >
+                {resetLoading && <Loader2 className="animate-spin" size={18} />}
                 送信
               </button>
               <button

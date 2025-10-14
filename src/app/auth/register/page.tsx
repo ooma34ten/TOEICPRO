@@ -34,7 +34,7 @@ export default function RegisterPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="w-full max-w-sm bg-white rounded-xl shadow p-6">
-        <h1 className="text-2xl font-bold mb-4 text-center">新規登録</h1>
+        <h1 className="text-2xl font-bold mb-4 text-center">新規登録（無料）</h1>
 
         <input
           className="w-full border rounded px-3 py-2 mb-3"
