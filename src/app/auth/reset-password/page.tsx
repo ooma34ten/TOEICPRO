@@ -1,54 +1,68 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
-export default function ResetPasswordPage() {
+function ResetPasswordContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [password, setPassword] = useState("");
   const [msg, setMsg] = useState("");
 
+  // トークンをURLハッシュから読み取ってセッション設定
   useEffect(() => {
-    // Supabaseが自動的にセッションを更新してくれる
-    const code = searchParams.get("code");
-    if (!code) {
-      setMsg("無効なリンクです。もう一度お試しください。");
-    }
-  }, [searchParams]);
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    const accessToken = hashParams.get("access_token");
+    const refreshToken = hashParams.get("refresh_token");
 
-  const handleUpdate = async (e: React.FormEvent) => {
+    if (accessToken) {
+      supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken || "",
+      });
+    }
+  }, []);
+
+  const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
     const { error } = await supabase.auth.updateUser({ password });
     if (error) {
-      setMsg("更新エラー: " + error.message);
+      setMsg("パスワード更新に失敗しました: " + error.message);
     } else {
-      setMsg("パスワードを更新しました。ログイン画面へ移動します。");
-      setTimeout(() => router.push("/login"), 2000);
+      setMsg("パスワードが更新されました。ログイン画面へ戻ります。");
+      setTimeout(() => router.push("/auth/login"), 2000);
     }
   };
 
   return (
-    <div className="flex justify-center items-center min-h-screen">
-      <form onSubmit={handleUpdate} className="p-6 bg-white shadow-md rounded">
-        <h1 className="text-xl font-bold mb-4">新しいパスワードを設定</h1>
+    <div className="max-w-md mx-auto mt-10 bg-white p-6 rounded-xl shadow">
+      <h2 className="text-xl font-bold mb-4">パスワード再設定</h2>
+      <form onSubmit={handleReset}>
         <input
           type="password"
           placeholder="新しいパスワード"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="border p-2 w-64 mb-3 rounded"
+          className="w-full border p-2 rounded mb-3"
           required
         />
         <button
           type="submit"
-          className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+          className="w-full bg-blue-600 text-white p-2 rounded"
         >
-          更新
+          更新する
         </button>
-        {msg && <p className="mt-3 text-sm text-gray-700">{msg}</p>}
       </form>
+      {msg && <p className="mt-3 text-center text-gray-700">{msg}</p>}
     </div>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={<div className="text-center mt-10">読み込み中...</div>}>
+      <ResetPasswordContent />
+    </Suspense>
   );
 }
