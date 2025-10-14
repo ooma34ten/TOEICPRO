@@ -136,32 +136,47 @@ export default function ProgressPage() {
 
 
       // 日別登録数・累積登録数・完全記憶累計
-      const registerByDate: Record<string, number> = {};
-      arr.forEach((w) => {
-        const date = w.registered_at.split("T")[0];
-        registerByDate[date] = (registerByDate[date] || 0) + 1;
-      });
+const registerByDate: Record<string, number> = {};
+arr.forEach((w) => {
+  const date = w.registered_at.split("T")[0];
+  registerByDate[date] = (registerByDate[date] || 0) + 1;
+});
 
-      const dates = Object.keys(registerByDate).sort();
-      let cumulative = 0;
-      let masteredCumulative = 0;
+// 完全記憶日だけを抽出（6回目の正解日）
+const masteredByDate: Record<string, number> = {};
+arr.forEach((w) => {
+  if ((w.correct_count ?? 0) >= 6 && w.correct_dates && w.correct_dates[5]) {
+    const masteredDate = w.correct_dates[5]; // 6回目の正解日
+    masteredByDate[masteredDate] = (masteredByDate[masteredDate] || 0) + 1;
+  }
+});
 
-      const registerChart: RegisterData[] = dates.map((date) => {
-        const registered = registerByDate[date] ?? 0;
-        cumulative += registered;
+// グラフ用に日付順の配列を作る
+const allDates = Array.from(new Set([...Object.keys(masteredByDate)])).sort();
 
-        const masteredCountUntilDate = arr.filter(
-          (w) =>
-            (w.correct_count ?? 0) >= 6 &&
-            w.registered_at.split("T")[0] <= date
-        ).length;
+let masteredCumulative = 0;
 
-        masteredCumulative = masteredCountUntilDate;
+const masteredChart: { date: string; masteredCumulative: number }[] = allDates.map((date) => {
+  const masteredToday = masteredByDate[date] ?? 0;
+  masteredCumulative += masteredToday;
+  return { date, masteredCumulative };
+});
 
-        return { date, registered, cumulative, masteredCumulative };
-      });
+// React state にセット
+setRegisterData(prev => {
+  // prev は既存の registerData（登録数・累積登録数など）
+  // 日付ごとに masteredCumulative を上書きして統合
+  const merged = prev.map((row) => {
+    const masteredRow = masteredChart.find((m) => m.date === row.date);
+    return {
+      ...row,
+      masteredCumulative: masteredRow ? masteredRow.masteredCumulative : row.masteredCumulative,
+    };
+  });
+  return merged;
+});
 
-      setRegisterData(registerChart);
+
       setLoading(false);
     };
 
