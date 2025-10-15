@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
         if (selectError) {
           console.error("Supabase select error:", selectError);
         } else if (!existing) {
-          console.log("既存のサブスクリプションがないため更新せず終了");
+          console.log("既存のサブスクリプションリプションがないため更新せず終了");
         } else {
           // 更新
           const { data, error: updateError } = await supabase
@@ -80,32 +80,66 @@ export async function POST(req: NextRequest) {
         break;
       }
 
+      // ✅ サブスクリプション削除（解約時）
       case "customer.subscription.deleted": {
         const deletedSub = event.data.object as Stripe.Subscription;
+        const subscriptionId = deletedSub.id;
 
-        console.log("deletedSub:", deletedSub);
-
-        const { data: existing } = await supabase
+        // Supabaseで subscriptionId からユーザーを特定
+        const { data: existing, error: selectError } = await supabase
           .from("subscriptions")
-          .select("*")
-          .eq("stripe_subscription", deletedSub.id)
+          .select("user_id")
+          .eq("stripe_subscription", subscriptionId)
           .single();
-        console.log("existing:", existing);
-        if (!existing) return;;
-        
-        const { data, error } = await supabase
-          .from("subscriptions")
-          .update({ is_active: false,
-                    stripe_subscription: null, 
-                    plan: null,
-                    cancel_at_period_end: null,
-                    current_period_end: null,
-                    updated_at: new Date().toISOString()
-                 })
-          .eq("stripe_subscription", deletedSub.id);
-        console.log("update result:", data, error);
 
-        console.log("Subscription deleted:", deletedSub.id);
+        if (selectError || !existing) {
+          console.error("Supabase select error (deleted):", selectError);
+          break;
+        }
+
+        const userId = existing.user_id;
+
+        console.log("🧾 解約対象ユーザー:", userId);
+
+        // ✅ user_wordsから200件制限に従って削除
+        const { data: words, error: wordsError } = await supabase
+          .from("user_words")
+          .select("id, created_at")
+          .eq("user_id", userId)
+          .order("created_at", { ascending: false });
+
+        if (wordsError) {
+          console.error("Supabase user_words取得失敗:", wordsError);
+          break;
+        }
+
+        if (words.length > 200) {
+          const oldIds = words.slice(200).map((w) => w.id);
+          const { error: deleteError } = await supabase
+            .from("user_words")
+            .delete()
+            .in("id", oldIds);
+
+          if (deleteError) console.error("単語削除エラー:", deleteError);
+          else console.log(`🗑 ${oldIds.length}件の単語を削除しました`);
+        }
+
+        // ✅ subscriptionsテーブルを更新
+        const { error: updateError } = await supabase
+          .from("subscriptions")
+          .update({
+            is_active: false,
+            stripe_subscription: null,
+            plan: null,
+            cancel_at_period_end: null,
+            current_period_end: null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("stripe_subscription", subscriptionId);
+
+        if (updateError) console.error("Supabase update error:", updateError);
+        else console.log("✅ サブスクリプション解約処理完了:", subscriptionId);
+
         break;
       }
 

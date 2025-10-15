@@ -27,7 +27,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // ① サブスク情報を取得
+    // ① サブスクリプション情報を取得
     const { data: subsList, error: subsError } = await supabaseAdmin
       .from("subscriptions")
       .select("is_active")
@@ -35,7 +35,7 @@ export async function POST(req: Request) {
 
     if (subsError) {
       return NextResponse.json(
-        { success: false, message: "サブスク情報取得エラー: " + subsError.message },
+        { success: false, message: "サブスクリプション情報取得エラー: " + subsError.message },
         { status: 500 }
       );
     }
@@ -55,9 +55,9 @@ export async function POST(req: Request) {
       if (existingCount + rows.length > 200) {
         return NextResponse.json({
           success: false,
-          message: `サブスク未加入のため、保存可能な単語は残り ${remaining} 件までです`,
+          message: `サブスクリプション未加入のため、保存可能な単語は残り ${remaining} 件までです`,
           action: {
-            label: "サブスクに加入する",
+            label: "サブスクリプションに加入する",
             url: "/words/subscribe",
           },
           limitExceeded: true,

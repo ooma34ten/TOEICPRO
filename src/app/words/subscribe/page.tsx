@@ -60,9 +60,12 @@ export default function SubscribePage() {
       alert("ログインが必要です。");
       return;
     }
-    if (!confirm("本当にサブスクリプションを解約しますか？")) return;
+    if (!confirm("本当にサブスクリプションリプションを解約しますか？\n\n" +
+    "※解約日になると、my単語帳の登録件数が200件を超えている場合、" +
+    "古い単語から自動的に削除されます。")) return;
 
     setLoading(true);
+    
     const res = await fetch("/api/cancel", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -72,7 +75,7 @@ export default function SubscribePage() {
     setLoading(false);
 
     if (data.success) {
-      alert("サブスクを解約しました。");
+      alert("サブスクリプションを解約しました。");
       setIsSubscribed(false);
       await fetchUserAndSubscription();
     } else {
@@ -98,7 +101,7 @@ export default function SubscribePage() {
             <p className="text-3xl font-bold text-gray-900 mb-6">¥0<span className="text-base text-gray-500"> /月</span></p>
             <ul className="text-gray-700 space-y-3 text-left mb-6">
               <li>・my単語帳：200単語まで</li>
-              <li>・辞書・例文検索：利用可能（制限あり）</li>
+              <li>・単語,例文検索：利用可能</li>
               <li>・AIアシスタント機能：なし</li>
             </ul>
             {isSubscribed ? (
@@ -127,14 +130,14 @@ export default function SubscribePage() {
             <p className="text-3xl font-bold text-blue-700 mb-6">¥200<span className="text-base text-gray-500"> /月</span></p>
             <ul className="text-gray-700 space-y-3 text-left mb-6">
               <li>・my単語帳：制限なし</li>
-              <li>・辞書・例文検索：制限なし</li>
+              <li>・単語,例文検索：利用可能</li>
               <li>・AIアシスタント機能：利用可能</li>
             </ul>
             {isSubscribed ? (
             <div className="p-5 bg-green-50 border border-green-200 rounded-xl">
               <div className="flex items-center text-green-700 font-medium text-lg mb-2">
                 <CheckCircle className="w-5 h-5 mr-2" />
-                現在サブスク加入中です
+                現在サブスクリプション加入中です
               </div>
 
               {cancelAtPeriodEnd && currentPeriodEnd ? (
@@ -167,7 +170,7 @@ export default function SubscribePage() {
                     ) : (
                       <>
                         <XCircle className="w-4 h-4" />
-                        サブスクを解約する
+                        サブスクリプションを解約する
                       </>
                     )}
                   </button>

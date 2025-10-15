@@ -28,12 +28,12 @@ export default function Header() {
   }, []);
 
   const links = [
-    { href: "/words/list", label: "単語一覧" },
+    { href: "/words/list", label: "My単語帳" },
     { href: "/words/register", label: "単語登録" },
     { href: "/words/review", label: "復習モード" },
     { href: "/words/progress", label: "学習進捗" },
     { href: "/words/contact", label: "お問い合わせ" },
-    { href: "/words/subscribe", label: "サブスク" },
+    { href: "/words/subscribe", label: "サブスクリプション" },
     { href: "/words/setting", label: "設定" },
     { href: "/words/privacy", label: "プライバシー" },
     { href: "/words/terms", label: "利用規約" },

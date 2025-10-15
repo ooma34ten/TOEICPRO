@@ -27,7 +27,7 @@ type UserWord = {
   correct_count: number;
   correct_dates?: string[];
   registered_at: string;
-  words_master: WordMaster[]; // ← 配列に変更
+  words_master: WordMaster[];
 };
 
 type ProgressData = {
@@ -43,15 +43,19 @@ type RegisterData = {
   masteredCumulative: number;
 };
 
+type TimeUnit = "day" | "month" | "year";
+
 export default function ProgressPage() {
+  const [words, setWords] = useState<UserWord[]>([]);
   const [count, setCount] = useState(0);
   const [mastered, setMastered] = useState(0);
   const [unlearned, setUnlearned] = useState(0);
   const [accuracy, setAccuracy] = useState(0);
-  const [dailyData, setDailyData] = useState<ProgressData[]>([]);
-  const [registerData, setRegisterData] = useState<RegisterData[]>([]);
+  const [aggregatedDailyData, setAggregatedDailyData] = useState<ProgressData[]>([]);
+  const [aggregatedRegisterData, setAggregatedRegisterData] = useState<RegisterData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [timeUnit, setTimeUnit] = useState<TimeUnit>("day");
   const router = useRouter();
 
   // ログインチェック
@@ -63,7 +67,7 @@ export default function ProgressPage() {
     })();
   }, [router]);
 
-  // 学習データ取得
+  // データ取得
   useEffect(() => {
     const fetchProgress = async () => {
       setLoading(true);
@@ -76,8 +80,7 @@ export default function ProgressPage() {
         return;
       }
 
-      // 新しいDB構造に対応
-      const { data: words, error } = await supabase
+      const { data: wordsData, error } = await supabase
         .from("user_words")
         .select(`
           id,
@@ -86,10 +89,7 @@ export default function ProgressPage() {
           correct_count,
           correct_dates,
           registered_at,
-          words_master (
-            id,
-            importance
-          )
+          words_master (id, importance)
         `)
         .eq("user_id", user.id)
         .order("registered_at", { ascending: true });
@@ -100,9 +100,10 @@ export default function ProgressPage() {
         return;
       }
 
-      const arr = (words ?? []) as UserWord[];
+      const arr = (wordsData ?? []) as UserWord[];
+      setWords(arr);
 
-      // 概要集計
+      // 概要
       setCount(arr.length);
       setMastered(arr.filter((x) => (x.correct_count ?? 0) >= 6).length);
       setUnlearned(arr.filter((x) => (x.correct_count ?? 0) === 0).length);
@@ -116,11 +117,35 @@ export default function ProgressPage() {
       });
       setAccuracy(totalAnswers > 0 ? Math.round((totalCorrect / totalAnswers) * 100) : 0);
 
-      // 日別正解数・総正解数
+      setLoading(false);
+    };
+
+    fetchProgress();
+  }, []);
+
+  // 時間単位ごとに集計
+  useEffect(() => {
+    if (loading || words.length === 0) return;
+
+    const aggregateByTimeUnit = (data: UserWord[], unit: TimeUnit) => {
+      const formatDate = (dateStr: string) => {
+        const d = new Date(dateStr);
+        switch (unit) {
+          case "year":
+            return d.getFullYear().toString();
+          case "month":
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+          case "day":
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2,"0")}`;
+        }
+      };
+
+      // 日別正解数・累積正解数
       const countByDate: Record<string, number> = {};
-      arr.forEach((w) => {
+      data.forEach((w) => {
         (w.correct_dates || []).forEach((d) => {
-          countByDate[d] = (countByDate[d] || 0) + 1;
+          const key = formatDate(d);
+          countByDate[key] = (countByDate[key] || 0) + 1;
         });
       });
 
@@ -129,59 +154,47 @@ export default function ProgressPage() {
         .sort(([a], [b]) => new Date(a).getTime() - new Date(b).getTime())
         .map(([date, corrects]) => {
           cumulative1 += corrects;
-          return { date, corrects, cumulative1 }; // ← 累積を追加
+          return { date, corrects, cumulative1 };
         });
 
-      setDailyData(dailyChart);
+      // 登録数・累積登録数・完全記憶累計
+      const registerByDate: Record<string, number> = {};
+      const masteredByDate: Record<string, number> = {};
 
+      data.forEach((w) => {
+        const regKey = formatDate(w.registered_at);
+        registerByDate[regKey] = (registerByDate[regKey] || 0) + 1;
 
-      // 日別登録数・累積登録数・完全記憶累計
-const registerByDate: Record<string, number> = {};
-arr.forEach((w) => {
-  const date = w.registered_at.split("T")[0];
-  registerByDate[date] = (registerByDate[date] || 0) + 1;
-});
+        if ((w.correct_count ?? 0) >= 6 && w.correct_dates && w.correct_dates[5]) {
+          const masteredKey = formatDate(w.correct_dates[5]);
+          masteredByDate[masteredKey] = (masteredByDate[masteredKey] || 0) + 1;
+        }
+      });
 
-// 完全記憶日だけを抽出（6回目の正解日）
-const masteredByDate: Record<string, number> = {};
-arr.forEach((w) => {
-  if ((w.correct_count ?? 0) >= 6 && w.correct_dates && w.correct_dates[5]) {
-    const masteredDate = w.correct_dates[5]; // 6回目の正解日
-    masteredByDate[masteredDate] = (masteredByDate[masteredDate] || 0) + 1;
-  }
-});
+      const allKeys = Array.from(
+        new Set([...Object.keys(registerByDate), ...Object.keys(masteredByDate)])
+      ).sort();
 
-// グラフ用に日付順の配列を作る
-const allDates = Array.from(new Set([...Object.keys(masteredByDate)])).sort();
+      let cumulative = 0;
+      let masteredCumulative = 0;
 
-let masteredCumulative = 0;
+      const registerChart: RegisterData[] = allKeys.map((date) => {
+        const registered = registerByDate[date] ?? 0;
+        const masteredToday = masteredByDate[date] ?? 0;
 
-const masteredChart: { date: string; masteredCumulative: number }[] = allDates.map((date) => {
-  const masteredToday = masteredByDate[date] ?? 0;
-  masteredCumulative += masteredToday;
-  return { date, masteredCumulative };
-});
+        cumulative += registered;
+        masteredCumulative += masteredToday;
 
-// React state にセット
-setRegisterData(prev => {
-  // prev は既存の registerData（登録数・累積登録数など）
-  // 日付ごとに masteredCumulative を上書きして統合
-  const merged = prev.map((row) => {
-    const masteredRow = masteredChart.find((m) => m.date === row.date);
-    return {
-      ...row,
-      masteredCumulative: masteredRow ? masteredRow.masteredCumulative : row.masteredCumulative,
-    };
-  });
-  return merged;
-});
+        return { date, registered, cumulative, masteredCumulative };
+      });
 
-
-      setLoading(false);
+      return { dailyChart, registerChart };
     };
 
-    fetchProgress();
-  }, []);
+    const { dailyChart, registerChart } = aggregateByTimeUnit(words, timeUnit);
+    setAggregatedDailyData(dailyChart);
+    setAggregatedRegisterData(registerChart);
+  }, [timeUnit, words, loading]);
 
   if (loading) return <p>読み込み中...</p>;
   if (error) return <p className="text-red-500">{error}</p>;
@@ -212,6 +225,21 @@ setRegisterData(prev => {
         </div>
       </div>
 
+      {/* 時間単位切替ボタン */}
+      <div className="flex gap-2 mb-4 justify-center">
+        {(["day","month","year"] as TimeUnit[]).map((unit) => (
+          <button
+            key={unit}
+            onClick={() => setTimeUnit(unit)}
+            className={`px-3 py-1 rounded ${
+              timeUnit === unit ? "bg-indigo-500 text-white" : "bg-gray-200 text-gray-700"
+            }`}
+          >
+            {unit === "day" ? "日" : unit === "month" ? "月" : "年"}
+          </button>
+        ))}
+      </div>
+
       {/* 正解数・総正解数推移 */}
       <div className="bg-white p-4 rounded-xl shadow">
         <h2 className="text-lg font-semibold mb-2 flex items-center gap-2 text-gray-700">
@@ -219,7 +247,7 @@ setRegisterData(prev => {
         </h2>
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={dailyData}>
+            <ComposedChart data={aggregatedDailyData}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="date" />
               <YAxis yAxisId="left" allowDecimals={false} />
@@ -253,7 +281,7 @@ setRegisterData(prev => {
         </h2>
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={registerData}>
+            <ComposedChart data={aggregatedRegisterData}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="date" />
               <YAxis yAxisId="left" allowDecimals={false} />
@@ -287,7 +315,7 @@ setRegisterData(prev => {
         </h2>
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={registerData}>
+            <LineChart data={aggregatedRegisterData}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="date" />
               <YAxis allowDecimals={false} />
@@ -305,6 +333,5 @@ setRegisterData(prev => {
         </div>
       </div>
     </div>
-
   );
 }

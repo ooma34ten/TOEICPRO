@@ -40,7 +40,7 @@ export default function SettingsPage() {
     }
 
     if (profile.is_active === true) {
-      alert("アカウント削除の前に、まずサブスクリプションをキャンセルしてください。");
+      alert("アカウント削除の前に、まずサブスクリプションリプションをキャンセルしてください。");
       router.replace("/words/subscribe");
       return;
     }
@@ -87,7 +87,7 @@ export default function SettingsPage() {
           </div>
 
           <p className="text-gray-700 mb-4 leading-relaxed">
-            アカウントを削除すると、登録した単語・学習履歴・サブスクリプション情報など、すべてのデータが完全に削除されます。
+            アカウントを削除すると、登録した単語・学習履歴・サブスクリプションリプション情報など、すべてのデータが完全に削除されます。
             この操作は取り消せません。
           </p>
 

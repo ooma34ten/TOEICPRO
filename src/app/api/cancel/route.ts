@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
 
     if (error || !subs?.stripe_subscription) {
       return NextResponse.json(
-        { error: "サブスク情報が見つかりません" },
+        { error: "サブスクリプション情報が見つかりません" },
         { status: 400 }
       );
     }

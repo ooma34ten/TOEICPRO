@@ -318,7 +318,7 @@ export default function WordForm({ onAdd }: WordFormProps) {
       if (data.limitExceeded) {
         setMsg(data.message || "保存可能件数を超えました");
         if (data.action?.url) {
-          if (confirm(data.message + "\nサブスクページに移動しますか？")) {
+          if (confirm(data.message + "\nサブスクリプションページに移動しますか？")) {
             window.location.href = data.action.url;
           }
         }

@@ -42,7 +42,7 @@ export default function Home() {
       {!userId && (
         <>
           <div className="mb-5 text-center text-red-600 font-medium">
-            ログインすると「単語一覧」「復習モード」「学習進捗」が利用できます。
+            ログインすると「My単語帳」「復習モード」「学習進捗」が利用できます。
           </div>
           <Link
             href="/auth/login"
@@ -54,14 +54,14 @@ export default function Home() {
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full max-w-3xl">
-        {/* 単語一覧 */}
+        {/* My単語帳 */}
         <Link
           href="/words/list"
           className={`group p-6 bg-white rounded-2xl shadow-md hover:shadow-xl transition transform hover:-translate-y-1 ${restrictedClass}`}
         >
           <div className="flex flex-col items-center">
             <BookOpen className="w-10 h-10 text-blue-500 mb-3 group-hover:scale-110 transition-transform" />
-            <h2 className="text-2xl font-bold text-blue-600 mb-1">単語一覧</h2>
+            <h2 className="text-2xl font-bold text-blue-600 mb-1">My単語帳</h2>
             <p className="text-gray-600 text-center text-sm">
               登録済みのTOEIC単語を確認できます。
             </p>
