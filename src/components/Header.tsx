@@ -37,6 +37,7 @@ export default function Header() {
     { href: "/words/setting", label: "設定" },
     { href: "/words/privacy", label: "プライバシー" },
     { href: "/words/terms", label: "利用規約" },
+    { href: "/words/tokutei", label: "特定商取引法" },
   ];
 
   return (
