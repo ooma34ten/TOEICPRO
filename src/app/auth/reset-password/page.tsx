@@ -6,7 +6,6 @@ import { supabase } from "@/lib/supabaseClient";
 import { Loader2 } from "lucide-react";
 
 function ResetPasswordContent() {
-  const searchParams = useSearchParams();
   const router = useRouter();
   const [password, setPassword] = useState("");
   const [msg, setMsg] = useState("");

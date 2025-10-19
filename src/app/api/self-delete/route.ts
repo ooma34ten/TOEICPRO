@@ -1,6 +1,5 @@
-// src/app/api/self-delete/route.ts
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabaseAdmin"; // service_role を使う
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export async function POST(req: Request) {
   const { userId } = await req.json();
@@ -12,7 +11,7 @@ export async function POST(req: Request) {
       "user_words",
       "subscriptions",
       "inquiries",
-    ];
+    ] as const;
 
     for (const table of tables) {
       const { error } = await supabaseAdmin
@@ -23,13 +22,19 @@ export async function POST(req: Request) {
       if (error) throw error;
     }
 
-    // 2. Auth ユーザー削除
+    // 2. Auth ユーザー
     const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(userId);
     if (authError) throw authError;
 
     return NextResponse.json({ success: true });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error(err);
-    return NextResponse.json({ error: err.message || "削除に失敗しました" }, { status: 400 });
+
+    const message =
+      err instanceof Error
+        ? err.message
+        : "削除に失敗しました";
+
+    return NextResponse.json({ error: message }, { status: 400 });
   }
 }
