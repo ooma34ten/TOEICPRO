@@ -1,3 +1,4 @@
+// src/app/api/add-to-master/route.ts
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
@@ -32,23 +33,30 @@ export async function POST(req: Request) {
       );
     }
 
+    // 既存単語取得
     const wordList = words.map((w) => w.word);
 
-    // ✅ 型安全な Supabase 呼び出し
     const { data: existingMaster, error: selectError } = await supabaseAdmin
-      .from<Pick<WordsMaster, "word">>("words_master")
+      .from("words_master")
       .select("word")
       .in("word", wordList);
 
     if (selectError) {
       return NextResponse.json(
-        { success: false, message: `既存単語取得エラー: ${selectError.message}` },
+        { success: false, message: "既存単語取得エラー: " + selectError.message },
         { status: 500 }
       );
     }
 
-    const existingWordsSet = new Set(existingMaster?.map((w) => w.word) ?? []);
+    // 型ガードで既存単語セット作成
+    const existingWordsSet = new Set<string>();
+    if (existingMaster) {
+      for (const row of existingMaster as { word?: string }[]) {
+        if (row.word) existingWordsSet.add(row.word);
+      }
+    }
 
+    // 新規挿入用データ作成
     const newMasterRows: WordsMaster[] = words
       .filter((w) => !existingWordsSet.has(w.word))
       .map((w) => ({
@@ -69,13 +77,14 @@ export async function POST(req: Request) {
       );
     }
 
+    // 新規保存
     const { error: insertError } = await supabaseAdmin
-      .from<WordsMaster>("words_master")
+      .from("words_master")
       .insert(newMasterRows);
 
     if (insertError) {
       return NextResponse.json(
-        { success: false, message: `words_master 保存エラー: ${insertError.message}` },
+        { success: false, message: "words_master 保存エラー: " + insertError.message },
         { status: 500 }
       );
     }
