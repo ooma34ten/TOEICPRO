@@ -1,3 +1,4 @@
+// src/app/api/stripe-webhook/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
@@ -11,12 +12,34 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+// 部分型定義（Webhookで必要なプロパティのみ）
+type SubscriptionCompleted = {
+  id: string;
+  customer: string;
+  items: {
+    data: {
+      price: {
+        product: {
+          name: string;
+        };
+      };
+    }[];
+  };
+};
+
+type SubscriptionDeleted = {
+  id: string;
+};
+
+type SubscriptionUpdated = {
+  id: string;
+  cancel_at_period_end: boolean;
+  current_period_end: number | null;
+};
+
 export async function POST(req: NextRequest) {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-  if (!webhookSecret) {
-    console.error("STRIPE_WEBHOOK_SECRET is not defined");
-    return NextResponse.json({ error: "Webhook secret not set" }, { status: 500 });
-  }
+  if (!webhookSecret) return NextResponse.json({ error: "Webhook secret not set" }, { status: 500 });
 
   const body = await req.text();
   const signature = req.headers.get("stripe-signature")!;
@@ -32,35 +55,28 @@ export async function POST(req: NextRequest) {
 
   try {
     switch (event.type) {
+      // ✅ 新規サブスクリプション作成
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
         const subscriptionId = session.subscription as string;
         const customerId = session.customer as string;
 
-        const stripeSubscription = await stripe.subscriptions.retrieve(subscriptionId, {
-          expand: ["items.data.price.product"], // product 情報を展開する
+        // Stripe subscription取得
+        const stripeSub = await stripe.subscriptions.retrieve(subscriptionId, {
+          expand: ["items.data.price.product"],
         });
 
-        console.log("stripeSubscription:", stripeSubscription);
+        const subData = stripeSub as unknown as SubscriptionCompleted;
+        const productName = subData.items.data[0].price.product.name;
 
-        const productName = (stripeSubscription.items.data[0].price.product as Stripe.Product).name;
-        console.log(productName); // "スタンダード"
-        console.log("カスタマーID:", customerId);
-        //console.log("ユーザーID:", userId);
-        // 既存行を検索
-        const { data: existing, error: selectError } = await supabase
+        const { data: existing } = await supabase
           .from("subscriptions")
           .select("*")
           .eq("stripe_customer", customerId)
-          .single(); // 1件だけ取得
+          .single();
 
-        if (selectError) {
-          console.error("Supabase select error:", selectError);
-        } else if (!existing) {
-          console.log("既存のサブスクリプションリプションがないため更新せず終了");
-        } else {
-          // 更新
-          const { data, error: updateError } = await supabase
+        if (existing) {
+          await supabase
             .from("subscriptions")
             .update({
               stripe_subscription: subscriptionId,
@@ -68,64 +84,45 @@ export async function POST(req: NextRequest) {
               is_active: true,
               cancel_at_period_end: null,
               current_period_end: null,
-              updated_at: new Date().toISOString()
+              updated_at: new Date().toISOString(),
             })
             .eq("stripe_customer", customerId);
-
-          if (updateError) console.error("Supabase update error:", updateError);
-          else console.log("既存行を更新しました:", data);
         }
 
-        console.log("Subscription added:", subscriptionId);
         break;
       }
 
-      // ✅ サブスクリプション削除（解約時）
+      // ✅ 解約（削除）イベント
       case "customer.subscription.deleted": {
         const deletedSub = event.data.object as Stripe.Subscription;
-        const subscriptionId = deletedSub.id;
+        const subData = deletedSub as unknown as SubscriptionDeleted;
+        const subscriptionId = subData.id;
 
-        // Supabaseで subscriptionId からユーザーを特定
-        const { data: existing, error: selectError } = await supabase
+        const { data: existing } = await supabase
           .from("subscriptions")
           .select("user_id")
           .eq("stripe_subscription", subscriptionId)
           .single();
 
-        if (selectError || !existing) {
-          console.error("Supabase select error (deleted):", selectError);
-          break;
-        }
-
+        if (!existing) break;
         const userId = existing.user_id;
 
-        console.log("🧾 解約対象ユーザー:", userId);
-
-        // ✅ user_wordsから200件制限に従って削除
-        const { data: words, error: wordsError } = await supabase
+        // user_words整理
+        const { data: words } = await supabase
           .from("user_words")
           .select("id, created_at")
           .eq("user_id", userId)
           .order("created_at", { ascending: false });
 
-        if (wordsError) {
-          console.error("Supabase user_words取得失敗:", wordsError);
-          break;
-        }
-
-        if (words.length > 200) {
+        if (words && words.length > 200) {
           const oldIds = words.slice(200).map((w) => w.id);
-          const { error: deleteError } = await supabase
-            .from("user_words")
-            .delete()
-            .in("id", oldIds);
 
-          if (deleteError) console.error("単語削除エラー:", deleteError);
-          else console.log(`🗑 ${oldIds.length}件の単語を削除しました`);
+          await supabase.from("user_words").delete().in("id", oldIds);
+          await supabase.from("user_word_history").delete().in("user_word_id", oldIds);
         }
 
-        // ✅ subscriptionsテーブルを更新
-        const { error: updateError } = await supabase
+        // subscriptions 更新
+        await supabase
           .from("subscriptions")
           .update({
             is_active: false,
@@ -137,29 +134,27 @@ export async function POST(req: NextRequest) {
           })
           .eq("stripe_subscription", subscriptionId);
 
-        if (updateError) console.error("Supabase update error:", updateError);
-        else console.log("✅ サブスクリプション解約処理完了:", subscriptionId);
-
         break;
       }
 
+      // ✅ 更新イベント（キャンセル予約など）
       case "customer.subscription.updated": {
         const updatedSub = event.data.object as Stripe.Subscription;
-        const cancelAtPeriodEnd =  updatedSub.cancel_at_period_end;
-        const current_period_end_unix = updatedSub.items.data[0].current_period_end;
-        const current_period_end = new Date(current_period_end_unix * 1000);
+        const subData = updatedSub as unknown as SubscriptionUpdated;
 
-        console.log("cancelAtPeriodEnd:", cancelAtPeriodEnd);
-        console.log("current_period_end:", current_period_end);
+        const cancelAtPeriodEnd = subData.cancel_at_period_end;
+        const current_period_end = subData.current_period_end
+          ? new Date(subData.current_period_end * 1000)
+          : null;
 
         await supabase
           .from("subscriptions")
-          .update({ 
-                    cancel_at_period_end: cancelAtPeriodEnd,
-                    current_period_end: current_period_end,
-                    updated_at: new Date().toISOString()
-                 })
-          .eq("stripe_subscription", updatedSub.id);
+          .update({
+            cancel_at_period_end: cancelAtPeriodEnd,
+            current_period_end,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("stripe_subscription", subData.id);
 
         break;
       }
@@ -174,4 +169,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Webhook handling error" }, { status: 500 });
   }
 }
-// src/app/api/stripe-webhook/route.ts

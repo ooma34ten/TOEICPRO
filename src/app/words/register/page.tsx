@@ -1,4 +1,3 @@
-// src/app/words/register/page.tsx
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
@@ -6,6 +5,24 @@ import WordForm, { Row } from "@/components/WordForm";
 import { speakText } from "@/lib/speech";
 import { supabase } from "@/lib/supabaseClient";
 import { Volume2 } from "lucide-react";
+
+type WordsMaster = {
+  word: string;
+  part_of_speech: string;
+  meaning: string;
+  example_sentence: string;
+  translation: string;
+  importance: string;
+  registered_at: string;
+};
+
+type UserWord = {
+  id: number;
+  word_id: number;
+  correct_count: number;
+  registered_at: string;
+  words_master: WordsMaster | null; // 🔹 null許容に
+};
 
 type Word = {
   id: number;
@@ -23,10 +40,10 @@ export default function RegisterPage() {
   const [words, setWords] = useState<Word[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // 🔹 fetchWords を useCallback で定義（保存後にも使える）
   const fetchWords = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    console.log("fetchWords user=", user);
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
     if (!user) {
       setErrorMessage("保存にはログインが必要です");
@@ -35,28 +52,56 @@ export default function RegisterPage() {
 
     const { data, error } = await supabase
       .from("user_words")
-      .select("*")
+      .select(`
+        id,
+        word_id,
+        correct_count,
+        registered_at,
+        words_master (
+          word,
+          part_of_speech,
+          meaning,
+          example_sentence,
+          translation,
+          importance,
+          registered_at
+        )
+      `)
       .eq("user_id", user.id)
       .order("registered_at", { ascending: false });
 
-    console.log("fetchWords data=", data, " error=", error);
-
     if (error) {
-      setErrorMessage(error.message);
-    } else {
-      setWords(data || []);
+      console.error("Supabase error:", error);
+      setErrorMessage("データ取得に失敗しました");
+      return;
     }
+
+    // ✅ data は unknown[] 型のため、まず unknown に変換してからアサーション
+    const formattedWords = (data as unknown as UserWord[]).map((uw) => {
+      const wm = uw.words_master; // 1件だけの想定
+      if (!wm) return null; // 念のためチェック
+
+      return {
+        id: uw.id,
+        word: wm.word,
+        part_of_speech: wm.part_of_speech,
+        meaning: wm.meaning,
+        example_sentence: wm.example_sentence,
+        translation: wm.translation,
+        importance: wm.importance,
+        registered_at: uw.registered_at,
+      };
+    }).filter((w): w is Word => w !== null); // null除外
+
+    setWords(formattedWords);
   }, []);
 
-  // 初回ロード
   useEffect(() => {
     fetchWords();
   }, [fetchWords]);
 
-  // 🔹 WordForm から呼ばれる
   const handleAdd = (newRows: Row[]) => {
     setRows((prev) => [...prev, ...newRows]);
-    // 保存後に最新データを再取得
     fetchWords();
   };
 
@@ -68,7 +113,9 @@ export default function RegisterPage() {
       </div>
 
       <div className="bg-white p-4 rounded-2xl shadow-md border border-gray-100 text-gray-700">
-        <p>登録語数: <b>{words.length}</b></p>
+        <p>
+          登録語数: <b>{words.length}</b>
+        </p>
       </div>
 
       {errorMessage && <p className="text-red-500">{errorMessage}</p>}
@@ -77,34 +124,51 @@ export default function RegisterPage() {
         <div className="bg-white p-6 rounded-2xl shadow-md border border-gray-100">
           <h2 className="text-xl font-semibold mb-4">生成履歴</h2>
           <ul className="space-y-3">
-            {rows.slice().reverse().map((row, idx) => (
-              <li key={idx} className="border p-4 rounded-xl bg-gray-50 hover:bg-gray-100 transition">
-                <p><strong>単語:</strong> {row.word}</p>
-                <p><strong>品詞:</strong> {row.part_of_speech}</p>
-                <p><strong>意味:</strong> {row.meaning}</p>
-                <p><strong>例文:</strong> {row.example}</p>
-                <p><strong>翻訳:</strong> {row.translation}</p>
-                <p><strong>重要度:</strong> {row.importance}</p>
-                <div className="flex gap-2 mt-2">
-                  <button
-                    onClick={() => speakText(row.word)}
-                    className="flex items-center gap-1 bg-indigo-500 text-white px-3 py-1 rounded hover:bg-indigo-600 text-sm"
-                  >
-                    <Volume2 size={14} /> 単語
-                  </button>
-                  <button
-                    onClick={() => speakText(row.example)}
-                    className="flex items-center gap-1 bg-indigo-500 text-white px-3 py-1 rounded hover:bg-indigo-600 text-sm"
-                  >
-                    <Volume2 size={14} /> 例文
-                  </button>
-                </div>
-              </li>
-            ))}
+            {rows
+              .slice()
+              .reverse()
+              .map((row, idx) => (
+                <li
+                  key={idx}
+                  className="border p-4 rounded-xl bg-gray-50 hover:bg-gray-100 transition"
+                >
+                  <p>
+                    <strong>単語:</strong> {row.word}
+                  </p>
+                  <p>
+                    <strong>品詞:</strong> {row.part_of_speech}
+                  </p>
+                  <p>
+                    <strong>意味:</strong> {row.meaning}
+                  </p>
+                  <p>
+                    <strong>例文:</strong> {row.example}
+                  </p>
+                  <p>
+                    <strong>翻訳:</strong> {row.translation}
+                  </p>
+                  <p>
+                    <strong>重要度:</strong> {row.importance}
+                  </p>
+                  <div className="flex gap-2 mt-2">
+                    <button
+                      onClick={() => speakText(row.word)}
+                      className="flex items-center gap-1 bg-indigo-500 text-white px-3 py-1 rounded hover:bg-indigo-600 text-sm"
+                    >
+                      <Volume2 size={14} /> 単語
+                    </button>
+                    <button
+                      onClick={() => speakText(row.example)}
+                      className="flex items-center gap-1 bg-indigo-500 text-white px-3 py-1 rounded hover:bg-indigo-600 text-sm"
+                    >
+                      <Volume2 size={14} /> 例文
+                    </button>
+                  </div>
+                </li>
+              ))}
           </ul>
         </div>
       )}
     </div>
   );
 }
-//src/app/words/register/page.tsx
