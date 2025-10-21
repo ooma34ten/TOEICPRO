@@ -134,29 +134,29 @@ export default function WordListPage() {
 
       // 配列化の不整合を排除して単純化
       const formatted: Word[] =
-        (data ?? []).map((item) => {
-          const wm = item.words_master;
-          const stat = stats.get(item.id);
-          const total = stat?.total ?? 0;
-          const correct = stat?.correct ?? 0;
-          const wrong = total - correct;
-          const successRate = total > 0 ? correct / total : 0;
+      (data ?? []).map((item) => {
+        const wm = item.words_master;
+        const stat = stats.get(item.id);
+        const total = stat?.total ?? 0;
+        const correct = stat?.correct ?? 0;
+        const wrong = total - correct;
+        const successRate = total > 0 ? correct / total : 0;
 
+        return {
+          id: item.id,
+          registered_at: item.registered_at,
+          correct_count: correct, // ← ★ 履歴ベースに統一
+          word: wm?.word ?? "",
+          part_of_speech: wm?.part_of_speech ?? "",
+          meaning: wm?.meaning ?? "",
+          example_sentence: wm?.example_sentence ?? "",
+          translation: wm?.translation ?? "",
+          importance: wm?.importance ?? "",
+          wrong,
+          successRate,
+        };
+      }) ?? [];
 
-          return {
-            id: item.id,
-            registered_at: item.registered_at,
-            correct_count: item.correct_count,
-            word: wm?.word ?? "",
-            part_of_speech: wm?.part_of_speech ?? "",
-            meaning: wm?.meaning ?? "",
-            example_sentence: wm?.example_sentence ?? "",
-            translation: wm?.translation ?? "",
-            importance: wm?.importance ?? "",
-            wrong,
-            successRate,
-          };
-        }) ?? [];
 
       setWords(formatted);
       setFilteredWords(formatted);
