@@ -215,9 +215,11 @@ export default function WordForm({ onAdd }: WordFormProps) {
           value={inputWord}
           onChange={(e) => setInputWord(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleGenerate()}
+          onFocus={(e) => e.target.select()}  // ← ★これを追加！
           placeholder="単語を入力"
           className="border border-gray-300 rounded-lg px-4 py-2 flex-1 focus:outline-none focus:ring-2 focus:ring-blue-400"
         />
+
         <button
           onClick={handleGenerate}
           disabled={loading}

@@ -3,7 +3,7 @@
 import { useState, useRef } from "react";
 import WordForm, { Row } from "@/components/WordForm";
 import { speakText } from "@/lib/speech";
-import { Plus, X, Volume2 } from "lucide-react";
+import { Plus, Minus, X, Volume2 } from "lucide-react"; // ← Minus を追加
 
 export default function WordSidebar() {
   const [rows, setRows] = useState<Row[]>([]);
@@ -51,8 +51,9 @@ export default function WordSidebar() {
           bg-blue-600 text-white px-4 py-2 rounded-full shadow-lg hover:bg-blue-700 transition
         "
       >
-        <Plus size={18} />
-        単語登録
+        {/* ← 状態に応じてアイコン切り替え */}
+        {isOpen ? <Minus size={18} /> : <Plus size={18} />}
+        {isOpen ? "閉じる" : "単語登録"}
       </button>
 
       {/* 📘 サイドバー */}
@@ -75,12 +76,10 @@ export default function WordSidebar() {
 
         {/* コンテンツ */}
         <div className="p-4 overflow-y-auto h-[calc(100%-3rem)] space-y-6">
-          {/* 入力フォーム */}
           <div className="bg-gray-50 rounded-xl border p-4 shadow-inner">
             <WordForm onAdd={handleAdd} />
           </div>
 
-          {/* 履歴 */}
           {rows.length > 0 && (
             <div>
               <h3 className="text-md font-semibold text-gray-700 mb-3 border-b pb-1">

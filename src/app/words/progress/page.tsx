@@ -183,23 +183,25 @@ export default function ProgressPage() {
 
       // 登録数・累積登録・完全記憶累計
       const registerByDate: Record<string, number> = {};
-      const masteredByDate: Record<string, number> = {};
 
       words.forEach((w) => {
         const regKey = formatDate(w.registered_at);
         registerByDate[regKey] = (registerByDate[regKey] || 0) + 1;
+      });
 
-        if (w.correct_count >= 6) {
-          const wordHistories = histories
-            .filter((h) => h.user_word_id === w.id && h.is_correct)
-            .sort((a, b) => new Date(a.answered_at).getTime() - new Date(b.answered_at).getTime());
+      const masteredByDate: Record<string, number> = {};
 
-          if (wordHistories.length >= 6) {
-            const masteredKey = formatDate(wordHistories[5].answered_at);
-            masteredByDate[masteredKey] = (masteredByDate[masteredKey] || 0) + 1;
-          }
+      words.forEach((w) => {
+        const wordHistories = histories
+          .filter((h) => h.user_word_id === w.id && h.is_correct)
+          .sort((a, b) => new Date(a.answered_at).getTime() - new Date(b.answered_at).getTime());
+
+        if (wordHistories.length >= 6) {
+          const masteredKey = formatDate(wordHistories[5].answered_at);
+          masteredByDate[masteredKey] = (masteredByDate[masteredKey] || 0) + 1;
         }
       });
+
 
       const allKeys = Array.from(new Set([...Object.keys(registerByDate), ...Object.keys(masteredByDate)]))
         .sort((a,b) => new Date(a).getTime() - new Date(b).getTime());
