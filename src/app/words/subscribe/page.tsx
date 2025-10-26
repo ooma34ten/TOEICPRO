@@ -11,6 +11,7 @@ export default function SubscribePage() {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [cancelAtPeriodEnd, setCancelAtPeriodEnd] = useState<boolean | null>(null);
   const [currentPeriodEnd, setCurrentPeriodEnd] = useState<Date | null>(null);
+  const [inviteCode, setInviteCode] = useState(""); // 招待コード用
 
   const fetchUserAndSubscription = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -43,7 +44,7 @@ export default function SubscribePage() {
     const res = await fetch("/api/subscribe", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: user.email, userId: user.id }),
+      body: JSON.stringify({ email: user.email, userId: user.id, inviteCode: inviteCode.trim() || null }),
     });
     const data = await res.json();
     setLoading(false);
@@ -60,12 +61,12 @@ export default function SubscribePage() {
       alert("ログインが必要です。");
       return;
     }
-    if (!confirm("本当にサブスクリプションリプションを解約しますか？\n\n" +
-    "※解約日になると、my単語帳の登録件数が200件を超えている場合、" +
-    "古い単語から自動的に削除されます。")) return;
+    if (!confirm("本当にサブスクリプションを解約しますか？\n\n" +
+      "※解約日になると、my単語帳の登録件数が200件を超えている場合、" +
+      "古い単語から自動的に削除されます。")) return;
 
     setLoading(true);
-    
+
     const res = await fetch("/api/cancel", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -105,20 +106,20 @@ export default function SubscribePage() {
               <li>・AIアシスタント機能：なし</li>
             </ul>
             {isSubscribed ? (
-            <button
-              disabled
-              className="w-full bg-gray-200 text-gray-500 py-3 rounded-lg font-medium cursor-not-allowed"
-            >
-              スタンダードプラン加入中
-            </button>
-          ) : (
-            <button
-              disabled
-              className="w-full bg-gray-200 text-gray-500 py-3 rounded-lg font-medium cursor-not-allowed"
-            >
-              現在利用中
-            </button>
-          )}
+              <button
+                disabled
+                className="w-full bg-gray-200 text-gray-500 py-3 rounded-lg font-medium cursor-not-allowed"
+              >
+                スタンダードプラン加入中
+              </button>
+            ) : (
+              <button
+                disabled
+                className="w-full bg-gray-200 text-gray-500 py-3 rounded-lg font-medium cursor-not-allowed"
+              >
+                現在利用中
+              </button>
+            )}
           </div>
 
           {/* Standard Plan */}
@@ -133,51 +134,69 @@ export default function SubscribePage() {
               <li>・単語,例文検索：利用可能</li>
               <li>・AIアシスタント機能：利用可能</li>
             </ul>
-            {isSubscribed ? (
-            <div className="p-5 bg-green-50 border border-green-200 rounded-xl">
-              <div className="flex items-center text-green-700 font-medium text-lg mb-2">
-                <CheckCircle className="w-5 h-5 mr-2" />
-                現在サブスクリプション加入中です
-              </div>
 
-              {cancelAtPeriodEnd && currentPeriodEnd ? (
-                <p className="text-gray-700 mt-2">
-                  🔔 解約済みです。現在のプランは{" "}
-                  <strong className="text-gray-900">
-                    {currentPeriodEnd.toLocaleDateString()}
-                  </strong>{" "}
-                  まで有効です。
-                </p>
-              ) : (
-                <div className="mt-4">
-                  <p className="text-gray-700 mb-3">
-                    ご契約中のプランを解約する場合は以下のボタンを押してください。
-                  </p>
-                  <button
-                    className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-white font-medium transition
-                      ${loading
-                        ? "bg-red-400 cursor-not-allowed"
-                        : "bg-red-600 hover:bg-red-700"}
-                    `}
-                    onClick={cancelSubscription}
-                    disabled={loading}
-                  >
-                    {loading ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        解約処理中…
-                      </>
-                    ) : (
-                      <>
-                        <XCircle className="w-4 h-4" />
-                        サブスクリプションを解約する
-                      </>
-                    )}
-                  </button>
+            {/* 招待コード入力欄 */}
+            {!isSubscribed && (
+              <div className="mb-4">
+                <label htmlFor="inviteCode" className="block text-left text-gray-700 mb-2 font-medium">
+                  招待コード（任意）
+                </label>
+                <input
+                  type="text"
+                  id="inviteCode"
+                  value={inviteCode}
+                  onChange={(e) => setInviteCode(e.target.value)}
+                  placeholder="招待コードを入力"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+              </div>
+            )}
+
+            {isSubscribed ? (
+              <div className="p-5 bg-green-50 border border-green-200 rounded-xl">
+                <div className="flex items-center text-green-700 font-medium text-lg mb-2">
+                  <CheckCircle className="w-5 h-5 mr-2" />
+                  現在サブスクリプション加入中です
                 </div>
-              )}
-            </div>
-          ) : (
+
+                {cancelAtPeriodEnd && currentPeriodEnd ? (
+                  <p className="text-gray-700 mt-2">
+                    🔔 解約済みです。現在のプランは{" "}
+                    <strong className="text-gray-900">
+                      {currentPeriodEnd.toLocaleDateString()}
+                    </strong>{" "}
+                    まで有効です。
+                  </p>
+                ) : (
+                  <div className="mt-4">
+                    <p className="text-gray-700 mb-3">
+                      ご契約中のプランを解約する場合は以下のボタンを押してください。
+                    </p>
+                    <button
+                      className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-white font-medium transition
+                        ${loading
+                          ? "bg-red-400 cursor-not-allowed"
+                          : "bg-red-600 hover:bg-red-700"}
+                      `}
+                      onClick={cancelSubscription}
+                      disabled={loading}
+                    >
+                      {loading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          解約処理中…
+                        </>
+                      ) : (
+                        <>
+                          <XCircle className="w-4 h-4" />
+                          サブスクリプションを解約する
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
               <button
                 className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-white font-medium transition
                   ${loading
@@ -199,12 +218,10 @@ export default function SubscribePage() {
                   </>
                 )}
               </button>
-          )}
+            )}
           </div>
         </div>
       </section>
-
-      
     </div>
   );
 }
