@@ -24,24 +24,24 @@ type SubscriptionCompleted = {
           name: string;
         };
       };
+      current_period_end: number;
     }[];
   };
 };
 
-type SubscriptionDeleted = {
-  id: string;
-};
+type SubscriptionDeleted = { id: string };
 
 type SubscriptionUpdated = {
   id: string;
   cancel_at_period_end: boolean;
   current_period_end: number | null;
+  items?: { data: { current_period_end: number }[] };
+  trial_end?: number | null;
 };
 
 // ✅ Webhook エンドポイント
 export async function POST(req: NextRequest) {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-
   if (!webhookSecret) {
     console.error("❌ Missing STRIPE_WEBHOOK_SECRET environment variable");
     return NextResponse.json({ error: "Webhook secret not set" }, { status: 500 });
@@ -49,7 +49,6 @@ export async function POST(req: NextRequest) {
 
   const body = await req.text();
   const signature = req.headers.get("stripe-signature");
-
   if (!signature) {
     console.error("❌ Missing Stripe signature header");
     return NextResponse.json({ error: "Missing signature" }, { status: 400 });
@@ -57,7 +56,6 @@ export async function POST(req: NextRequest) {
 
   let event: Stripe.Event;
 
-  // ✅ シグネチャ検証
   try {
     event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
     console.log(`✅ Webhook event received: ${event.type}`);
@@ -74,11 +72,8 @@ export async function POST(req: NextRequest) {
       case "checkout.session.completed": {
         console.log("🆕 Event: checkout.session.completed");
         const session = event.data.object as Stripe.Checkout.Session;
-
         const subscriptionId = session.subscription as string;
         const customerId = session.customer as string;
-
-        console.log("➡️ SubID:", subscriptionId, "CustomerID:", customerId);
 
         const stripeSub = await stripe.subscriptions.retrieve(subscriptionId, {
           expand: ["items.data.price.product"],
@@ -87,24 +82,20 @@ export async function POST(req: NextRequest) {
         const subData = stripeSub as unknown as SubscriptionCompleted;
         const productName = subData.items.data[0]?.price?.product?.name ?? "UNKNOWN";
 
-        console.log(`📦 Product: ${productName}`);
+        console.log("➡️ SubID:", subscriptionId, "CustomerID:", customerId, "Product:", productName);
 
-        const { data: existing, error: fetchError } = await supabase
+        const { data: existing } = await supabase
           .from("subscriptions")
           .select("*")
           .eq("stripe_customer", customerId)
           .single();
-
-        if (fetchError) {
-          console.error("⚠️ Supabase fetch error:", fetchError.message);
-        }
 
         const updateData = {
           stripe_subscription: subscriptionId,
           plan: productName,
           is_active: true,
           cancel_at_period_end: null,
-          current_period_end: null,
+          current_period_end: new Date(subData.items.data[0]?.current_period_end * 1000) ?? null,
           updated_at: new Date().toISOString(),
         };
 
@@ -120,7 +111,6 @@ export async function POST(req: NextRequest) {
             created_at: new Date().toISOString(),
           });
         }
-
         break;
       }
 
@@ -132,27 +122,29 @@ export async function POST(req: NextRequest) {
         const updatedSub = event.data.object as Stripe.Subscription;
         const subData = updatedSub as unknown as SubscriptionUpdated;
 
+        // 安全に current_period_end を取得
+        const currentPeriodEnd =
+          subData.current_period_end ??
+          subData.items?.data[0]?.current_period_end ??
+          subData.trial_end ??
+          null;
+
         const cancelAtPeriodEnd = subData.cancel_at_period_end;
-        const current_period_end = subData.current_period_end
-          ? new Date(subData.current_period_end * 1000)
-          : null;
 
         console.log("🗓️ Update Info:", {
           id: subData.id,
           cancelAtPeriodEnd,
-          current_period_end,
+          currentPeriodEnd,
         });
 
-        const { error: updateError } = await supabase
+        await supabase
           .from("subscriptions")
           .update({
             cancel_at_period_end: cancelAtPeriodEnd,
-            current_period_end,
+            current_period_end: currentPeriodEnd ? new Date(currentPeriodEnd * 1000) : null,
             updated_at: new Date().toISOString(),
           })
           .eq("stripe_subscription", subData.id);
-
-        if (updateError) console.error("⚠️ Supabase update error:", updateError.message);
 
         break;
       }
@@ -166,17 +158,11 @@ export async function POST(req: NextRequest) {
         const subData = deletedSub as unknown as SubscriptionDeleted;
         const subscriptionId = subData.id;
 
-        console.log("🧾 Deleting subscription:", subscriptionId);
-
-        const { data: existing, error: fetchError } = await supabase
+        const { data: existing } = await supabase
           .from("subscriptions")
           .select("user_id")
           .eq("stripe_subscription", subscriptionId)
           .single();
-
-        if (fetchError) {
-          console.error("⚠️ Supabase fetch error:", fetchError.message);
-        }
 
         if (!existing) {
           console.warn("⚠️ No existing record found for deletion");
