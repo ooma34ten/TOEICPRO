@@ -87,8 +87,6 @@ export default function ProgressPage() {
           id,
           user_id,
           word_id,
-          correct_count,
-          incorrect_count,
           registered_at,
           words_master (id, word),
           user_word_history (is_correct, answered_at)
@@ -97,7 +95,6 @@ export default function ProgressPage() {
         .order("registered_at", { ascending: true });
 
       if (error) throw error;
-
       if (!data) {
         setWords([]);
         return;
@@ -107,8 +104,6 @@ export default function ProgressPage() {
         id: string;
         user_id: string;
         word_id: string;
-        correct_count: number | null;
-        incorrect_count: number | null;
         registered_at: string;
         words_master: WordMaster | WordMaster[] | null;
         user_word_history: UserWordHistory[] | null;
@@ -118,8 +113,8 @@ export default function ProgressPage() {
         id: w.id,
         user_id: w.user_id,
         word_id: w.word_id,
-        correct_count: w.correct_count ?? 0,
-        incorrect_count: w.incorrect_count ?? 0,
+        correct_count: w.user_word_history?.filter((h) => h.is_correct).length ?? 0,
+        incorrect_count: w.user_word_history?.filter((h) => !h.is_correct).length ?? 0,
         registered_at: w.registered_at,
         words_master: Array.isArray(w.words_master)
           ? w.words_master[0]
@@ -148,6 +143,7 @@ export default function ProgressPage() {
       setLoading(false);
     }
   };
+
 
   /* ===== データ集計 ===== */
   const { aggregatedDailyData, aggregatedRegisterData } = useMemo(() => {
