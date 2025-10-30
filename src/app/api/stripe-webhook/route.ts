@@ -155,38 +155,51 @@ export async function POST(req: NextRequest) {
       case "customer.subscription.deleted": {
         console.log("❌ Event: customer.subscription.deleted");
         const deletedSub = event.data.object as Stripe.Subscription;
-        const subData = deletedSub as unknown as SubscriptionDeleted;
-        const subscriptionId = subData.id;
+        const subscriptionId = deletedSub.id;
 
-        const { data: existing } = await supabase
+        const { data: existing, error: fetchError } = await supabase
           .from("subscriptions")
           .select("user_id")
           .eq("stripe_subscription", subscriptionId)
-          .single();
+          .maybeSingle();
 
-        if (!existing) {
-          console.warn("⚠️ No existing record found for deletion");
+        if (fetchError) {
+          console.error("⚠️ Failed to fetch subscription record:", fetchError.message);
+          break;
+        }
+
+        if (!existing || !existing.user_id) {
+          console.warn("⚠️ No user_id found for this subscription");
           break;
         }
 
         const userId = existing.user_id;
 
-        // 古い単語削除ロジック
-        const { data: words } = await supabase
+        // ✅ ユーザーの単語取得
+        const { data: words, error: wordsError } = await supabase
           .from("user_words")
-          .select("id, created_at")
+          .select("id, registered_at")
           .eq("user_id", userId)
-          .order("created_at", { ascending: false });
+          .order("registered_at", { ascending: false });
+
+        if (wordsError) {
+          console.error("⚠️ Failed to fetch user words:", wordsError.message);
+          break;
+        }
 
         if (words && words.length > 200) {
           const oldIds = words.slice(200).map((w) => w.id);
           console.log(`🧹 Deleting ${oldIds.length} old words`);
 
-          await supabase.from("user_words").delete().in("id", oldIds);
+          // ✅ 関連履歴削除 → 本体削除の順番に変更
           await supabase.from("user_word_history").delete().in("user_word_id", oldIds);
+          await supabase.from("user_words").delete().in("id", oldIds);
+        } else {
+          console.log("ℹ️ Less than 200 words, no cleanup needed.");
         }
 
-        await supabase
+        // ✅ サブスクリプション無効化
+        const { error: updateError } = await supabase
           .from("subscriptions")
           .update({
             is_active: false,
@@ -198,9 +211,15 @@ export async function POST(req: NextRequest) {
           })
           .eq("stripe_subscription", subscriptionId);
 
-        console.log("🧾 Subscription record deactivated successfully");
+        if (updateError) {
+          console.error("⚠️ Failed to deactivate subscription:", updateError.message);
+        } else {
+          console.log("🧾 Subscription record deactivated successfully");
+        }
+
         break;
       }
+
 
       // ------------------------------------------------------
       // ⚙️ 未対応イベント

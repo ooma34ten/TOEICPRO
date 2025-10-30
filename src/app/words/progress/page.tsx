@@ -367,11 +367,12 @@ function ChartBox({
   children: React.ReactNode;
 }) {
   return (
-    <div className="bg-white p-4 rounded-2xl shadow-md hover:shadow-lg transition-all mb-6">
+    <div className="bg-white p-3 sm:p-4 rounded-2xl shadow-md hover:shadow-lg transition-all mb-6 w-full max-w-[900px] mx-auto">
       <h2 className="text-lg font-semibold mb-3 text-gray-700 border-l-4 border-indigo-400 pl-2">
         {title}
       </h2>
-      <div className="h-64">{children}</div>
+      <div className="h-[300px] sm:h-[400px] md:h-[500px]">{children}</div>
     </div>
   );
 }
+

@@ -47,7 +47,7 @@ export default function InviteManager() {
     const code = generateCode(8); // 8文字の招待コード
     setLoading(true);
 
-    const { data, error } = await supabase.from("invites").insert([
+    const { error } = await supabase.from("invites").insert([
       {
         code,
         inviter_user_id: userIdInput,
