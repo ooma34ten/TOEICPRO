@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/Header";
 import WordSidebar from "@/components/WordSidebar";
+import AIQuestionSidebar from "@/components/AIQuestionSidebar";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
@@ -19,6 +20,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Header />
         <main className="max-w-6xl mx-auto p-6 min-h-screen">{children}</main>
         <WordSidebar />
+        <AIQuestionSidebar /> {/* 全ページ共通で表示 */}
       </body>
     </html>
   );
