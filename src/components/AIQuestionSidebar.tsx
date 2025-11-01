@@ -38,7 +38,7 @@ export default function AIQuestionSidebar() {
         className="fixed right-6 bottom-24 z-50 flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-full shadow-lg hover:bg-indigo-700 transition"
       >
         {isOpen ? <Minus size={18} /> : <MessageCircle size={18} />}
-        {isOpen ? "閉じる" : "AI質問"}
+        {isOpen ? "閉じる" : "AIアシスタント"}
       </button>
 
       <div

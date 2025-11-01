@@ -1,7 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronUp } from "lucide-react";
+import { supabase } from "@/lib/supabaseClient";
+import { getImportanceClasses } from "@/lib/utils";
+import { Session } from "@supabase/supabase-js";
 
 type TOEICExample = {
   text: string;
@@ -17,16 +21,61 @@ type TOEICAnswer = {
 };
 
 export default function TOEICAIPage() {
+  const router = useRouter();
+
+  const [session, setSession] = useState<Session | null>(null);
+  const [loadingSession, setLoadingSession] = useState(true);
+
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState<TOEICAnswer | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [expanded, setExpanded] = useState<Record<number, boolean>>({});
+  const [debugLogs, setDebugLogs] = useState<string[]>([]);
 
-  const toggleExample = (idx: number) => setExpanded(prev => ({ ...prev, [idx]: !prev[idx] }));
+  const logDebug = (msg: string, data?: any) => {
+    console.log(msg, data);
+    setDebugLogs(prev => [...prev, msg + (data ? `: ${JSON.stringify(data)}` : "")]);
+  };
+
+  useEffect(() => {
+    (async () => {
+      setLoadingSession(true);
+      const { data, error } = await supabase.auth.getSession();
+      logDebug("supabase.auth.getSession()", { data, error });
+
+      if (error) logDebug("セッション取得エラー", error);
+
+      if (!data.session) {
+        logDebug("未ログイン → /auth/login にリダイレクト");
+        router.replace("/auth/login");
+        return;
+      }
+
+      setSession(data.session);
+      setLoadingSession(false);
+      logDebug("ログイン済みユーザー", data.session.user);
+    })();
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      logDebug("AuthStateChange event", session);
+      setSession(session);
+    });
+
+    return () => listener.subscription.unsubscribe();
+  }, [router]);
+
+  const toggleExample = (idx: number) =>
+    setExpanded(prev => ({ ...prev, [idx]: !prev[idx] }));
 
   const handleSubmit = async () => {
     if (!question) return;
+    if (!session?.user) {
+      setError("ログインしていないと利用できません");
+      logDebug("handleSubmit: session.user が null", session);
+      return;
+    }
+
     setLoading(true);
     setError("");
     setAnswer(null);
@@ -36,18 +85,23 @@ export default function TOEICAIPage() {
       const res = await fetch("/api/toeic-ai", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question }),
+        body: JSON.stringify({ question, userId: session.user.id }),
       });
       const data = await res.json();
+      logDebug("APIレスポンス", data);
 
       if (res.ok) setAnswer(data.answer as TOEICAnswer);
       else setError(data.error || "エラーが発生しました");
-    } catch {
+    } catch (err) {
       setError("通信エラー");
+      logDebug("通信エラー", err);
     } finally {
       setLoading(false);
     }
   };
+
+  if (loadingSession)
+    return <p className="text-center text-gray-500">セッション確認中...</p>;
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
@@ -72,9 +126,25 @@ export default function TOEICAIPage() {
 
       {loading && (
         <div className="flex items-center gap-2 mt-4 text-gray-500 text-center justify-center">
-          <svg className="animate-spin h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+          <svg
+            className="animate-spin h-5 w-5 text-blue-600"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            />
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+            />
           </svg>
           <span>AIが回答を作成中です...</span>
         </div>
@@ -93,7 +163,10 @@ export default function TOEICAIPage() {
 
           {answer.examples?.map((ex, idx) => (
             <div key={idx} className="p-4 bg-yellow-50 rounded-md border-l-4 border-yellow-400">
-              <div className="flex justify-between items-center cursor-pointer" onClick={() => toggleExample(idx)}>
+              <div
+                className="flex justify-between items-center cursor-pointer"
+                onClick={() => toggleExample(idx)}
+              >
                 <span className="font-medium">{ex.text}</span>
                 {expanded[idx] ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
               </div>
@@ -102,7 +175,11 @@ export default function TOEICAIPage() {
                   {ex.translation && <p className="text-gray-600">訳: {ex.translation}</p>}
                   {ex.point && <p className="text-green-600">TOEICポイント: {ex.point}</p>}
                   {ex.importance && (
-                    <span className="inline-block px-2 py-1 text-xs font-semibold bg-red-200 text-red-800 rounded">
+                    <span
+                      className={`inline-block px-2 py-1 text-xs font-semibold rounded ${getImportanceClasses(
+                        ex.importance
+                      )}`}
+                    >
                       重要度: {ex.importance}
                     </span>
                   )}
@@ -111,7 +188,7 @@ export default function TOEICAIPage() {
             </div>
           ))}
 
-          {answer.tips?.length ? (
+          {answer.tips?.length && (
             <div className="p-4 bg-green-50 rounded-md border-l-4 border-green-400">
               <h3 className="font-semibold mb-1">学習のコツ</h3>
               <ul className="list-disc ml-6">
@@ -120,7 +197,7 @@ export default function TOEICAIPage() {
                 ))}
               </ul>
             </div>
-          ) : null}
+          )}
         </div>
       )}
     </div>

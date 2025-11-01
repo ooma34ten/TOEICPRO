@@ -29,8 +29,6 @@ type SubscriptionCompleted = {
   };
 };
 
-type SubscriptionDeleted = { id: string };
-
 type SubscriptionUpdated = {
   id: string;
   cancel_at_period_end: boolean;
