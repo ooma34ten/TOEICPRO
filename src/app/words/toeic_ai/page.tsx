@@ -35,7 +35,7 @@ export default function TOEICAIPage() {
   useEffect(() => {
     (async () => {
       setLoadingSession(true);
-      const { data, error } = await supabase.auth.getSession();
+      const { data } = await supabase.auth.getSession();
 
 
       if (!data.session) {
@@ -79,7 +79,7 @@ export default function TOEICAIPage() {
 
       if (res.ok) setAnswer(data.answer as TOEICAnswer);
       else setError(data.error || "エラーが発生しました");
-    } catch (err) {
+    } catch (error) {
       setError("通信エラー");
     } finally {
       setLoading(false);
