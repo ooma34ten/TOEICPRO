@@ -31,34 +31,23 @@ export default function TOEICAIPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [expanded, setExpanded] = useState<Record<number, boolean>>({});
-  const [debugLogs, setDebugLogs] = useState<string[]>([]);
-
-  const logDebug = (msg: string, data?: any) => {
-    console.log(msg, data);
-    setDebugLogs(prev => [...prev, msg + (data ? `: ${JSON.stringify(data)}` : "")]);
-  };
 
   useEffect(() => {
     (async () => {
       setLoadingSession(true);
       const { data, error } = await supabase.auth.getSession();
-      logDebug("supabase.auth.getSession()", { data, error });
 
-      if (error) logDebug("セッション取得エラー", error);
 
       if (!data.session) {
-        logDebug("未ログイン → /auth/login にリダイレクト");
         router.replace("/auth/login");
         return;
       }
 
       setSession(data.session);
       setLoadingSession(false);
-      logDebug("ログイン済みユーザー", data.session.user);
     })();
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      logDebug("AuthStateChange event", session);
       setSession(session);
     });
 
@@ -72,7 +61,6 @@ export default function TOEICAIPage() {
     if (!question) return;
     if (!session?.user) {
       setError("ログインしていないと利用できません");
-      logDebug("handleSubmit: session.user が null", session);
       return;
     }
 
@@ -88,13 +76,11 @@ export default function TOEICAIPage() {
         body: JSON.stringify({ question, userId: session.user.id }),
       });
       const data = await res.json();
-      logDebug("APIレスポンス", data);
 
       if (res.ok) setAnswer(data.answer as TOEICAnswer);
       else setError(data.error || "エラーが発生しました");
     } catch (err) {
       setError("通信エラー");
-      logDebug("通信エラー", err);
     } finally {
       setLoading(false);
     }
