@@ -32,7 +32,7 @@ export default function TOEICAIPage() {
   const [error, setError] = useState("");
   const [expanded, setExpanded] = useState<Record<number, boolean>>({});
 
-  // 質問フォーム・回答をリセットする関数
+  // フォームと回答をリセット
   const resetState = () => {
     setQuestion("");
     setAnswer(null);
@@ -41,25 +41,28 @@ export default function TOEICAIPage() {
   };
 
   useEffect(() => {
+    // 初回セッション確認
     (async () => {
       const { data } = await supabase.auth.getSession();
+
       if (!data.session) {
+        setLoadingSession(false);
         router.replace("/auth/login");
         return;
       }
+
       setSession(data.session);
       setLoadingSession(false);
     })();
 
+    // セッション変更時のリスナー
     const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession);
 
-      // セッションが切れた（ログアウト）場合はリセットしてログインページへ
       if (!newSession) {
         resetState();
         router.replace("/auth/login");
       } else {
-        // ログインした場合もフォームをリセット
         resetState();
       }
     });
@@ -87,6 +90,7 @@ export default function TOEICAIPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question, userId: session.user.id }),
       });
+
       const data = await res.json();
       if (res.ok) setAnswer(data.answer as TOEICAnswer);
       else setError(data.error || "エラーが発生しました");
