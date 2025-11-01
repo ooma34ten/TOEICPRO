@@ -64,7 +64,7 @@ export default function UnifiedSidebar() {
     {
       type: "aiDictionary",
       icon: isOpen["aiDictionary"] ? <X size={22} className="text-white" /> : <BookOpen size={22} className="text-white" />,
-      title: "AI辞書アシスタント",
+      title: "単語登録",
       content: (
         <div className="space-y-6">
           <div className="bg-white/70 rounded-xl border p-4 shadow-inner">
