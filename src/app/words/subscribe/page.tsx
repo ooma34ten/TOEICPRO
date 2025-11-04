@@ -100,13 +100,20 @@ export default function SubscribePage() {
             <h3 className="text-xl font-bold mb-4">無料プラン</h3>
             <p className="text-3xl font-bold mb-6">¥0 <span className="text-base text-gray-500">/月</span></p>
             <ul className="space-y-2">
-              <li className="flex items-center gap-2">✔ my単語帳：200単語まで</li>
+              <li className="flex items-center gap-2">△ my単語帳：200単語まで</li>
               <li className="flex items-center gap-2">✔ 単語検索：利用可能</li>
-              <li className="flex items-center gap-2">✖ AIアシスタント：利用不可</li>
+              <li className="flex items-center gap-2">△ AIアシスタント：制限あり</li>
             </ul>
+            {!isSubscribed && (
             <button disabled className="w-full mt-6 py-3 bg-gray-200 text-gray-500 rounded-xl font-medium cursor-not-allowed">
               現在利用中
             </button>
+            )}
+            {isSubscribed && (
+              <button disabled className="w-full mt-6 py-3 bg-gray-200 text-gray-500 rounded-xl font-medium cursor-not-allowed">
+              サブスクリプション加入中
+            </button>
+            )}
           </div>
 
           {/* ====== Standard Plan ====== */}
@@ -118,9 +125,9 @@ export default function SubscribePage() {
             <p className="text-3xl font-bold mb-6">¥200 <span className="text-base text-white/80">/月</span></p>
 
             <ul className="space-y-2 mb-4">
-              <li className="flex items-center gap-2"><CheckCircle className="text-green-300" /> my単語帳 無制限</li>
-              <li className="flex items-center gap-2"><CheckCircle className="text-green-300" /> 単語・例文検索 利用可能</li>
-              <li className="flex items-center gap-2"><CheckCircle className="text-green-300" /> AIアシスタント利用可能</li>
+              <li className="flex items-center gap-2"><CheckCircle className="text-green-300" /> my単語帳：無制限</li>
+              <li className="flex items-center gap-2"><CheckCircle className="text-green-300" /> 単語検索：利用可能</li>
+              <li className="flex items-center gap-2"><CheckCircle className="text-green-300" /> AIアシスタント：無制限</li>
             </ul>
 
             {/* 招待コード入力欄 & 特典表示 */}
