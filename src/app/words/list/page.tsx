@@ -6,28 +6,7 @@ import { speakText } from "@/lib/speech";
 import { getImportanceClasses, getPartOfSpeechClasses } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 
-// 単語マスター型
-export interface WordsMaster {
-  id: string;
-  word: string;
-  part_of_speech: string | null;
-  meaning: string | null;
-  example_sentence: string | null;
-  translation: string | null;
-  importance: string | null;
-  registered_at: string;
-}
-
-// ユーザー単語型（Supabaseから取得する型）
-export interface UserWordRowSimple {
-  id: string;
-  word_id: string;
-  correct_count: number;
-  registered_at: string;
-  words_master: WordsMaster | null;
-}
-
-// UIで扱う単語型
+// UI用単語型
 export interface Word {
   id: string;
   registered_at: string;
@@ -38,8 +17,8 @@ export interface Word {
   example_sentence: string;
   translation: string;
   importance: string;
-  wrong: number; // 🔹 誤答数を追加
-  successRate: number; // 🔹 正解確率を追加（0〜1）
+  wrong: number;
+  successRate: number;
 }
 
 export default function WordListPage() {
@@ -53,11 +32,11 @@ export default function WordListPage() {
   const [selectedImportance, setSelectedImportance] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [showModal, setShowModal] = useState(false);
-
-  const router = useRouter();
   const [sortOption, setSortOption] = useState<
     "newest" | "oldest" | "word_asc" | "word_desc" | "correct_desc" | "correct_asc" | "successRate_desc" | "successRate_asc"
-   >("newest");
+  >("newest");
+
+  const router = useRouter();
 
   // ログインチェック
   useEffect(() => {
@@ -68,95 +47,63 @@ export default function WordListPage() {
     })();
   }, [router]);
 
-  // 単語取得
+  // 単語取得（RPC版）
   useEffect(() => {
     const fetchWords = async () => {
       setLoading(true);
       setError(null);
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
+      const { data: userData, error: userErr } = await supabase.auth.getUser();
+      if (userErr || !userData.user) {
         setError("ログインが必要です");
         setLoading(false);
         return;
       }
 
-      const { data, error } = await supabase
-        .from("user_words")
-        .select(
-          `
-          id,
-          word_id,
-          correct_count,
-          registered_at,
-          words_master!inner (
-            id,
-            word,
-            part_of_speech,
-            meaning,
-            example_sentence,
-            translation,
-            importance,
-            registered_at
-          )
-        `
-        ) as { data: UserWordRowSimple[] | null; error: null | { message: string } };
+      // RPCで集計済み単語データ取得
+      const { data: rpcData, error: rpcErr } = await supabase
+        .rpc("get_user_word_stats", { p_user_id: userData.user.id });
 
-      if (error) {
-        setError(error.message);
+      if (rpcErr) {
+        setError(rpcErr.message);
         setLoading(false);
         return;
       }
 
-      // 🔹 user_word_history も取得（成功率計算用）
-      const { data: historyData, error: histErr } = await supabase
-        .from("user_word_history")
-        .select("user_word_id, is_correct")
-        .eq("user_id", user.id);
-
-      if (histErr) {
-        setError(histErr.message);
-        setLoading(false);
-        return;
+      interface UserWordStatsRPC {
+        user_word_id: string;
+        registered_at: string;
+        word: string | null;
+        part_of_speech: string | null;
+        meaning: string | null;
+        example_sentence: string | null;
+        translation: string | null;
+        importance: string | null;
+        total: number | null;
+        correct: number | null;
       }
 
-       // 🔹 単語ごとの履歴集計
-      const stats = new Map<string, { total: number; correct: number }>();
-      (historyData ?? []).forEach((h) => {
-        const s = stats.get(h.user_word_id) ?? { total: 0, correct: 0 };
-        s.total += 1;
-        if (h.is_correct) s.correct += 1;
-        stats.set(h.user_word_id, s);
-      });
 
-
-      // 配列化の不整合を排除して単純化
-      const formatted: Word[] =
-      (data ?? []).map((item) => {
-        const wm = item.words_master;
-        const stat = stats.get(item.id);
-        const total = stat?.total ?? 0;
-        const correct = stat?.correct ?? 0;
+      const formatted: Word[] = (rpcData ?? []).map((item: UserWordStatsRPC) => {
+        const total = item.total ?? 0;
+        const correct = item.correct ?? 0;
         const wrong = total - correct;
         const successRate = total > 0 ? correct / total : 0;
 
         return {
-          id: item.id,
+          id: item.user_word_id,
           registered_at: item.registered_at,
-          correct_count: correct, // ← ★ 履歴ベースに統一
-          word: wm?.word ?? "",
-          part_of_speech: wm?.part_of_speech ?? "",
-          meaning: wm?.meaning ?? "",
-          example_sentence: wm?.example_sentence ?? "",
-          translation: wm?.translation ?? "",
-          importance: wm?.importance ?? "",
+          correct_count: correct,
+          word: item.word ?? "",
+          part_of_speech: item.part_of_speech ?? "",
+          meaning: item.meaning ?? "",
+          example_sentence: item.example_sentence ?? "",
+          translation: item.translation ?? "",
+          importance: item.importance ?? "",
           wrong,
           successRate,
         };
-      }) ?? [];
-
+      });
 
       setWords(formatted);
       setFilteredWords(formatted);
@@ -166,10 +113,9 @@ export default function WordListPage() {
     fetchWords();
   }, []);
 
-  // フィルター & ソート
+  // フィルター＆ソート
   useEffect(() => {
     let filtered = [...words];
-
     if (search.trim() !== "") {
       const lower = search.trim().toLowerCase();
       filtered = filtered.filter(
@@ -179,11 +125,9 @@ export default function WordListPage() {
           w.translation.toLowerCase().includes(lower)
       );
     }
-
     if (selectedPart) filtered = filtered.filter((w) => w.part_of_speech === selectedPart);
     if (selectedImportance) filtered = filtered.filter((w) => w.importance === selectedImportance);
 
-    // ソート
     switch (sortOption) {
       case "newest":
         filtered.sort((a, b) => new Date(b.registered_at).getTime() - new Date(a.registered_at).getTime());
@@ -198,16 +142,16 @@ export default function WordListPage() {
         filtered.sort((a, b) => b.word.localeCompare(a.word));
         break;
       case "correct_desc":
-        filtered.sort((a, b) => (b.correct_count ?? 0) - (a.correct_count ?? 0));
+        filtered.sort((a, b) => b.correct_count - a.correct_count);
         break;
       case "correct_asc":
-        filtered.sort((a, b) => (a.correct_count ?? 0) - (b.correct_count ?? 0));
+        filtered.sort((a, b) => a.correct_count - b.correct_count);
         break;
       case "successRate_desc":
-        filtered.sort((a, b) => (b.successRate ?? 0) - (a.successRate ?? 0));
+        filtered.sort((a, b) => b.successRate - a.successRate);
         break;
       case "successRate_asc":
-        filtered.sort((a, b) => (a.successRate ?? 0) - (b.successRate ?? 0));
+        filtered.sort((a, b) => a.successRate - b.successRate);
         break;
     }
 
@@ -229,7 +173,6 @@ export default function WordListPage() {
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
-
   const toggleSelectAll = () => {
     if (selectedIds.length === filteredWords.length) setSelectedIds([]);
     else setSelectedIds(filteredWords.map((w) => w.id));
@@ -331,7 +274,7 @@ export default function WordListPage() {
               {w.translation && <div><p className="font-medium">訳:</p><p className="text-gray-700 break-words">{w.translation}</p></div>}
             </div>
             
-            {/* 🔹 正解率・誤答数の表示（色付き） */}
+            {/* 正解率・誤答数 */}
             <div className="mt-3 text-sm font-semibold">
               <p className="text-gray-700">正解数: {w.correct_count} 回 / 誤答数: {w.wrong} 回</p>
               <p>
@@ -349,7 +292,6 @@ export default function WordListPage() {
                 </span>
               </p>
             </div>
-
 
             <div className="flex items-center justify-between mt-4 text-xs text-gray-500">
               <div className="flex gap-2">

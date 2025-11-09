@@ -62,7 +62,7 @@ export default function ReviewPage() {
     })();
   }, [router]);
 
-  /** 単語データ取得 */
+  /** 単語データ取得（RPC 使用） */
   useEffect(() => {
     if (!userId) return;
 
@@ -71,112 +71,60 @@ export default function ReviewPage() {
         setLoading(true);
         setError(null);
 
-        // 🔹 user_words + words_master 取得
         const { data, error } = await supabase
-          .from("user_words")
-          .select(`
-            id,
-            user_id,
-            word_id,
-            registered_at,
-            words_master (
-              id,
-              word,
-              part_of_speech,
-              meaning,
-              example_sentence,
-              translation,
-              importance,
-              registered_at
-            )
-          `)
-          .eq("user_id", userId)
-          .order("registered_at", { ascending: false });
+          .rpc("get_user_word_stats", { p_user_id: userId });
 
         if (error) throw error;
 
-        const userWords: UserWord[] = (data ?? []).map((item) => {
-          const master = Array.isArray(item.words_master)
-            ? item.words_master[0]
-            : item.words_master;
+        interface UserWordStatsRPC {
+          user_word_id: string;
+          word_id: string;
+          registered_at: string;
+          word: string;
+          part_of_speech: string;
+          meaning: string;
+          example_sentence: string;
+          translation: string;
+          importance: string;
+          total: number;
+          correct: number;
+          wrong: number;
+          success_rate: number;
+          last_answered: string;
+        }
 
-          return {
-            id: String(item.id),
-            user_id: String(item.user_id),
-            word_id: String(item.word_id),
+
+        const userWords: UserWord[] = (data ?? []).map((item: UserWordStatsRPC) => ({
+          id: String(item.user_word_id),
+          user_id: userId,
+          word_id: String(item.word_id),
+          registered_at: String(item.registered_at),
+          total: item.total,
+          correct: item.correct,
+          wrong: item.wrong,
+          successRate: item.success_rate,
+          lastAnswered: item.last_answered,
+          words_master: {
+            id: String(item.word_id),
+            word: item.word,
+            part_of_speech: item.part_of_speech,
+            meaning: item.meaning,
+            example_sentence: item.example_sentence,
+            translation: item.translation,
+            importance: item.importance,
             registered_at: String(item.registered_at),
-            words_master: {
-              id: String(master.id),
-              word: String(master.word),
-              part_of_speech: String(master.part_of_speech),
-              meaning: String(master.meaning),
-              example_sentence: String(master.example_sentence),
-              translation: String(master.translation),
-              importance: String(master.importance),
-              registered_at: String(master.registered_at),
-            },
-          };
-        });
-
-        // 🔹 履歴取得
-        const { data: history } = await supabase
-          .from("user_word_history")
-          .select("user_word_id, answered_at, is_correct")
-          .eq("user_id", userId);
-
-        // 🔹 履歴集計
-        const historyStats = new Map<
-          string,
-          { total: number; correct: number; lastAnswered: string }
-        >();
-
-        history?.forEach((h) => {
-          const s = historyStats.get(h.user_word_id) ?? {
-            total: 0,
-            correct: 0,
-            lastAnswered: h.answered_at,
-          };
-          s.total += 1;
-          if (h.is_correct) s.correct += 1;
-          s.lastAnswered = h.answered_at;
-          historyStats.set(h.user_word_id, s);
-        });
-
-        const today = new Date();
-
-        const userWordsWithStats: UserWord[] = userWords.map((w) => {
-          const stat = historyStats.get(w.id);
-          const total = stat?.total ?? 0;
-          const correct = stat?.correct ?? 0;
-          const wrong = total - correct;
-          const successRate = total > 0 ? correct / total : 0;
-          const lastAnswered = stat?.lastAnswered ?? w.registered_at;
-
-          return {
-            ...w,
-            total,
-            correct,
-            wrong,
-            successRate,
-            lastAnswered,
-          };
-        });
+          },
+        }));
 
         // 🔹 復習対象判定
-        const reviewWords = userWordsWithStats.filter((w) => {
+        const today = new Date();
+        const reviewWords = userWords.filter((w) => {
           const lastReview = new Date(w.lastAnswered!);
           const diffDays = Math.floor(
             (today.getTime() - lastReview.getTime()) / (1000 * 60 * 60 * 24)
           );
 
-          const schedule: Record<number, number> = {
-            0: 0,
-            1: 1,
-            2: 3,
-            3: 7,
-            4: 14,
-            5: 30,
-          };
+          const schedule: Record<number, number> = { 0: 0, 1: 1, 2: 3, 3: 7, 4: 14, 5: 30 };
           const cappedCount = Math.min(w.correct ?? 0, 5);
           let nextReview = schedule[cappedCount];
 
