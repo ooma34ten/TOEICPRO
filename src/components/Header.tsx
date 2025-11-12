@@ -35,6 +35,7 @@ export default function Header() {
     { href: "/words/review", label: "復習モード" },
     { href: "/words/progress", label: "学習進捗" },
     { href: "/words/toeic_ai", label: "AIアシスタント" },
+    { href: "/words/ai_teacher", label: "AIティーチング" },
     { href: "/words/contact", label: "お問い合わせ" },
     { href: "/words/subscribe", label: "サブスクリプション" },
   ];

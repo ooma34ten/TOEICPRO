@@ -62,7 +62,7 @@ export async function POST(req: Request) {
       "summary": "質問の要点を1〜2文でまとめる",
       "examples": [
         {
-          "text": "例文または問題文",
+          "text": "例文または問題文(英語)",
           "translation": "日本語訳",
           "point": "文法や使い方の説明",
           "importance": "★★★★★",
@@ -124,6 +124,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ answer });
   } catch (err) {
     console.error(err);
-    return NextResponse.json({ error: "AI応答の解析に失敗しました" }, { status: 500 });
+    return NextResponse.json({ error: "質問内容を変更してください。（例：もう少し具体的に）" }, { status: 500 });
   }
 }

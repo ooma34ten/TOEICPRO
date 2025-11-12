@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
+import type { ReactElement } from "react";
 import {
   ComposedChart,
   Line,
@@ -278,13 +279,30 @@ function StatCard({ label, value, color }: { label: string; value: string | numb
   );
 }
 
-function ChartBox({ title, children }: { title: string; children: React.ReactNode }) {
+function ChartBox({ title, children }: { title: string; children: ReactElement }) {
   return (
-    <div className="bg-white p-3 sm:p-4 rounded-2xl shadow-md hover:shadow-lg transition-all mb-6 w-full max-w-[900px] mx-auto">
+    <div
+      className="
+        bg-white 
+        p-2 sm:p-4 
+        rounded-2xl 
+        shadow-md hover:shadow-lg 
+        transition-all mb-6 
+        w-[100vw] sm:w-full 
+        max-w-[900px] 
+        mx-auto 
+        -mx-6 sm:mx-auto
+      "
+    >
       <h2 className="text-lg font-semibold mb-3 text-gray-700 border-l-4 border-indigo-400 pl-2">
         {title}
       </h2>
-      <div className="h-[300px] sm:h-[400px] md:h-[500px]">{children}</div>
+
+      <div className="h-[250px] sm:h-[350px] md:h-[450px] lg:h-[500px]">
+        <ResponsiveContainer width="100%" height="100%" minWidth={320}>
+          {children}
+        </ResponsiveContainer>
+      </div>
     </div>
   );
 }
