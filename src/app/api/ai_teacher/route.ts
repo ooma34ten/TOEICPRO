@@ -64,7 +64,7 @@ export async function POST(req: Request) {
       const json: AiTeacherResponse = JSON.parse(jsonText);
       return NextResponse.json(json);
     } catch (err) {
-      return NextResponse.json({ error: "Failed to parse Gemini output", raw: jsonText });
+      return NextResponse.json({ err: "Failed to parse Gemini output", raw: jsonText });
     }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
