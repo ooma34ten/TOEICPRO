@@ -1,12 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
 
 export default function TOEICPage() {
   const [question, setQuestion] = useState<string>("");
   const [options, setOptions] = useState<string[]>([]);
-  const [answer, setAnswer] = useState<string>("");
+  const [answer, setAnswer] = useState<string>(""); // "A", "B", "C", "D"
   const [explanation, setExplanation] = useState<string>("");
   const [selected, setSelected] = useState<string>("");
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
@@ -26,27 +25,27 @@ export default function TOEICPage() {
     });
 
     const data = await res.json();
+
     setQuestion(data.question);
     setOptions(data.options);
-    setAnswer(data.answer);
-    setExplanation("");
+    setAnswer(data.answer);           
+    setExplanation(data.explanation); 
     setIsCorrect(null);
     setSelected("");
     setLoading(false);
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     const correct = selected === answer;
-    setIsCorrect(correct);
-    setExplanation(correct ? "✅ 正解！" : `❌ 不正解。正解は「${answer}」です。`);
 
-    await supabase.from("user_history").insert({
-      user_id: "demo-user",
-      question,
-      answer: selected,
-      is_correct: correct,
-      difficulty: 3,
-    });
+    setIsCorrect(correct);
+
+    if (correct) {
+      setExplanation("✅ 正解！\n\n" + explanation);
+    } else {
+      const correctWord = options[answer.charCodeAt(0) - 65]; // "A" → options[0]
+      setExplanation(`❌ 不正解。\n正解は「${correctWord}」です。\n\n${explanation}`);
+    }
   };
 
   return (
@@ -64,17 +63,21 @@ export default function TOEICPage() {
       {question && (
         <div className="space-y-4">
           <p className="text-lg">{question}</p>
-          {options.map((opt, i) => (
-            <button
-              key={i}
-              onClick={() => setSelected(opt)}
-              className={`block w-full text-left border p-2 rounded ${
-                selected === opt ? "bg-blue-100 border-blue-500" : ""
-              }`}
-            >
-              {String.fromCharCode(65 + i)}. {opt}
-            </button>
-          ))}
+
+          {options.map((opt, i) => {
+            const label = String.fromCharCode(65 + i);
+            return (
+              <button
+                key={i}
+                onClick={() => setSelected(label)}
+                className={`block w-full text-left border p-2 rounded ${
+                  selected === label ? "bg-blue-100 border-blue-500" : ""
+                }`}
+              >
+                {label}：{opt}
+              </button>
+            );
+          })}
 
           <button
             onClick={handleSubmit}
@@ -85,9 +88,7 @@ export default function TOEICPage() {
           </button>
 
           {isCorrect !== null && (
-            <p className="mt-4 text-base">
-              {explanation}
-            </p>
+            <p className="mt-4 text-base whitespace-pre-line">{explanation}</p>
           )}
         </div>
       )}

@@ -288,21 +288,25 @@ function ChartBox({ title, children }: { title: string; children: ReactElement }
         rounded-2xl 
         shadow-md hover:shadow-lg 
         transition-all mb-6 
-        w-[100vw] sm:w-full 
+        w-full
         max-w-[900px] 
-        mx-auto 
-        -mx-6 sm:mx-auto
+        mx-auto
       "
     >
       <h2 className="text-lg font-semibold mb-3 text-gray-700 border-l-4 border-indigo-400 pl-2">
         {title}
       </h2>
 
-      <div className="h-[250px] sm:h-[350px] md:h-[450px] lg:h-[500px]">
-        <ResponsiveContainer width="100%" height="100%" minWidth={320}>
-          {children}
-        </ResponsiveContainer>
+      {/* ⬇ スマホ時は横スクロール可能にする */}
+      <div className="overflow-x-auto">
+        {/* ⬇ グラフの最小幅を確保（スマホでも潰れない） */}
+        <div className="min-w-[600px] h-[250px] sm:h-[350px] md:h-[450px] lg:h-[500px]">
+          <ResponsiveContainer width="100%" height="100%">
+            {children}
+          </ResponsiveContainer>
+        </div>
       </div>
     </div>
   );
 }
+
