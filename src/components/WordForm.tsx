@@ -81,7 +81,7 @@ export default function WordForm({ onAdd }: WordFormProps) {
         const geminiData: { answer?: string } = await geminiRes.json();
 
         if (!geminiData.answer) {
-          setMsg("回答がありません");
+          setMsg("もう一度お試しください。もしくは別の単語でお願いします。");
           return;
         }
 

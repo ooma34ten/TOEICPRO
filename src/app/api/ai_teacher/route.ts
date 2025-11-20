@@ -1,73 +1,89 @@
 import { NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-
-// Geminiクライアント初期化
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-
-interface AiTeacherRequest {
-  estimatedScore: number;
-  weaknesses: string[];
-}
-
-interface AiTeacherResponse {
-  question: string;
-  options: string[];
-  answer: string; // "A", "B", "C", "D"
-  explanation: string;
-  partOfSpeech: string;
-  example: string;
-  importance: number;
-  synonyms: string[];
-}
 
 export async function POST(req: Request) {
   try {
-    const body: AiTeacherRequest = await req.json();
-    const { estimatedScore, weaknesses } = body;
+    const body = await req.json();
+    const { estimatedScore } = body;
 
     const prompt = `
-あなたはTOEIC講師です。
-ユーザーのレベルは約 ${estimatedScore} 点。
-苦手分野は ${weaknesses.join(", ")}。
-このユーザーに合ったTOEIC Part 5 の問題を1問作成し、
-日本語で解答し、
-以下のJSON形式で出力してください。
+あなたはプロのTOEIC講師です。
+
+以下のルールを厳守してください：
+
+1. JSON 以外の文章は一切書かない  
+2. code block（\`\`\`json など）を絶対に使わない  
+3. 必ず10問作る  
+4. 絶対に次の形式とキー名を守る
 
 {
-  "question": "...",
-  "options": ["A", "B", "C", "D"],
-  "answer": "A",
-  "explanation": "...",
-  "partOfSpeech": "...",
-  "example": "...",
-  "importance": 1〜5,
-  "synonyms": ["...", "..."]
+  "questions": [
+    {
+      "question": "...",
+      "translation": "...(解答後の表示用)",)",
+      "options": ["A", "B", "C", "D"],
+      "answer": "A||B||C||D",
+      "explanation": "...(日本語で)",
+      "partOfSpeech": "...(日本語で)",
+      "example": "...(日本語で)",
+      "importance": 1,
+      "synonyms": ["..."]
+    }
+  ]
 }
+
+ユーザーのレベルは ${estimatedScore} 点。
 `;
 
     const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
     const result = await model.generateContent(prompt);
 
-    let text = result.response.text();
-    console.log("📡 Gemini text response:", text);
-    text = text.replace(/```json/g, "").replace(/```/g, "").trim();
+    let text = result.response.text().trim();
 
-    // JSON 部分だけ抽出
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      return NextResponse.json({ error: "JSON 部分を抽出できませんでした", raw: text });
+    // ① code block を除去
+    text = text.replace(/```json/g, "").replace(/```/g, "");
+
+    // ② "questions": [ が含まれていない場合はエラー
+    if (!text.includes(`"questions"`)) {
+      return NextResponse.json({
+        error: "Gemini が JSON を返しませんでした",
+        raw: text
+      });
     }
 
-    const jsonText = jsonMatch[0];
+    // ③ JSON 部分だけを抽出（最も安全）
+    const firstBrace = text.indexOf("{");
+    const lastBrace = text.lastIndexOf("}");
+    const jsonText = text.slice(firstBrace, lastBrace + 1);
 
+    let json;
     try {
-      const json: AiTeacherResponse = JSON.parse(jsonText);
-      return NextResponse.json(json);
+      json = JSON.parse(jsonText);
     } catch (err) {
-      return NextResponse.json({ err: "Failed to parse Gemini output", raw: jsonText });
+      return NextResponse.json({
+        error: "JSON parse error",
+        raw: jsonText,
+        message: String(err)
+      });
     }
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: message || "Unknown server error" }, { status: 500 });
+
+    // ④ 必須形式チェック
+    if (!json.questions || !Array.isArray(json.questions)) {
+      return NextResponse.json({
+        error: "questions が存在しません",
+        raw: json
+      });
+    }
+
+    console.log("JSON parsed successfully:", json);
+
+    return NextResponse.json(json);
+
+  } catch (err) {
+    return NextResponse.json(
+      { error: String(err) },
+      { status: 500 }
+    );
   }
 }
