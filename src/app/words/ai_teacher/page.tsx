@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
 
 interface Question {
   question: string;
@@ -21,36 +22,100 @@ interface Result {
   weak: string[];
 }
 
+// スピナーコンポーネント
+const Spinner = () => (
+  <div className="flex justify-center items-center mt-4">
+    <div className="w-10 h-10 border-4 border-blue-400 border-dashed rounded-full animate-spin"></div>
+  </div>
+);
+
 export default function TOEICPage() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [result, setResult] = useState<Result | null>(null);
   const [loading, setLoading] = useState(false);
+  const [latestScore, setLatestScore] = useState<number | null>(null);
+  const [latestWeak, setLatestWeak] = useState<string[]>([]);
 
-  const userProfile = { estimatedScore: 450 };
+  const fetchLatestResult = async (userId: string) => {
+    try {
+      const res = await fetch("/api/get-latest-result", {
+        headers: { "x-user-id": userId },
+      });
+      const data = await res.json();
+      if (data.result) {
+        setLatestScore(data.result.predicted_score || 450);
+        setLatestWeak(data.result.weak_categories || []);
+      }
+      return data.result;
+    } catch (err) {
+      console.error("最新結果取得エラー:", err);
+      return null;
+    }
+  };
 
   const generateQuestions = async () => {
     setLoading(true);
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) throw new Error("ログインしていません");
+      const userId = userData.user.id;
 
-    const res = await fetch("/api/ai_teacher", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(userProfile),
-    });
+      const latestResult = await fetchLatestResult(userId);
 
-    const data = await res.json();
+      const userProfile = {
+        estimatedScore: latestResult?.predicted_score || 450,
+        weaknesses: latestResult?.weak_categories || [],
+      };
 
-    if (!data.questions || !Array.isArray(data.questions)) {
-      console.error("❌ questions が undefined", data);
-      setQuestions([]);
+      interface AiTeacherResponse {
+        questions: Question[];
+      }
+
+
+      const res = await fetch("/api/ai_teacher", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(userProfile),
+      });
+
+      const data: AiTeacherResponse = await res.json();
+
+      if (!data.questions || !Array.isArray(data.questions)) {
+        setQuestions([]);
+        setSelected([]);
+        setResult(null);
+        setLoading(false);
+        return;
+      }
+
+      // any を使わないバリデーション
+      const validQuestions = data.questions.filter((q): q is Question => {
+        return (
+          typeof q.question === "string" &&
+          Array.isArray(q.options) &&
+          q.options.every((opt) => typeof opt === "string") &&
+          typeof q.answer === "string" &&
+          typeof q.translation === "string" &&
+          typeof q.explanation === "string" &&
+          typeof q.partOfSpeech === "string" &&
+          typeof q.example === "string" &&
+          typeof q.importance === "number" &&
+          Array.isArray(q.synonyms)
+        );
+      });
+
+      setQuestions(validQuestions);
+      setSelected(Array(validQuestions.length).fill(""));
+      setResult(null);
+
+      // --- 略 ---
+
+    } catch (err) {
+      console.error("質問生成エラー:", err);
+    } finally {
       setLoading(false);
-      return;
     }
-
-    setQuestions(data.questions as Question[]);
-    setSelected(Array(data.questions.length).fill(""));
-    setResult(null);
-    setLoading(false);
   };
 
   const handleSelect = (qIndex: number, label: string) => {
@@ -59,111 +124,173 @@ export default function TOEICPage() {
     setSelected(newSelected);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     let correct = 0;
     const weakCategory: Record<string, number> = {};
 
     questions.forEach((q, i) => {
-      if (!selected[i]) return;
+      const sel = selected[i];
+      if (!sel) return;
 
-      const userWord = q.options[selected[i].charCodeAt(0) - 65];
+      const index = sel.charCodeAt(0) - 65;
+      const userWord = q.options[index];
       const isCorrect = userWord === q.answer;
+
       if (isCorrect) correct++;
 
       const cat = q.partOfSpeech || "other";
       if (!isCorrect) weakCategory[cat] = (weakCategory[cat] || 0) + 1;
     });
 
-    const accuracy = correct / questions.length;
-    const predictedScore = Math.round(userProfile.estimatedScore + (accuracy - 0.5) * 200);
+    const accuracy = questions.length > 0 ? correct / questions.length : 0;
+    const predictedScore = Math.min(
+      990,
+      Math.max(
+        0,
+        Math.round((result?.predictedScore || 450) + (accuracy - 0.5) * 200)
+      )
+    );
 
     const weak = Object.entries(weakCategory)
       .sort((a, b) => b[1] - a[1])
       .map(([cat]) => cat)
       .slice(0, 2);
 
-    setResult({ correct, accuracy, predictedScore, weak });
+    const finalResult: Result = { correct, accuracy, predictedScore, weak };
+    setResult(finalResult);
+
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) throw new Error("ログインしていません");
+
+      await fetch("/api/save_test_result", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: userData.user.id,
+          questions,
+          selected,
+          result: finalResult,
+        }),
+      });
+    } catch (err) {
+      console.error("結果保存エラー:", err);
+    }
   };
 
   return (
-    <div className="p-6 max-w-xl mx-auto">
-      <h1 className="text-2xl font-bold mb-4">TOEIC AIトレーナー（10問）</h1>
+    <div className="p-6 max-w-2xl mx-auto">
+      <h1 className="text-3xl font-bold mb-4 text-center">TOEIC AIトレーナー</h1>
+
+      {latestScore !== null && (
+        <div className="mb-4 p-4 border rounded bg-gray-50 shadow">
+          <p className="font-semibold text-lg">📘 現在の推定レベル</p>
+          <p className="mt-1">TOEIC推定スコア：<b>{latestScore}</b></p>
+          <p className="mt-1">
+            苦手分野：{latestWeak.length > 0 ? latestWeak.join(", ") : "なし"}
+          </p>
+        </div>
+      )}
 
       <button
         onClick={generateQuestions}
         disabled={loading}
-        className="bg-blue-600 text-white px-4 py-2 rounded mb-4"
+        className={`bg-blue-600 text-white px-6 py-3 rounded mb-2 hover:bg-blue-700 transition duration-200 shadow flex items-center justify-center ${
+          loading ? "opacity-60 cursor-not-allowed" : ""
+        }`}
       >
         {loading ? "生成中..." : "10問を作成"}
       </button>
 
-      {questions.length > 0 &&
-        questions.map((q, qi) => (
-          <div key={qi} className="mb-6 border p-4 rounded">
-            <p className="font-bold mb-2">{qi + 1}. {q.question}</p>
+      {/* ローディングスピナー */}
+      {loading && <Spinner />}
+      {loading && (
+        <p className="text-center mt-2 text-blue-500 font-semibold animate-pulse">
+          AIが問題を生成中です…
+        </p>
+      )}
 
+      {questions.map((q, qi) => (
+        <div
+          key={qi}
+          className="mb-6 p-4 border rounded shadow hover:shadow-lg transition duration-200"
+        >
+          <p className="font-bold mb-3">
+            {qi + 1}. {q.question}
+          </p>
+
+          <div className="flex flex-col gap-2">
             {q.options.map((opt, oi) => {
               const label = String.fromCharCode(65 + oi);
               const isSelected = selected[qi] === label;
-
               return (
                 <button
                   key={oi}
                   onClick={() => handleSelect(qi, label)}
-                  className={`block w-full text-left border p-2 mt-1 rounded
-                    ${isSelected ? "bg-blue-100 border-blue-500" : ""}`}
+                  className={`text-left border p-2 rounded transition duration-150 ${
+                    isSelected
+                      ? "bg-blue-100 border-blue-500 shadow-inner"
+                      : "hover:bg-gray-100"
+                  }`}
                 >
                   {label}. {opt}
                 </button>
               );
             })}
+          </div>
 
-           {selected[qi] && (
-              <div className="mt-2 p-2 border-l-4 rounded border-gray-200">
-                {/* 正誤 */}
-                <p className={`font-semibold mb-1 ${
+          {selected[qi] !== "" && (
+            <div className="mt-3 p-3 border-l-4 rounded border-gray-200 bg-gray-50 transition-all">
+              <p
+                className={`font-semibold mb-1 ${
                   q.options[selected[qi].charCodeAt(0) - 65] === q.answer
                     ? "text-green-600"
                     : "text-red-600"
-                }`}>
-                  {q.options[selected[qi].charCodeAt(0) - 65] === q.answer
-                    ? "✅ 正解"
-                    : `❌ 不正解`}
-                  {q.options[selected[qi].charCodeAt(0) - 65] !== q.answer &&
-                    <> (正解: <b>{q.answer}</b> あなたの答え: <b>{q.options[selected[qi].charCodeAt(0) - 65]}</b>)</>
-                  }
-                </p>
+                } cursor-pointer`}
+              >
+                {q.options[selected[qi].charCodeAt(0) - 65] === q.answer
+                  ? "✅ 正解"
+                  : `❌ 不正解 (正解: ${q.answer}, あなたの答え: ${
+                      q.options[selected[qi].charCodeAt(0) - 65]
+                    })`}
+              </p>
 
-                {/* 訳 */}
-                <p className="text-gray-700 mb-1">
-                  <span className="font-semibold">訳：</span>{q.translation}
-                </p>
+              <p className="text-gray-700 mb-1">
+                <span className="font-semibold">訳：</span>
+                {q.translation}
+              </p>
 
-                {/* 解説 */}
-                <p className="text-gray-600">
-                  <span className="font-semibold">解説：</span>{q.explanation}
-                </p>
-              </div>
-            )}
+              <p className="text-gray-600">
+                <span className="font-semibold">解説：</span>
+                {q.explanation}
+              </p>
 
-          </div>
-        ))}
+              <p className="text-gray-600">
+                <span className="font-semibold">品詞：</span>
+                {q.partOfSpeech}
+              </p>
+            </div>
+          )}
+        </div>
+      ))}
 
       {questions.length > 0 && (
         <button
           onClick={handleSubmit}
           disabled={selected.includes("")}
-          className="bg-green-600 text-white px-4 py-2 rounded"
+          className="bg-green-600 text-white px-6 py-3 rounded hover:bg-green-700 transition duration-200 shadow"
         >
           採点する
         </button>
       )}
 
       {result && (
-        <div className="mt-6 p-4 border rounded bg-gray-50">
+        <div className="mt-6 p-4 border rounded bg-gray-50 shadow">
           <p>🟦 正解数：{result.correct} / 10</p>
           <p>🟩 正解率：{Math.round(result.accuracy * 100)}%</p>
-          <p>🟧 予測TOEICスコア：<b>{result.predictedScore}</b></p>
+          <p>
+            🟧 予測TOEICスコア：<b>{result.predictedScore}</b>
+          </p>
           <p>🟥 苦手分野：{result.weak.join(", ") || "なし"}</p>
         </div>
       )}

@@ -5,7 +5,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { estimatedScore } = body;
+    const { estimatedScore, weaknesses } = body;
 
     const prompt = `
 あなたはプロのTOEIC講師です。
@@ -16,14 +16,17 @@ export async function POST(req: Request) {
 2. code block（\`\`\`json など）を絶対に使わない  
 3. 必ず10問作る  
 4. 絶対に次の形式とキー名を守る
+5. ユーザーの苦手分野${weaknesses ?? ""}は必ず合わせて5問で、残り5問はランダムに出題する
 
 {
   "questions": [
     {
       "question": "...",
-      "translation": "...(解答後の表示用)",)",
+      "translation": "...(解答後の表示用)",
       "options": ["A", "B", "C", "D"],
-      "answer": "A||B||C||D",
+      "answer": "...",  //
+      ・answer は **記号ではなく、正解の単語そのものを入れる**
+      ・例えば options[1] が "suitable" なら answer は "suitable"
       "explanation": "...(日本語で)",
       "partOfSpeech": "...(日本語で)",
       "example": "...(日本語で)",
@@ -35,6 +38,8 @@ export async function POST(req: Request) {
 
 ユーザーのレベルは ${estimatedScore} 点。
 `;
+
+console.log("Gemini prompt:", prompt);
 
     const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
     const result = await model.generateContent(prompt);
