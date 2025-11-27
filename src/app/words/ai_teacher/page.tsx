@@ -29,6 +29,9 @@ const Spinner = () => (
   </div>
 );
 
+
+
+
 export default function TOEICPage() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
@@ -36,6 +39,7 @@ export default function TOEICPage() {
   const [loading, setLoading] = useState(false);
   const [latestScore, setLatestScore] = useState<number | null>(null);
   const [latestWeak, setLatestWeak] = useState<string[]>([]);
+  const [submitted, setSubmitted] = useState(false);
 
   const fetchLatestResult = async (userId: string) => {
     try {
@@ -108,8 +112,7 @@ export default function TOEICPage() {
       setQuestions(validQuestions);
       setSelected(Array(validQuestions.length).fill(""));
       setResult(null);
-
-      // --- 略 ---
+      setSubmitted(false);
 
     } catch (err) {
       console.error("質問生成エラー:", err);
@@ -147,9 +150,12 @@ export default function TOEICPage() {
       990,
       Math.max(
         0,
-        Math.round((result?.predictedScore || 450) + (accuracy - 0.5) * 200)
+        Math.round((latestScore || 450) + (accuracy - 0.5) * 200)
       )
     );
+    console.log("あなたの現在のスコア",latestScore);
+    console.log("今回の正解率", accuracy);
+    console.log("予測スコア", predictedScore);
 
     const weak = Object.entries(weakCategory)
       .sort((a, b) => b[1] - a[1])
@@ -158,6 +164,7 @@ export default function TOEICPage() {
 
     const finalResult: Result = { correct, accuracy, predictedScore, weak };
     setResult(finalResult);
+    setSubmitted(true);
 
     try {
       const { data: userData } = await supabase.auth.getUser();
@@ -277,12 +284,16 @@ export default function TOEICPage() {
       {questions.length > 0 && (
         <button
           onClick={handleSubmit}
-          disabled={selected.includes("")}
-          className="bg-green-600 text-white px-6 py-3 rounded hover:bg-green-700 transition duration-200 shadow"
+          disabled={selected.includes("") || submitted}
+          className="bg-green-600 text-white px-6 py-3 rounded shadow
+                    transition duration-200
+                    hover:bg-green-700
+                    disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          採点する
+          {submitted ? "採点済み" : "採点する"}
         </button>
       )}
+
 
       {result && (
         <div className="mt-6 p-4 border rounded bg-gray-50 shadow">
