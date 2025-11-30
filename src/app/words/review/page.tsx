@@ -77,9 +77,9 @@ export default function ReviewPage() {
     })();
   }, [router]);
 
-  const computeTargets = (todayCount: number, yesterdayCount: number, avg30: number) => {
-    const values = [todayCount, yesterdayCount, Math.ceil(avg30)];
-    const firstTarget = Math.min(...values, 20);
+  const computeTargets = (yesterdayCount: number, avg30: number) => {
+    const values = [yesterdayCount, Math.ceil(avg30)];
+    const firstTarget = Math.min(...values);
     const secondTarget = Math.max(...values, 20);
     return { firstTarget, secondTarget };
   };
@@ -117,11 +117,12 @@ export default function ReviewPage() {
 
   const fetchStats = async (userId: string) => {
     const { yesterday, today, avg30 } = await fetchDailyStats(userId);
-    const { firstTarget, secondTarget } = computeTargets(today, yesterday, avg30);
+    const { firstTarget, secondTarget } = computeTargets(yesterday, avg30);
 
     let phase: Stats["phase"] = "phase1";
     if (today >= firstTarget && today < secondTarget) phase = "phase2";
     if (today >= secondTarget) phase = "finished";
+
 
     setStats({ yesterday, today, avg30, firstTarget, secondTarget, phase });
   };
@@ -246,14 +247,14 @@ export default function ReviewPage() {
         if (updatedToday >= stats.secondTarget) updatedPhase = "finished";
 
         // フェーズ変化があればモーダル表示
-        if (updatedPhase !== stats.phase) setShowPhaseModal(updatedPhase);
+        if (updatedPhase !== stats.phase){
+          setConfettiTrigger(true);
+          setTimeout(() => setConfettiTrigger(false), 10000);
+          setShowPhaseModal(updatedPhase);
+        }
+           
 
         setStats({ ...stats, today: updatedToday, phase: updatedPhase });
-
-        if (isOk) {
-          setConfettiTrigger(true);
-          setTimeout(() => setConfettiTrigger(false), 1500);
-        }
       }
 
       if (currentIndex + 1 < words.length) {
