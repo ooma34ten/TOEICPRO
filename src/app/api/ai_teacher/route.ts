@@ -23,10 +23,6 @@ type Question = {
   synonyms: string[];
 };
 
-type AiResponse = {
-  questions: unknown[];
-};
-
 // 型ガード
 function isQuestion(obj: unknown): obj is Question {
   if (typeof obj !== "object" || obj === null) return false;
