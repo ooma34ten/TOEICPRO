@@ -129,7 +129,7 @@ answer は options の中身と完全一致する文字列。
 `;
 
     // Gemini 実行（リトライ対応）
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     let parsed: unknown | null = null;
     const maxRetries = 3;
 

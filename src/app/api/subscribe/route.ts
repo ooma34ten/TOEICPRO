@@ -80,24 +80,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ url: session.url });
   } catch (err: unknown) {
-  console.error("Stripe Checkout Error:", err);
-
-  if (err instanceof Error) {
-    return NextResponse.json(
-      {
-        error: err.message,
-        stack: err.stack,            // 追加：スタックトレース
-        name: err.name,              // 追加：エラー名
-        type: "StripeError",         // 追加：識別子
-      },
-      { status: 500 }
-    );
+    if (err instanceof Error) {
+      return NextResponse.json({ error: err.message }, { status: 500 });
+    }
+    return NextResponse.json({ error: "Unknown error" }, { status: 500 });
   }
-
-  return NextResponse.json(
-    { error: "Unknown error", detail: err },
-    { status: 500 }
-  );
-}
-
 }

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
+import { FcGoogle } from "react-icons/fc";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -12,25 +13,25 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [msg, setMsg] = useState("");
 
-  // 🔹 ローディング状態
+  // ローディング状態
   const [loading, setLoading] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
 
-  // 🔹 モーダル制御
+  // モーダル制御
   const [showModal, setShowModal] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
   const [resetMsg, setResetMsg] = useState("");
 
   const passwordRef = useRef<HTMLInputElement | null>(null);
 
-  // 🔹 既にログイン中ならリダイレクト
+  // 既にログイン中ならリダイレクト
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) router.replace("/");
     });
   }, [router]);
 
-  // 🔹 ログイン処理
+  // Email/Password ログイン
   const handleLogin = async (e?: React.FormEvent) => {
     e?.preventDefault();
     setMsg("");
@@ -56,18 +57,28 @@ export default function LoginPage() {
       return setMsg(errorMsg);
     }
 
-    // ✅ ログイン成功
     router.replace("/");
   };
 
-  // 🔹 パスワード再設定処理
+  // Googleログイン
+  const handleGoogleLogin = async () => {
+    setLoading(true);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: window.location.origin },
+    });
+    setLoading(false);
+    if (error) setMsg("Googleログインに失敗しました: " + error.message);
+  };
+
+  // パスワード再設定
   const handleResetPassword = async () => {
     setResetMsg("");
     if (!resetEmail) return setResetMsg("メールアドレスを入力してください。");
 
     setResetLoading(true);
     const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-      redirectTo: "https://toeicpro.vercel.app/auth/reset-password",
+      redirectTo: window.location.origin + "/auth/reset-password",
     });
     setResetLoading(false);
 
@@ -114,15 +125,26 @@ export default function LoginPage() {
             {loading && <Loader2 className="animate-spin" size={18} />}
             ログイン
           </button>
-
-          <button
-            type="button"
-            onClick={() => setShowModal(true)}
-            className="w-full text-center text-blue-500 mt-2 text-sm"
-          >
-            パスワードを忘れた場合
-          </button>
         </form>
+
+        {/* Googleログイン */}
+        <button
+          type="button"
+          onClick={handleGoogleLogin}
+          disabled={loading}
+          className="w-full py-2 rounded mb-2 flex items-center justify-center gap-2 bg-red-500 hover:bg-red-600 text-white"
+        >
+          <FcGoogle size={20} />
+          Googleでログイン
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setShowModal(true)}
+          className="w-full text-center text-blue-500 mt-2 text-sm"
+        >
+          パスワードを忘れた場合
+        </button>
 
         <p className="text-sm text-center text-gray-500 mt-3">
           新規登録（無料）は{" "}
@@ -134,7 +156,7 @@ export default function LoginPage() {
         {msg && <p className="text-red-500 mt-3 text-center">{msg}</p>}
       </div>
 
-      {/* 🔹 パスワード再設定モーダル */}
+      {/* パスワード再設定モーダル */}
       {showModal && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
           <div className="bg-white rounded-xl shadow-lg w-full max-w-sm p-6 relative">
