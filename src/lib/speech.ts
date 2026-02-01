@@ -1,31 +1,69 @@
-let cachedVoices: SpeechSynthesisVoice[] = [];
+// src/lib/speech.ts
 
-export const initVoices = () => {
-  return new Promise<void>((resolve) => {
+let cachedVoices: SpeechSynthesisVoice[] = [];
+let isWarmedUp = false;
+
+/**
+ * 音声リストを確実に初期化
+ */
+export const initVoices = (): Promise<void> => {
+  return new Promise((resolve) => {
     const voices = window.speechSynthesis.getVoices();
+
     if (voices.length > 0) {
       cachedVoices = voices;
       resolve();
-    } else {
-      window.speechSynthesis.onvoiceschanged = () => {
-        cachedVoices = window.speechSynthesis.getVoices();
-        resolve();
-      };
+      return;
     }
+
+    const handler = () => {
+      cachedVoices = window.speechSynthesis.getVoices();
+      window.speechSynthesis.removeEventListener("voiceschanged", handler);
+      resolve();
+    };
+
+    window.speechSynthesis.addEventListener("voiceschanged", handler);
   });
 };
 
-export const speakText = async (text: string) => {
-  if (!("speechSynthesis" in window)) {
-    alert("このブラウザは音声読み上げに対応していません");
-    return;
-  }
+/**
+ * 初回のみ実行する無音ウォームアップ
+ * （これがないと一発目の先頭が欠けることがある）
+ */
+const warmUpSpeech = (): Promise<void> => {
+  return new Promise((resolve) => {
+    const utterance = new SpeechSynthesisUtterance(" ");
+    utterance.volume = 0;
+
+    utterance.onend = () => resolve();
+    utterance.onerror = () => resolve(); // ← 重要
+
+    window.speechSynthesis.speak(utterance);
+  });
+};
+
+/**
+ * テキスト読み上げ
+ */
+export const speakText = async (text: string): Promise<void> => {
+  if (!("speechSynthesis" in window)) return;
   if (!text.trim()) return;
 
-  // ✅ 最初の読み上げ前に声の準備を保証
+  const synth = window.speechSynthesis;
+
+  synth.cancel();
+  await new Promise<void>((r) => setTimeout(r, 0));
+
   if (cachedVoices.length === 0) {
     await initVoices();
   }
+
+  if (!isWarmedUp) {
+    await warmUpSpeech();
+    isWarmedUp = true;
+  }
+
+  if (cachedVoices.length === 0) return;
 
   const utterance = new SpeechSynthesisUtterance(text);
 
@@ -33,15 +71,23 @@ export const speakText = async (text: string) => {
     cachedVoices.find(
       (v) =>
         v.lang.startsWith("en-US") &&
-        (v.name.includes("Google") || v.name.includes("Microsoft") || v.name.includes("Samantha"))
-    ) || cachedVoices.find((v) => v.lang.startsWith("en")) || cachedVoices[0];
-  utterance.voice = enVoice;
+        (v.name.includes("Google") ||
+         v.name.includes("Microsoft") ||
+         v.name.includes("Samantha"))
+    ) ??
+    cachedVoices.find((v) => v.lang.startsWith("en")) ??
+    cachedVoices[0];
 
+  utterance.voice = enVoice;
   utterance.rate = 0.95;
   utterance.pitch = 1.05;
+  utterance.volume = 1;
 
-  utterance.onend = () => console.log("読み上げ完了:", text);
+  utterance.onerror = () => {
+    // Web Speech API は理由を返さない
+    console.warn("speech synthesis aborted");
+  };
 
-  window.speechSynthesis.speak(utterance);
+  synth.speak(utterance);
 };
-// src/lib/speech.ts
+

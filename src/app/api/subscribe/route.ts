@@ -12,10 +12,11 @@ export async function POST(req: NextRequest) {
 
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: "2025-08-27.basil" });
   const priceId = process.env.STRIPE_STANDARD_PRICE_ID!;
+
   let trialDays = 0;
   let invitedBy: string | null = null;
 
-  // --- 招待コード確認 ---
+  // --- 招待コードチェック ---
   if (inviteCode) {
     const { data: invite, error: inviteError } = await supabase
       .from("invites")
@@ -34,23 +35,23 @@ export async function POST(req: NextRequest) {
     invitedBy = invite.inviter_user_id;
     trialDays = 30;
 
-    // 使用回数更新
     await supabase
       .from("invites")
       .update({ used_count: invite.used_count + 1 })
       .eq("id", invite.id);
   }
 
-  // --- 既存 Stripe 顧客確認 ---
-  const { data: userData } = await supabase
+  // --- Stripe顧客確認 ---
+  const { data: userRow } = await supabase
     .from("subscriptions")
     .select("stripe_customer")
     .eq("user_id", userId)
     .maybeSingle();
 
   let customerId: string;
-  if (userData?.stripe_customer) {
-    customerId = userData.stripe_customer;
+
+  if (userRow && userRow.stripe_customer) {
+    customerId = userRow.stripe_customer;
   } else {
     const customer = await stripe.customers.create({ email });
     customerId = customer.id;
@@ -63,25 +64,34 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  // --- subscription_data（trialDays が 0 の場合は含めない）---
+  const subscriptionData: {
+    metadata: { userId: string; invitedBy: string | null };
+    trial_period_days?: number;
+  } = {
+    metadata: { userId, invitedBy }
+  };
+
+  if (trialDays > 0) {
+    subscriptionData.trial_period_days = trialDays;
+  }
+
   // --- Checkout セッション作成 ---
   try {
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       mode: "subscription",
       line_items: [{ price: priceId, quantity: 1 }],
-      subscription_data: {
-        trial_period_days: trialDays,
-        metadata: { userId, invitedBy },
-      },
       customer: customerId,
+      subscription_data: subscriptionData,
       success_url: `${process.env.NEXT_PUBLIC_APP_URL}/words/subscribe`,
       cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/words/subscribe`,
     });
 
     return NextResponse.json({ url: session.url });
-  } catch (err: unknown) {
-    if (err instanceof Error) {
-      return NextResponse.json({ error: err.message }, { status: 500 });
+  } catch (e) {
+    if (e instanceof Error) {
+      return NextResponse.json({ error: e.message }, { status: 500 });
     }
     return NextResponse.json({ error: "Unknown error" }, { status: 500 });
   }

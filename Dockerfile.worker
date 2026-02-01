@@ -1,0 +1,17 @@
+# =============================
+# Queue Worker (AI Generator)
+# =============================
+FROM node:20-slim
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm install --omit=dev
+
+COPY . .
+
+ENV NODE_ENV=production
+
+# Cloud Run Job は起動コマンドを渡すので CMD/ENTRYPOINT は不要
+# ここでは Next.js の server を起動しない
+

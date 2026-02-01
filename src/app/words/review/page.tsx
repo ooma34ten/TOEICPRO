@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { speakText } from "@/lib/speech";
+import { initVoices, speakText } from "@/lib/speech";
 import { getImportanceClasses, getPartOfSpeechClasses } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import Confetti from "react-confetti";
@@ -73,6 +73,8 @@ export default function ReviewPage() {
         return;
       }
       setUserId(data.session.user.id);
+
+      await initVoices();
       setLoading(false);
     })();
   }, [router]);
@@ -191,7 +193,8 @@ export default function ReviewPage() {
           if (isFullyMemorized) return false;
 
           if ((w.correct ?? 0) >= 6 && w.successRate! < 0.9) {
-            if (w.successRate! < 0.5) nextReview = 7;
+            if (w.successRate! < 0.3) nextReview = 3;
+            else if (w.successRate! < 0.5) nextReview = 7;
             else if (w.successRate! < 0.7) nextReview = 14;
             else nextReview = 21;
           }

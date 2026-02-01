@@ -1,3 +1,6 @@
+// 完全版 /api/ai_teacher
+// ユーザー指定: TypeScript で any を使わない
+
 import { NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { createClient } from "@supabase/supabase-js";
@@ -9,6 +12,9 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+// =============================
+// 型定義
+// =============================
 type Question = {
   id: string;
   question: string;
@@ -23,18 +29,26 @@ type Question = {
   synonyms: string[];
 };
 
+type RawQuestion = Record<string, unknown>;
+
+type ParsedResponse = {
+  questions: RawQuestion[];
+};
+
+// =============================
 // 型ガード
+// =============================
 function isQuestion(obj: unknown): obj is Question {
   if (typeof obj !== "object" || obj === null) return false;
   const q = obj as Record<string, unknown>;
   return (
     typeof q.id === "string" &&
     typeof q.question === "string" &&
+    typeof q.translation === "string" &&
     Array.isArray(q.options) &&
     q.options.length === 4 &&
     q.options.every((o) => typeof o === "string") &&
     typeof q.answer === "string" &&
-    typeof q.translation === "string" &&
     typeof q.explanation === "string" &&
     typeof q.partOfSpeech === "string" &&
     typeof q.category === "string" &&
@@ -44,31 +58,103 @@ function isQuestion(obj: unknown): obj is Question {
   );
 }
 
-// JSONパース安全関数
-function parseJsonSafe(text: string): unknown | null {
+// =============================
+// JSON パース
+// =============================
+function parseJsonSafe(text: string): ParsedResponse | null {
   try {
     const clean = text.replace(/```json/g, "").replace(/```/g, "").trim();
-    const firstBrace = clean.indexOf("{");
-    const lastBrace = clean.lastIndexOf("}");
-    if (firstBrace === -1 || lastBrace === -1) return null;
-    const jsonText = clean.slice(firstBrace, lastBrace + 1);
-    return JSON.parse(jsonText) as unknown;
+    const first = clean.indexOf("{");
+    const last = clean.lastIndexOf("}");
+    if (first === -1 || last === -1) return null;
+    const parsed = JSON.parse(clean.slice(first, last + 1));
+    if (
+      typeof parsed === "object" &&
+      parsed !== null &&
+      "questions" in parsed &&
+      Array.isArray((parsed as ParsedResponse).questions)
+    ) {
+      return parsed as ParsedResponse;
+    }
+    return null;
   } catch {
     return null;
   }
 }
 
+// =============================
+// 選択肢正規化
+// =============================
+function normalizeOptionText(raw: unknown): string {
+  if (typeof raw !== "string") return "";
+
+  // まず全体の先頭にある "A) / A. / A: / A：" などを削除
+  let text = raw.replace(/^[A-D][\)\.\:\：\s\-–—]*?/i, "").trim();
+
+  // 改行で複数行ある場合、最後の行を使用
+  const lines = text
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+  let last = lines.length ? lines[lines.length - 1] : text;
+
+  // 行頭の記号（".", ")", "-", ":" など）を取り除く
+  // 行頭の記号のみを削除（後ろが英数のときだけ）
+  last = last.replace(/^[\.\)\-\:\：\s]+(?=[a-zA-Z0-9])/, "").trim();
+
+
+  return last;
+}
+
+
+// =============================
+// 翻訳の空欄補完
+// =============================
+function fillTranslationPlaceholder(translation: string, fillText: string): string {
+  const pattern = /_{2,}|＿{2,}|＿|_____|____|__|（　）|（☐）|（　）/g;
+  if (pattern.test(translation)) {
+    const replacement = fillText.trim() !== "" ? fillText : "（語句）";
+    return translation.replace(pattern, replacement);
+  }
+  return translation;
+}
+
+// =============================
+// 回答を A/B → 選択肢テキストに解決
+// =============================
+function resolveAnswer(answerRaw: unknown, options: [string, string, string, string]): string {
+  if (typeof answerRaw !== "string") return "";
+  const trimmed = answerRaw.trim();
+  const letter = trimmed.match(/^([A-Da-d])[\)\.\:\s]*$/);
+  if (letter) {
+    const index = letter[1].toUpperCase().charCodeAt(0) - 65;
+    return options[index] ?? "";
+  }
+  for (let i = 0; i < 4; i++) {
+    if (trimmed === options[i]) return options[i];
+  }
+  return trimmed;
+}
+
+// =============================
+// API 本体
+// =============================
 export async function POST(req: Request) {
   try {
     const body = await req.json();
+    console.log("[ai_teacher] request body:", body);
     const userId = req.headers.get("userId");
     if (!userId) {
       return NextResponse.json({ error: "userId が必要です" }, { status: 400 });
     }
 
-    const estimatedScore = body.estimatedScore ?? 450;
-    const weaknesses: string[] = Array.isArray(body.weaknesses) ? body.weaknesses : [];
+    const weaknesses = Array.isArray(body.weaknesses)
+      ? (body.weaknesses as string[])
+      : [];
+    const estimatedScore = typeof body.estimatedScore === "number" ? body.estimatedScore : 450;
     const count = Math.min(50, Math.max(1, Number(body.count) || 10));
+
     const weaknessText = weaknesses.length > 0 ? weaknesses.join(", ") : "";
 
     // サブスク確認
@@ -78,12 +164,14 @@ export async function POST(req: Request) {
       .eq("user_id", userId)
       .eq("is_active", true)
       .maybeSingle();
+
     const subscribed = sub?.is_active === true;
 
-    // 無料ユーザー制限（1日1回）
+    // 無料ユーザー制限
     if (!subscribed) {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
+
       const { count: usage } = await supabase
         .from("ai_usage_log")
         .select("*", { count: "exact", head: true })
@@ -94,24 +182,24 @@ export async function POST(req: Request) {
         return NextResponse.json({
           questions: [],
           limitReached: true,
-          message: "無料ユーザーは本日すでに1回利用済みです。サブスクで無制限に利用可能です。",
+          message: "無料ユーザーは本日すでに1回利用済みです。",
         });
       }
     }
 
-    // Gemini プロンプト
+    // Gemini prompt
     const prompt = `
-あなたはプロのTOEIC講師です。以下のルールを厳守してください。
-1) 出力は必ず純粋な JSON のみ。
-2) 問題数は必ず ${count} 問。
-3) JSON 形式は次の通り：
+あなたはプロのTOEIC講師です。以下のルール厳守：
+1) 出力は JSON のみ
+2) 問題数は ${count} 問
+3) 形式：
 {
   "questions": [
     {
-      "id": "任意の一意なID",
+      "id": "一意ID",
       "question": "...",
       "translation": "...",
-      "options": ["A","B","C","D"],
+      "options": ["A", "B", "C", "D"],
       "answer": "...",
       "explanation": "...",
       "partOfSpeech": "...",
@@ -122,100 +210,110 @@ export async function POST(req: Request) {
     }
   ]
 }
-苦手分野 (${weaknessText}) があれば半分程度入れる。
-importance は 1〜5。
-answer は options の中身と完全一致する文字列。
-推定スコア：${estimatedScore} 点。
-`;
+苦手分野 ${weaknessText} を半分入れる。
+推定スコア：${estimatedScore}
+`; 
 
-    // Gemini 実行（リトライ対応）
+    // AI 実行
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-    let parsed: unknown | null = null;
-    const maxRetries = 3;
 
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    let parsed: ParsedResponse | null = null;
+    for (let attempt = 1; attempt <= 3; attempt++) {
       const result = await model.generateContent(prompt);
       const text = result.response.text();
+
+      console.log(`[ai_teacher] Gemini attempt ${attempt}`);
+      console.log(text);
+
+
       parsed = parseJsonSafe(text);
-      if (
-        parsed &&
-        typeof parsed === "object" &&
-        "questions" in parsed &&
-        Array.isArray((parsed as { questions: unknown[] }).questions)
-      ) {
-        break;
-      }
-      if (attempt < maxRetries) await new Promise((r) => setTimeout(r, 1000));
+      if (parsed) break;
     }
 
-    if (
-      !parsed ||
-      typeof parsed !== "object" ||
-      !("questions" in parsed) ||
-      !Array.isArray((parsed as { questions: unknown[] }).questions)
-    ) {
+    if (!parsed) {
       return NextResponse.json({
         questions: [],
         limitReached: false,
-        message: "AI が有効な問題を生成できませんでした。少し時間をおいて再試行してください。",
+        message: "有効な問題を生成できませんでした。",
       });
     }
 
-    // バリデーション + 整形
-    const rawQuestions: unknown[] = (parsed as { questions: unknown[] }).questions;
-    const validated: Question[] = rawQuestions
-      .map((q: unknown, i: number): Question | null => {
-        if (typeof q !== "object" || q === null) return null;
-        const obj = q as Record<string, unknown>;
+    // ----------------------------
+    // バリデーション
+    // ----------------------------
+    const validated: Question[] = parsed.questions
+      .map((raw, i) => {
+        if (typeof raw !== "object" || raw === null) return null;
+        const r = raw as RawQuestion;
 
+        // options
+        const rawOps = Array.isArray(r.options) ? r.options : [];
         const options: [string, string, string, string] = ["", "", "", ""];
-        if (Array.isArray(obj.options)) {
-          for (let j = 0; j < 4; j++) {
-            options[j] = typeof obj.options[j] === "string" ? obj.options[j] : "";
-          }
+        for (let j = 0; j < 4; j++) {
+          options[j] = normalizeOptionText(rawOps[j]);
         }
 
-        const question: Question = {
-          id: typeof obj.id === "string" ? obj.id : `q_${Date.now()}_${i}`,
-          question: typeof obj.question === "string" ? obj.question : "",
-          translation: typeof obj.translation === "string" ? obj.translation : "",
+        const answer = resolveAnswer(r.answer ?? "", options);
+        const translationRaw = typeof r.translation === "string" ? r.translation : "";
+        const translation = fillTranslationPlaceholder(translationRaw, answer);
+
+        const q: Question = {
+          id: typeof r.id === "string" ? r.id : `q_${Date.now()}_${i}`,
+          question: typeof r.question === "string" ? r.question : "",
+          translation,
           options,
-          answer: typeof obj.answer === "string" ? obj.answer : "",
-          explanation: typeof obj.explanation === "string" ? obj.explanation : "",
-          partOfSpeech: typeof obj.partOfSpeech === "string" ? obj.partOfSpeech : "",
-          example: typeof obj.example === "string" ? obj.example : undefined,
+          answer,
+          explanation: typeof r.explanation === "string" ? r.explanation : "",
+          partOfSpeech: typeof r.partOfSpeech === "string" ? r.partOfSpeech : "",
+          example: typeof r.example === "string" ? r.example : undefined,
           category:
-            typeof obj.category === "string"
-              ? obj.category
-              : typeof obj.partOfSpeech === "string"
-              ? obj.partOfSpeech
+            typeof r.category === "string"
+              ? r.category
+              : typeof r.partOfSpeech === "string"
+              ? r.partOfSpeech
               : "other",
           importance:
-            typeof obj.importance === "number" ? Math.min(5, Math.max(1, obj.importance)) : 3,
-          synonyms: Array.isArray(obj.synonyms)
-            ? obj.synonyms.filter((s): s is string => typeof s === "string")
+            typeof r.importance === "number"
+              ? Math.min(5, Math.max(1, r.importance))
+              : 3,
+          synonyms: Array.isArray(r.synonyms)
+            ? r.synonyms.filter((s): s is string => typeof s === "string")
             : [],
         };
 
-        return isQuestion(question) ? question : null;
+        return isQuestion(q) ? q : null;
       })
       .filter((q): q is Question => q !== null);
 
-    // 利用ログを保存
+    // 利用ログ保存
     await supabase.from("ai_usage_log").insert({ user_id: userId });
 
-    // 正常レスポンス
+    console.log("[ai_teacher] parsed questions count:", parsed.questions.length);
+
+    validated.forEach((q, i) => {
+      console.log(`--- validated question ${i + 1} ---`);
+      console.log("id:", q.id);
+      console.log("question:", q.question);
+      console.log("translation:", q.translation);
+      console.log("options:", q.options);
+      console.log("answer:", q.answer);
+      console.log("partOfSpeech:", q.partOfSpeech);
+      console.log("category:", q.category);
+      console.log("importance:", q.importance);
+      console.log("synonyms:", q.synonyms);
+    });
+
+
     return NextResponse.json({
       questions: validated,
       limitReached: false,
-      message: "問題生成に成功しました。",
+      message: "生成成功",
     });
-  } catch (error: unknown) {
-    console.error("❌ /api/ai_teacher エラー", error);
+  } catch (err) {
     return NextResponse.json({
       questions: [],
       limitReached: false,
-      message: "サーバーエラーが発生しました。時間をおいて再試行してください。",
+      message: "サーバーエラー",
     });
   }
 }

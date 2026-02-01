@@ -246,7 +246,7 @@ export default function WordListPage() {
       {/* 単語カード */}
       <div className="p-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {filteredWords.map((w) => (
-          <div key={w.id} className={`shadow-md rounded-xl p-4 flex flex-col justify-between hover:shadow-lg transition-shadow ${selectedIds.includes(w.id) ? "ring-2 ring-red-400" : ""} ${w.correct_count >= 6 ? "bg-green-100 hover:bg-green-200" : "bg-white hover:bg-gray-100"}`}>
+          <div key={w.id} className={`shadow-md rounded-xl p-4 flex flex-col justify-between hover:shadow-lg transition-shadow ${selectedIds.includes(w.id) ? "ring-2 ring-red-400" : ""} ${w.correct_count >= 6 && w.successRate! >= 0.9 ? "bg-green-100 hover:bg-green-200" : "bg-white hover:bg-gray-100"}`}>
             <div className="flex justify-between items-center mb-2">
               <input type="checkbox" checked={selectedIds.includes(w.id)} onChange={() => toggleSelect(w.id)} className="w-4 h-4 accent-red-500" />
               <span className="text-xs text-gray-500">{new Date(w.registered_at).toLocaleDateString("ja-JP")}</span>

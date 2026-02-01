@@ -99,7 +99,16 @@ console.log("📡 RPC error:", JSON.stringify(error, null, 2));
 
       setData(data ?? []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      console.error("💥 fetchProgress error:", err);
+      let errorMessage = "エラーが発生しました。";
+      if (err instanceof Error) {
+        errorMessage = err.message;
+      } else if (typeof err === 'object' && err !== null) {
+        errorMessage = JSON.stringify(err);
+      } else {
+        errorMessage = String(err);
+      }
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
