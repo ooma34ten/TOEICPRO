@@ -196,7 +196,7 @@ async function getSmartQuestions(
 
   // 5. 指定数だけ返却（シャッフル要素を加える）
   const result = filtered.slice(0, Math.min(count * 2, filtered.length));
-  
+
   // 上位候補からランダムに選択
   for (let i = result.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -231,21 +231,19 @@ async function getWeaknessAnalysis(userId: string) {
 
   const categoryMap = new Map<number, CategoryStats>();
 
-  history.forEach((h: {
-    correct_count: number;
-    incorrect_count: number;
-    toeic_questions: {
-      category: number;
-      categories: { level1: string; level2: string };
-    };
-  }) => {
-    const catId = h.toeic_questions?.category;
+  history.forEach((h: any) => {
+    // toeic_questions might be an array or object depending on Supabase mapping
+    const q = Array.isArray(h.toeic_questions) ? h.toeic_questions[0] : h.toeic_questions;
+    if (!q) return;
+
+    const catId = q.category;
     if (!catId) return;
 
+    // categories might be an array or object
+    const cat = Array.isArray(q.categories) ? q.categories[0] : q.categories;
+    const catName = cat?.level2 || cat?.level1 || "その他";
+
     const existing = categoryMap.get(catId);
-    const catName = h.toeic_questions?.categories?.level2 || 
-                    h.toeic_questions?.categories?.level1 || 
-                    "その他";
 
     if (existing) {
       existing.totalCorrect += h.correct_count;
