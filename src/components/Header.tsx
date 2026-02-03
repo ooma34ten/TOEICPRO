@@ -35,8 +35,8 @@ export default function Header() {
     { href: "/words/review", label: "復習モード" },
     { href: "/words/progress", label: "学習進捗" },
     { href: "/words/toeic_ai", label: "AIアシスタント" },
-    { href: "/words/questions", label: "AIティーチング" },
-    { href: "/words/random", label: "問題出題" },
+    { href: "/words/ai_teacher", label: "AI問題演習" },
+    { href: "/words/questions", label: "問題バンク" },
     { href: "/words/contact", label: "お問い合わせ" },
     { href: "/words/subscribe", label: "サブスクリプション" },
   ];
@@ -63,11 +63,10 @@ export default function Header() {
             <Link
               key={link.href}
               href={link.href}
-              className={`transition px-2 py-1 rounded-md whitespace-nowrap ${
-                pathname === link.href
+              className={`transition px-2 py-1 rounded-md whitespace-nowrap ${pathname === link.href
                   ? "text-blue-600 bg-blue-50 font-semibold"
                   : "text-gray-700 hover:text-blue-600 hover:bg-blue-50"
-              }`}
+                }`}
             >
               {link.label}
             </Link>
@@ -96,11 +95,10 @@ export default function Header() {
                       key={link.href}
                       href={link.href}
                       onClick={() => setSettingsOpen(false)}
-                      className={`block px-4 py-2 text-sm hover:bg-gray-50 ${
-                        pathname === link.href
+                      className={`block px-4 py-2 text-sm hover:bg-gray-50 ${pathname === link.href
                           ? "text-blue-600 font-semibold bg-blue-50"
                           : "text-gray-700"
-                      }`}
+                        }`}
                     >
                       {link.label}
                     </Link>
@@ -156,11 +154,10 @@ export default function Header() {
                 key={link.href}
                 href={link.href}
                 onClick={() => setMenuOpen(false)}
-                className={`block px-5 py-3 text-sm transition ${
-                  pathname === link.href
+                className={`block px-5 py-3 text-sm transition ${pathname === link.href
                     ? "text-blue-600 bg-blue-50 font-semibold"
                     : "text-gray-700 hover:bg-gray-50"
-                }`}
+                  }`}
               >
                 {link.label}
               </Link>
