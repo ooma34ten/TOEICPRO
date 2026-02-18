@@ -58,6 +58,12 @@ function buildPrompt(item: categoryRow): string {
 - 出力は JSON オブジェクトそのもののみを返す
 - バッククォートやコード記号、説明文、前置き、後書きは禁止
 - JSON はそのまま JSON.parse できる形式にする
+- **重要: 以下のフィールドは必ず「日本語」で出力すること**
+  - translation (問題文の和訳。英語の単語を含めないこと)
+  - explanation (正解の解説)
+  - synonyms (類義語)
+  - part_of_speech (品詞名)
+- **重要: options の配列には (A) や 1. などの記号を含めないこと**
 
 【問題条件】
 - レベル: 400 ～ 900 点の間でランダムに設定(100 点刻み)
@@ -71,20 +77,20 @@ function buildPrompt(item: categoryRow): string {
 【出力フォーマット（厳守）】
 {
   "question": "英語の空欄補充問題文（1文）",
-  "translation": "上記英文の自然な日本語訳",
+  "translation": "上記英文の自然な日本語訳（※必ず日本語で、(A) ... などの英語を含めない）",
   "options": [
-    "...",
-    "...",
-    "...",
-    "..."
+    "word1",
+    "word2",
+    "word3",
+    "word4"
   ],
   "answer": "...",
-  "explanation": "なぜその選択肢が正解かを日本語で説明",
+  "explanation": "なぜその選択肢が正解かを**日本語**で詳しく説明",
   "example_sentence": "正解語を使った別の例文（英語）",
-  "part_of_speech": "品詞（名詞 / 動詞 / 形容詞 / 副詞 / 接続詞 / 冠詞 / 前置詞など）",
+  "part_of_speech": "品詞（名詞 / 動詞 / 形容詞 / 副詞 / 接続詞 / 冠詞 / 前置詞など **日本語で**）",
   "category": ${item.id},
   "importance": "1~5 の数字で、TOEIC 頻出度を表す（5が頻出度が高い）",
-  "synonyms": ["類義語1", "類義語2"],
+  "synonyms": ["類義語1(日本語)", "類義語2(日本語)"],
   "level": [TOEIC レベル点数（整数：100～990）]
 }
 `;
@@ -141,19 +147,19 @@ async function processOne(item: categoryRow): Promise<GeneratedQuestion | null> 
 }
 
 // =============================
-// メイン API（1 件バッチ）
+// メイン API（バッチ生成対応）
 // =============================
-export async function POST() {
+export async function POST(req: Request) {
   try {
+    const body = await req.json().catch(() => ({}));
+    const batchCount = Math.min(Math.max(body.count ?? 1, 1), 10); // 1〜10問
+
     const { data: queue, error } = await supabase
       .from("categories")
       .select("id, level1, level2, description")
 
     console.log("SUPABASE ERROR:", error);
     console.log("CATEGORIES RAW:", queue);
-
-    let processedCount = 0;
-    let savedCount = 0;
 
     if (!queue || queue.length === 0) {
       console.log("❌ NO CATEGORY FOUND");
@@ -163,44 +169,54 @@ export async function POST() {
       );
     }
 
-    const item = queue[Math.floor(Math.random() * queue.length)];
-
-    processedCount = 1;
-
-    console.log("CATEGORY USED:", item);
-
-    const generated = await processOne(item);
-
-    if (!generated) {
-      console.log("❌ AI GENERATION FAILED");
-      return NextResponse.json(
-        { message: "AI NG", processed: 1, saved: 0 },
-        { status: 200 }
-      );
+    // バッチ: ランダムにカテゴリを選んで並列生成
+    const selectedItems: categoryRow[] = [];
+    for (let i = 0; i < batchCount; i++) {
+      selectedItems.push(queue[Math.floor(Math.random() * queue.length)]);
     }
 
-    console.log("AI GENERATED:", generated);
+    console.log(`BATCH: generating ${batchCount} questions from ${selectedItems.length} categories`);
 
-    const importance = randomImportance();
-    const level = randomLevel();
+    const results = await Promise.allSettled(
+      selectedItems.map((item) => processOne(item))
+    );
 
-    const insertResult = await supabase.from("toeic_questions").insert({
-      question: generated.question,
-      translation: generated.translation,
-      options: generated.options,
-      answer: generated.answer,
-      explanation: generated.explanation,
-      example_sentence: generated.example_sentence,
-      part_of_speech: generated.part_of_speech,
-      category: item.id,
-      importance,
-      synonyms: generated.synonyms,
-      level
-    });
+    let processedCount = 0;
+    let savedCount = 0;
 
-    console.log("INSERT RESULT:", insertResult);
+    for (const result of results) {
+      processedCount++;
+      if (result.status !== "fulfilled" || !result.value) {
+        console.log("❌ AI GENERATION FAILED for one item");
+        continue;
+      }
 
-    savedCount = 1;
+      const generated = result.value;
+      const importance = randomImportance();
+      const level = randomLevel();
+
+      const insertResult = await supabase.from("toeic_questions").insert({
+        question: generated.question,
+        translation: generated.translation,
+        options: generated.options,
+        answer: generated.answer,
+        explanation: generated.explanation,
+        example_sentence: generated.example_sentence,
+        part_of_speech: generated.part_of_speech,
+        category: generated.category,
+        importance,
+        synonyms: generated.synonyms,
+        level
+      });
+
+      if (insertResult.error) {
+        console.error("INSERT ERROR:", insertResult.error);
+      } else {
+        savedCount++;
+      }
+    }
+
+    console.log(`BATCH RESULT: processed=${processedCount}, saved=${savedCount}`);
 
     return NextResponse.json(
       { message: "ok", processed: processedCount, saved: savedCount },
@@ -214,4 +230,3 @@ export async function POST() {
     );
   }
 }
-

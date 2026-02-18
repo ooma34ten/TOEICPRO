@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { speakText } from "@/lib/speech";
 import Confetti from "react-confetti";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Zap,
   Target,
@@ -16,8 +17,12 @@ import {
   AlertTriangle,
   ChevronRight,
   Volume2,
-  Filter
+  Flame,
+  Star,
+  Sparkles,
+  Trophy,
 } from "lucide-react";
+import { updateUserStats } from "@/app/actions/updateStats";
 
 // =============================
 // 型定義
@@ -45,6 +50,28 @@ type WeaknessCategory = {
 type Mode = "quick" | "focus" | "weakness" | "review";
 
 // =============================
+// XPフローティングエフェクト
+// =============================
+const XpPopup = ({ xp, visible }: { xp: number; visible: boolean }) => (
+  <AnimatePresence>
+    {visible && (
+      <motion.div
+        initial={{ opacity: 0, y: 0, scale: 0.5 }}
+        animate={{ opacity: 1, y: -50, scale: 1 }}
+        exit={{ opacity: 0, y: -90, scale: 0.8 }}
+        transition={{ duration: 0.8 }}
+        className="absolute top-0 right-4 z-30 pointer-events-none"
+      >
+        <div className="flex items-center gap-1 bg-yellow-400 text-yellow-900 px-3 py-1.5 rounded-full text-sm font-bold shadow-lg">
+          <Zap className="w-4 h-4" />
+          +{xp} XP
+        </div>
+      </motion.div>
+    )}
+  </AnimatePresence>
+);
+
+// =============================
 // コンポーネント: モード選択カード
 // =============================
 const ModeCard = ({
@@ -60,9 +87,13 @@ const ModeCard = ({
   color: string;
   onClick: () => void;
 }) => (
-  <button
+  <motion.button
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    whileHover={{ scale: 1.03, y: -4 }}
+    whileTap={{ scale: 0.97 }}
     onClick={onClick}
-    className={`relative overflow-hidden bg-white p-6 rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 border border-gray-100 text-left group`}
+    className="relative overflow-hidden bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 border border-slate-100 dark:border-slate-800 text-left group"
   >
     <div className={`absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity ${color}`}>
       <Icon size={80} />
@@ -70,10 +101,21 @@ const ModeCard = ({
     <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 ${color} text-white shadow-lg`}>
       <Icon size={24} />
     </div>
-    <h3 className="text-lg font-bold text-gray-800 mb-1">{title}</h3>
-    <p className="text-sm text-gray-500">{desc}</p>
-  </button>
+    <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-1">{title}</h3>
+    <p className="text-sm text-slate-500 dark:text-slate-400">{desc}</p>
+  </motion.button>
 );
+
+// =============================
+// 称号取得
+// =============================
+function getTitle(accuracy: number): { title: string; emoji: string; color: string } {
+  if (accuracy >= 100) return { title: "完璧！パーフェクト！", emoji: "🏆", color: "text-yellow-500" };
+  if (accuracy >= 90) return { title: "素晴らしい！", emoji: "🌟", color: "text-indigo-500" };
+  if (accuracy >= 80) return { title: "いい調子！", emoji: "🔥", color: "text-orange-500" };
+  if (accuracy >= 60) return { title: "よくがんばりました！", emoji: "💪", color: "text-emerald-500" };
+  return { title: "次はもっとできる！", emoji: "📚", color: "text-blue-500" };
+}
 
 // =============================
 // メインページ
@@ -91,6 +133,13 @@ export default function QuestionBankPage() {
   const [sessionStats, setSessionStats] = useState({ correct: 0, total: 0 });
   const [showConfetti, setShowConfetti] = useState(false);
   const [fetching, setFetching] = useState(false);
+
+  // Motivation states
+  const [streak, setStreak] = useState(0);
+  const [maxStreak, setMaxStreak] = useState(0);
+  const [sessionXp, setSessionXp] = useState(0);
+  const [xpPopup, setXpPopup] = useState<{ visible: boolean; amount: number }>({ visible: false, amount: 0 });
+  const [showStreakEffect, setShowStreakEffect] = useState(false);
 
   const answerStartTimeRef = useRef<number>(0);
 
@@ -112,8 +161,6 @@ export default function QuestionBankPage() {
 
   const fetchWeaknesses = async (uid: string) => {
     try {
-      // 簡易的にスマートAPIを叩いて弱点だけ取得も可能だが、
-      // ここではAPIのレスポンス構造に依存
       const res = await fetch("/api/smart-questions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -128,6 +175,8 @@ export default function QuestionBankPage() {
     }
   };
 
+  const [noQuestionsMsg, setNoQuestionsMsg] = useState<string | null>(null);
+
   // 問題開始
   const startSession = async (selectedMode: Mode) => {
     if (!userId) return;
@@ -138,6 +187,10 @@ export default function QuestionBankPage() {
     setCurrentIndex(0);
     setShowResult(false);
     setSelectedAnswer(null);
+    setNoQuestionsMsg(null);
+    setStreak(0);
+    setMaxStreak(0);
+    setSessionXp(0);
 
     let count = 10;
     if (selectedMode === "quick") count = 5;
@@ -156,16 +209,17 @@ export default function QuestionBankPage() {
         setQuestions(data.questions);
         answerStartTimeRef.current = Date.now();
       } else {
-        alert("条件に合う問題が見つかりませんでした。別のモードを試してください。");
+        setNoQuestionsMsg("問題バンクに問題がありません。管理画面で問題を生成してください。");
         setMode(null);
       }
     } catch (e) {
-      alert("エラーが発生しました");
+      setNoQuestionsMsg("問題の取得中にエラーが発生しました。もう一度お試しください。");
       setMode(null);
     } finally {
       setFetching(false);
     }
   };
+
 
   // 回答送信
   const submitAnswer = async () => {
@@ -181,9 +235,35 @@ export default function QuestionBankPage() {
     }));
     setShowResult(true);
 
+    // XP計算
+    const xpGained = isCorrect ? 10 : 1;
+    setSessionXp(prev => prev + xpGained);
+
+    // XPポップアップ
+    setXpPopup({ visible: true, amount: xpGained });
+    setTimeout(() => setXpPopup({ visible: false, amount: 0 }), 1200);
+
     if (isCorrect) {
-      setShowConfetti(true);
-      setTimeout(() => setShowConfetti(false), 2000);
+      const newStreak = streak + 1;
+      setStreak(newStreak);
+      if (newStreak > maxStreak) setMaxStreak(newStreak);
+
+      // ストリーク効果
+      if (newStreak >= 3) {
+        setShowStreakEffect(true);
+        setTimeout(() => setShowStreakEffect(false), 2000);
+      }
+
+      // コンフェティ
+      if (newStreak >= 3 && newStreak % 3 === 0) {
+        setShowConfetti(true);
+        setTimeout(() => setShowConfetti(false), 3000);
+      }
+
+      await updateUserStats(userId, 10, 1);
+    } else {
+      setStreak(0);
+      await updateUserStats(userId, 1, 1);
     }
 
     // 保存
@@ -212,9 +292,7 @@ export default function QuestionBankPage() {
       setShowResult(false);
       answerStartTimeRef.current = Date.now();
     } else {
-      // 終了
-      setQuestions([]); // 結果画面へ切り替えるため空にするか、完了フラグを立てる
-      // ここでは完了画面モードへ
+      setQuestions([]);
       setMode("finished" as any);
     }
   };
@@ -226,31 +304,102 @@ export default function QuestionBankPage() {
   // =============================
   if (mode === "finished" as any) {
     const accuracy = sessionStats.total > 0 ? Math.round((sessionStats.correct / sessionStats.total) * 100) : 0;
+    const titleInfo = getTitle(accuracy);
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50 dark:bg-slate-950">
         {accuracy >= 80 && <Confetti recycle={false} numberOfPieces={500} />}
-        <div className="bg-white rounded-3xl shadow-xl p-8 max-w-md w-full text-center">
-          <h2 className="text-3xl font-bold text-gray-800 mb-2">おつかれさまでした！🎉</h2>
-          <p className="text-gray-500 mb-8">今回の学習結果</p>
 
-          <div className="flex justify-center gap-4 mb-8">
-            <div className="text-center p-4 bg-blue-50 rounded-2xl w-32">
-              <div className="text-3xl font-bold text-blue-600">{sessionStats.correct}/{sessionStats.total}</div>
-              <div className="text-xs text-gray-500 font-bold mt-1">正解数</div>
-            </div>
-            <div className="text-center p-4 bg-green-50 rounded-2xl w-32">
-              <div className="text-3xl font-bold text-green-600">{accuracy}%</div>
-              <div className="text-xs text-gray-500 font-bold mt-1">正解率</div>
-            </div>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ type: "spring", damping: 15 }}
+          className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl p-8 max-w-md w-full text-center border border-slate-200 dark:border-slate-800"
+        >
+          {/* 称号アイコン */}
+          <motion.div
+            initial={{ scale: 0, rotate: -180 }}
+            animate={{ scale: 1, rotate: 0 }}
+            transition={{ delay: 0.2, type: "spring" }}
+            className="w-24 h-24 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl shadow-yellow-200 dark:shadow-yellow-900/30"
+          >
+            <span className="text-4xl">{titleInfo.emoji}</span>
+          </motion.div>
+
+          <motion.h2
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className={`text-2xl font-extrabold mb-1 ${titleInfo.color}`}
+          >
+            {titleInfo.title}
+          </motion.h2>
+          <p className="text-slate-500 dark:text-slate-400 mb-6">おつかれさまでした！🎉</p>
+
+          {/* スタッツグリッド */}
+          <div className="grid grid-cols-2 gap-3 mb-6">
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 }}
+              className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl"
+            >
+              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                {sessionStats.correct}/{sessionStats.total}
+              </div>
+              <div className="text-xs text-slate-500 dark:text-slate-400 font-bold mt-1">正解数</div>
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.45 }}
+              className="bg-green-50 dark:bg-green-900/20 p-4 rounded-2xl"
+            >
+              <div className="text-2xl font-bold text-green-600 dark:text-green-400">{accuracy}%</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400 font-bold mt-1">正解率</div>
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 }}
+              className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-2xl"
+            >
+              <div className="flex items-center justify-center gap-1">
+                <Zap className="w-5 h-5 text-yellow-500" />
+                <span className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{sessionXp}</span>
+              </div>
+              <div className="text-xs text-slate-500 dark:text-slate-400 font-bold mt-1">獲得 XP</div>
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.55 }}
+              className="bg-orange-50 dark:bg-orange-900/20 p-4 rounded-2xl"
+            >
+              <div className="flex items-center justify-center gap-1">
+                <Flame className="w-5 h-5 text-orange-500" />
+                <span className="text-2xl font-bold text-orange-600 dark:text-orange-400">{maxStreak}</span>
+              </div>
+              <div className="text-xs text-slate-500 dark:text-slate-400 font-bold mt-1">最大連続正解</div>
+            </motion.div>
           </div>
 
-          <button
-            onClick={() => { setMode(null); fetchWeaknesses(userId!); }}
-            className="w-full bg-black text-white py-4 rounded-xl font-bold hover:opacity-80 transition"
-          >
-            トップに戻る
-          </button>
-        </div>
+          <div className="flex gap-3">
+            <button
+              onClick={() => { setMode(null); setStreak(0); setMaxStreak(0); setSessionXp(0); fetchWeaknesses(userId!); }}
+              className="flex-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 py-4 rounded-xl font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition flex items-center justify-center gap-2"
+            >
+              <RotateCcw className="w-4 h-4" />
+              もう一回
+            </button>
+            <button
+              onClick={() => router.push("/dashboard")}
+              className="flex-1 bg-gradient-to-r from-indigo-600 to-violet-600 text-white py-4 rounded-xl font-bold hover:opacity-90 transition shadow-lg shadow-indigo-200 dark:shadow-indigo-900/30 flex items-center justify-center gap-2"
+            >
+              ダッシュボード
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </motion.div>
       </div>
     );
   }
@@ -263,108 +412,190 @@ export default function QuestionBankPage() {
     const progress = ((currentIndex + 1) / questions.length) * 100;
 
     return (
-      <div className="min-h-screen bg-gray-50 p-4 md:p-8">
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 p-4 md:p-8">
         {showConfetti && <Confetti recycle={false} numberOfPieces={200} />}
 
-        <div className="max-w-3xl mx-auto">
+        <div className="max-w-3xl mx-auto relative">
+          {/* XPポップアップ */}
+          <XpPopup xp={xpPopup.amount} visible={xpPopup.visible} />
+
           {/* ヘッダー */}
           <div className="flex items-center justify-between mb-6">
-            <button onClick={() => setMode(null)} className="text-gray-500 hover:text-black">
+            <button onClick={() => setMode(null)} className="text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white text-sm font-medium transition">
               ← 中断する
             </button>
-            <div className="text-sm font-bold text-gray-500">
-              {currentIndex + 1} / {questions.length}
+
+            {/* セッション情報 */}
+            <div className="flex items-center gap-3">
+              {/* ストリーク表示 */}
+              <AnimatePresence>
+                {streak >= 2 && (
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    exit={{ scale: 0 }}
+                    className="flex items-center gap-1 bg-orange-50 dark:bg-orange-900/20 px-2.5 py-1 rounded-full"
+                  >
+                    <Flame className={`w-4 h-4 ${streak >= 5 ? "text-orange-500 fill-orange-500 animate-streak-fire" : "text-orange-400"}`} />
+                    <span className="text-xs font-bold text-orange-700 dark:text-orange-300">
+                      {streak}連続！
+                    </span>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* XP表示 */}
+              <div className="flex items-center gap-1 bg-yellow-50 dark:bg-yellow-900/20 px-2.5 py-1 rounded-full">
+                <Zap className="w-3.5 h-3.5 text-yellow-500" />
+                <span className="text-xs font-bold text-yellow-700 dark:text-yellow-300">{sessionXp} XP</span>
+              </div>
+
+              {/* 問題数 */}
+              <div className="text-sm font-bold text-slate-500 dark:text-slate-400">
+                {currentIndex + 1} / {questions.length}
+              </div>
             </div>
           </div>
 
           {/* プログレスバー */}
-          <div className="h-2 bg-gray-200 rounded-full mb-8 overflow-hidden">
-            <div className="h-full bg-blue-600 transition-all duration-300" style={{ width: `${progress}%` }} />
+          <div className="h-2 bg-slate-200 dark:bg-slate-700 rounded-full mb-8 overflow-hidden">
+            <motion.div
+              className="h-full bg-gradient-to-r from-indigo-500 to-violet-500 rounded-full"
+              initial={{ width: 0 }}
+              animate={{ width: `${progress}%` }}
+              transition={{ duration: 0.3 }}
+            />
           </div>
+
+          {/* ストリークメッセージ */}
+          <AnimatePresence>
+            {showStreakEffect && streak >= 3 && (
+              <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="text-center mb-4"
+              >
+                <span className="bg-gradient-to-r from-orange-500 to-red-500 text-white text-sm font-bold px-4 py-2 rounded-full shadow-lg">
+                  🔥 {streak}連続正解！{streak >= 5 ? "絶好調！" : "いい調子！"}
+                </span>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* 問題カード */}
-          <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 md:p-10 mb-6">
-            <div className="flex justify-between items-start mb-6">
-              <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-bold">
-                Part 5 形式
-              </span>
-              <div className="flex gap-2">
-                <span className="text-xs bg-gray-100 px-2 py-1 rounded text-gray-600">
-                  Level {currentQ.level}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentIndex}
+              initial={{ opacity: 0, x: 50 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -50 }}
+              transition={{ duration: 0.3 }}
+              className="bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 p-6 md:p-10 mb-6"
+            >
+              <div className="flex justify-between items-start mb-6">
+                <span className="bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-3 py-1 rounded-full text-xs font-bold">
+                  Part 5 形式
                 </span>
-                <button onClick={() => speakText(currentQ.question)} className="text-gray-400 hover:text-blue-500">
-                  <Volume2 size={20} />
-                </button>
-              </div>
-            </div>
-
-            <h2 className="text-xl md:text-2xl font-medium text-gray-900 leading-relaxed mb-8">
-              {currentQ.question}
-            </h2>
-
-            <div className="grid grid-cols-1 gap-3">
-              {currentQ.options.map((opt, i) => {
-                const label = String.fromCharCode(65 + i);
-                const isSelected = selectedAnswer === opt;
-                const isAnswer = opt === currentQ.answer;
-
-                let style = "border-gray-200 hover:border-gray-400 hover:bg-gray-50";
-                if (showResult) {
-                  if (isAnswer) style = "border-green-500 bg-green-50 text-green-700";
-                  else if (isSelected) style = "border-red-500 bg-red-50 text-red-700";
-                  else style = "border-gray-100 opacity-50";
-                } else if (isSelected) {
-                  style = "border-blue-600 bg-blue-50 text-blue-700 ring-1 ring-blue-600";
-                }
-
-                return (
-                  <button
-                    key={i}
-                    disabled={showResult}
-                    onClick={() => setSelectedAnswer(opt)}
-                    className={`flex items-center p-4 rounded-xl border-2 text-left transition-all ${style}`}
-                  >
-                    <span className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold mr-4 ${showResult && isAnswer ? "bg-green-500 text-white" :
-                        showResult && isSelected ? "bg-red-500 text-white" :
-                          isSelected ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-600"
-                      }`}>
-                      {label}
-                    </span>
-                    <span className="font-medium">{opt}</span>
-                    {showResult && isAnswer && <CheckCircle className="ml-auto text-green-600" size={20} />}
+                <div className="flex gap-2">
+                  <span className="text-xs bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded text-slate-600 dark:text-slate-400">
+                    Level {currentQ.level}
+                  </span>
+                  <button onClick={() => speakText(currentQ.question)} className="text-slate-400 hover:text-indigo-500 transition">
+                    <Volume2 size={20} />
                   </button>
-                );
-              })}
-            </div>
-          </div>
+                </div>
+              </div>
+
+              <h2 className="text-xl md:text-2xl font-medium text-slate-900 dark:text-white leading-relaxed mb-8">
+                {currentQ.question}
+              </h2>
+
+              <div className="grid grid-cols-1 gap-3">
+                {currentQ.options.map((opt, i) => {
+                  const label = String.fromCharCode(65 + i);
+                  const isSelected = selectedAnswer === opt;
+                  const isAnswer = opt === currentQ.answer;
+
+                  let style = "border-slate-200 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800";
+                  if (showResult) {
+                    if (isAnswer) style = "border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300";
+                    else if (isSelected) style = "border-red-500 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300";
+                    else style = "border-slate-100 dark:border-slate-800 opacity-50";
+                  } else if (isSelected) {
+                    style = "border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 ring-1 ring-indigo-600";
+                  }
+
+                  return (
+                    <motion.button
+                      key={i}
+                      disabled={showResult}
+                      onClick={() => setSelectedAnswer(opt)}
+                      whileHover={!showResult ? { scale: 1.01 } : {}}
+                      whileTap={!showResult ? { scale: 0.99 } : {}}
+                      className={`flex items-center p-4 rounded-xl border-2 text-left transition-all ${style}`}
+                    >
+                      <span className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold mr-4 ${showResult && isAnswer ? "bg-emerald-500 text-white" :
+                        showResult && isSelected ? "bg-red-500 text-white" :
+                          isSelected ? "bg-indigo-600 text-white" : "bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
+                        }`}>
+                        {label}
+                      </span>
+                      <span className="font-medium text-slate-800 dark:text-slate-200">{opt}</span>
+                      {showResult && isAnswer && (
+                        <motion.div
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          className="ml-auto"
+                        >
+                          <CheckCircle className="text-emerald-600 dark:text-emerald-400" size={20} />
+                        </motion.div>
+                      )}
+                    </motion.button>
+                  );
+                })}
+              </div>
+            </motion.div>
+          </AnimatePresence>
 
           {/* アクションボタン */}
           <div className="mt-6">
             {showResult ? (
-              <div className="animate-in fade-in slide-in-from-bottom-4">
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-6">
-                  <div className="flex items-center gap-2 mb-2 font-bold text-gray-900">
-                    <BookOpen size={18} className="text-blue-500" />
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+              >
+                <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 mb-6">
+                  <div className="flex items-center gap-2 mb-2 font-bold text-slate-900 dark:text-white">
+                    <BookOpen size={18} className="text-indigo-500" />
                     解説
                   </div>
-                  <p className="text-gray-700 leading-relaxed mb-2">{currentQ.explanation}</p>
-                  <p className="text-sm text-gray-500 border-t pt-2 mt-2">訳: {currentQ.translation}</p>
+                  <p className="text-slate-700 dark:text-slate-300 leading-relaxed mb-2">{currentQ.explanation}</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 border-t border-slate-100 dark:border-slate-800 pt-2 mt-2">訳: {currentQ.translation}</p>
                 </div>
-                <button
+                <motion.button
                   onClick={nextQuestion}
-                  className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-200 flex items-center justify-center gap-2"
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.99 }}
+                  className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 text-white py-4 rounded-xl font-bold hover:opacity-90 transition shadow-lg shadow-indigo-200 dark:shadow-indigo-900/30 flex items-center justify-center gap-2"
                 >
-                  次の問題へ <ChevronRight size={20} />
-                </button>
-              </div>
+                  {currentIndex + 1 < questions.length ? (
+                    <>次の問題へ <ChevronRight size={20} /></>
+                  ) : (
+                    <>結果を見る <Star size={20} /></>
+                  )}
+                </motion.button>
+              </motion.div>
             ) : (
-              <button
+              <motion.button
                 onClick={submitAnswer}
                 disabled={!selectedAnswer}
-                className="w-full bg-black text-white py-4 rounded-xl font-bold hover:opacity-80 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                whileHover={selectedAnswer ? { scale: 1.01 } : {}}
+                whileTap={selectedAnswer ? { scale: 0.99 } : {}}
+                className="w-full bg-gradient-to-r from-slate-900 to-slate-800 dark:from-white dark:to-slate-200 text-white dark:text-slate-900 py-4 rounded-xl font-bold hover:opacity-90 disabled:opacity-30 disabled:cursor-not-allowed transition shadow-lg"
               >
                 回答する
-              </button>
+              </motion.button>
             )}
           </div>
         </div>
@@ -374,9 +605,13 @@ export default function QuestionBankPage() {
 
   if (fetching) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent mb-4"></div>
-        <p className="text-gray-500 font-medium">最適な問題をセレクト中...</p>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-950">
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+          className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full mb-4"
+        />
+        <p className="text-slate-500 dark:text-slate-400 font-medium">最適な問題をセレクト中...</p>
       </div>
     );
   }
@@ -385,39 +620,79 @@ export default function QuestionBankPage() {
   // トップ画面（モード選択）
   // =============================
   return (
-    <div className="min-h-screen bg-gray-50 p-6 md:p-10">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 p-6 md:p-10">
       <div className="max-w-5xl mx-auto">
-        <div className="mb-10 text-center md:text-left">
-          <h1 className="text-3xl font-extrabold text-gray-900 mb-2">TOEIC 問題バンク</h1>
-          <p className="text-gray-500">あなたの現在のレベルと苦手に合わせて、最適な問題を出題します。</p>
-        </div>
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-10 text-center md:text-left"
+        >
+          <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white mb-2 flex items-center gap-3 justify-center md:justify-start">
+            <Sparkles className="w-8 h-8 text-indigo-500" />
+            TOEIC 問題バンク
+          </h1>
+          <p className="text-slate-500 dark:text-slate-400">あなたの現在のレベルと苦手に合わせて、最適な問題を出題します。</p>
+        </motion.div>
 
         {/* 弱点アラート */}
         {weaknesses.length > 0 && (
-          <div className="bg-orange-50 border border-orange-100 rounded-2xl p-6 mb-10 flex flex-col md:flex-row items-start md:items-center gap-6">
-            <div className="bg-orange-100 p-3 rounded-xl text-orange-600">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="bg-orange-50 dark:bg-orange-900/20 border border-orange-100 dark:border-orange-800 rounded-2xl p-6 mb-10 flex flex-col md:flex-row items-start md:items-center gap-6"
+          >
+            <div className="bg-orange-100 dark:bg-orange-900/40 p-3 rounded-xl text-orange-600">
               <AlertTriangle size={24} />
             </div>
             <div className="flex-1">
-              <h3 className="text-lg font-bold text-gray-900 mb-1">弱点カテゴリが見つかりました</h3>
-              <p className="text-gray-600 text-sm">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">弱点カテゴリが見つかりました</h3>
+              <p className="text-slate-600 dark:text-slate-400 text-sm">
                 最近の学習データから、以下の分野の正解率が低くなっています。重点的に復習しましょう。
               </p>
             </div>
             <div className="flex gap-2 flex-wrap">
               {weaknesses.slice(0, 3).map((w) => (
-                <span key={w.categoryId} className="px-3 py-1 bg-white border border-orange-200 text-orange-700 rounded-full text-sm font-medium shadow-sm">
+                <span key={w.categoryId} className="px-3 py-1 bg-white dark:bg-slate-800 border border-orange-200 dark:border-orange-700 text-orange-700 dark:text-orange-300 rounded-full text-sm font-medium shadow-sm">
                   {w.categoryName} ({Math.round(w.correctRate * 100)}%)
                 </span>
               ))}
             </div>
-          </div>
+          </motion.div>
         )}
 
-        <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-          <Target className="text-blue-500" />
+        {/* エラーメッセージ */}
+        {noQuestionsMsg && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl p-6 mb-10 flex items-start gap-4"
+          >
+            <div className="bg-red-100 dark:bg-red-900/40 p-3 rounded-xl text-red-600">
+              <AlertTriangle size={24} />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-lg font-bold text-red-800 dark:text-red-300 mb-1">問題が見つかりません</h3>
+              <p className="text-red-600 dark:text-red-400 text-sm">{noQuestionsMsg}</p>
+            </div>
+            <button
+              onClick={() => setNoQuestionsMsg(null)}
+              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+            >
+              ✕
+            </button>
+          </motion.div>
+        )}
+
+        <motion.h2
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.2 }}
+          className="text-xl font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-2"
+        >
+          <Target className="text-indigo-500" />
           学習モードを選択
-        </h2>
+        </motion.h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <ModeCard
@@ -449,24 +724,6 @@ export default function QuestionBankPage() {
             onClick={() => startSession("review")}
           />
         </div>
-
-        <div className="mt-12 bg-white rounded-2xl p-8 border border-gray-100 shadow-sm">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-              <Filter size={20} className="text-gray-400" />
-              カスタム出題（※準備中）
-            </h2>
-            <span className="text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded">Coming Soon</span>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 opacity-50 pointer-events-none">
-            {["Part 5 (短文穴埋め)", "Part 6 (長文穴埋め)", "600点レベル", "800点レベル"].map(tag => (
-              <div key={tag} className="border border-gray-200 rounded-lg p-3 text-center text-sm text-gray-500">
-                {tag}
-              </div>
-            ))}
-          </div>
-        </div>
-
       </div>
     </div>
   );

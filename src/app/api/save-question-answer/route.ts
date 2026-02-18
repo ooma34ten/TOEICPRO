@@ -103,6 +103,58 @@ async function saveAnswer(data: SaveAnswerRequest): Promise<{ success: boolean; 
 }
 
 // =============================
+// スコア更新 (TOEIC予測スコア)
+// =============================
+async function updatePredictedScore(userId: string, isCorrect: boolean, questionId: string): Promise<void> {
+    try {
+        // 1. 問題の重要度を取得
+        const { data: question } = await supabase
+            .from("toeic_questions")
+            .select("importance")
+            .eq("id", questionId)
+            .maybeSingle();
+
+        const importance = question?.importance ?? 3;
+
+        // 2. 最新スコアを取得
+        const { data: latestResult } = await supabase
+            .from("test_results")
+            .select("predicted_score")
+            .eq("user_id", userId)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+        let currentScore = latestResult?.predicted_score ?? 400;
+
+        // 3. 変動値を計算
+        let delta = 0;
+        if (isCorrect) {
+            delta = importance * 2;
+        } else {
+            delta = -1 * importance;
+        }
+
+        let newScore = currentScore + delta;
+        if (newScore > 990) newScore = 990;
+        if (newScore < 10) newScore = 10;
+
+        // 4. 新しいスコア履歴を保存
+        // (毎回保存することでグラフ化なども可能にする)
+        await supabase.from("test_results").insert({
+            user_id: userId,
+            predicted_score: newScore,
+            correct_count: isCorrect ? 1 : 0,
+            accuracy: isCorrect ? 100 : 0,
+            weak_categories: [],
+        });
+
+    } catch (e) {
+        console.error("Failed to update predicted score:", e);
+    }
+}
+
+// =============================
 // セッション統計を更新
 // =============================
 async function updateSessionStats(
@@ -213,12 +265,14 @@ export async function POST(req: Request) {
             sessionId,
         });
 
-        // セッション統計を更新
-        if (sessionId) {
-            await updateSessionStats(userId, sessionId, isCorrect);
-        }
-
         if (result.success) {
+            // スコア更新 (非同期で実行しても良いが、ここではawaitして確実性を取る)
+            await updatePredictedScore(userId, isCorrect, questionId);
+
+            // セッション統計を更新
+            if (sessionId) {
+                await updateSessionStats(userId, sessionId, isCorrect);
+            }
             return NextResponse.json({ success: true });
         } else {
             return NextResponse.json({ success: false, error: result.error }, { status: 500 });

@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { speakText } from "@/lib/speech";
 import Confetti from "react-confetti";
 import { Volume2, ChevronRight, Trophy, Zap, Target, RotateCcw } from "lucide-react";
+import { updateUserStats } from "@/app/actions/updateStats";
 
 // =============================
 // 型定義
@@ -230,9 +231,16 @@ export default function AITeacherPage() {
       return newStats;
     });
 
+    // Gamification
+    if (isCorrect) {
+      await updateUserStats(userId, 15, 1); // 15 XP for AI Teacher correct answer
+    } else {
+      await updateUserStats(userId, 2, 1); // 2 XP for effort on incorrect answer
+    }
+
     // サーバーに保存
     try {
-      await fetch("/api/save_test_result", {
+      const res = await fetch("/api/save_test_result", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -242,11 +250,18 @@ export default function AITeacherPage() {
           result: {
             correct: isCorrect ? 1 : 0,
             accuracy: isCorrect ? 1 : 0,
-            predictedScore: latestScore ?? 450,
+            predictedScore: latestScore ?? 450, // サーバー側で再計算されるので、ここはあくまで参考値
             weak: isCorrect ? [] : [current.category || "other"],
           },
         }),
       });
+
+      const data = await res.json();
+      if (data.success && data.newScore) {
+        // サーバーから返ってきた最新スコアで更新
+        setLatestScore(data.newScore);
+      }
+
     } catch (err) {
       console.error("Failed to save result:", err);
     }
@@ -457,9 +472,7 @@ export default function AITeacherPage() {
               あなたのレベルに合わせた問題を準備しています
             </p>
 
-            <div className="mt-6 bg-gray-100 rounded-full h-2 overflow-hidden">
-              <div className="bg-indigo-500 h-full animate-pulse" style={{ width: "60%" }}></div>
-            </div>
+
           </div>
         </div>
       </div>
@@ -577,9 +590,9 @@ export default function AITeacherPage() {
                     className={buttonClass}
                   >
                     <span className={`w-8 h-8 rounded-full flex items-center justify-center font-medium text-sm ${showResult && isAnswer ? "bg-green-500 text-white" :
-                        showResult && isSelected && !isAnswer ? "bg-red-500 text-white" :
-                          isSelected ? "bg-indigo-500 text-white" :
-                            "bg-gray-200 text-gray-600"
+                      showResult && isSelected && !isAnswer ? "bg-red-500 text-white" :
+                        isSelected ? "bg-indigo-500 text-white" :
+                          "bg-gray-200 text-gray-600"
                       }`}>
                       {label}
                     </span>

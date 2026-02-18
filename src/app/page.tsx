@@ -12,7 +12,11 @@ export default function Home() {
   useEffect(() => {
     (async () => {
       const { data } = await supabase.auth.getSession();
-      if (data.session) setUserId(data.session.user.id);
+      if (data.session) {
+        setUserId(data.session.user.id);
+        // Redirect to dashboard if logged in
+        window.location.href = "/dashboard";
+      }
       setLoading(false);
     })();
   }, []);

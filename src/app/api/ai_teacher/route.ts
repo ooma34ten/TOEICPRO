@@ -85,26 +85,21 @@ function parseJsonSafe(text: string): ParsedResponse | null {
 // =============================
 // 選択肢正規化
 // =============================
+// 正規化: "(A) apple" -> "apple", "A. apple" -> "apple"
+// 正規化: "(A) apple" -> "apple", "A. apple" -> "apple"
 function normalizeOptionText(raw: unknown): string {
   if (typeof raw !== "string") return "";
 
-  // まず全体の先頭にある "A) / A. / A: / A：" などを削除
-  let text = raw.replace(/^[A-D][\)\.\:\：\s\-–—]*?/i, "").trim();
+  // 1. remove leading (A), (1), A., 1. etc.
+  // We require a separator (paren, dot, colon) OR parens around the letter.
+  // This prevents stripping "Because" -> "ecause" (where B is matched as the index).
+  let text = raw.replace(/^[\(（][A-Da-d1-4][\)）]([\.\:\：]?\s*)?/, "").trim(); // Matches (A), (1)
+  text = text.replace(/^[A-Da-d1-4][\.\)\:\：]\s*/, "").trim(); // Matches A., 1., A)
 
-  // 改行で複数行ある場合、最後の行を使用
-  const lines = text
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter(Boolean);
+  // 2. remove leading non-alphanumeric symbols if any remain (e.g. "- ", ". ")
+  text = text.replace(/^[\.\-\:\：]\s*/, "").trim();
 
-  let last = lines.length ? lines[lines.length - 1] : text;
-
-  // 行頭の記号（".", ")", "-", ":" など）を取り除く
-  // 行頭の記号のみを削除（後ろが英数のときだけ）
-  last = last.replace(/^[\.\)\-\:\：\s]+(?=[a-zA-Z0-9])/, "").trim();
-
-
-  return last;
+  return text;
 }
 
 
@@ -192,17 +187,20 @@ export async function POST(req: Request) {
 あなたはプロのTOEIC講師です。以下のルール厳守：
 1) 出力は JSON のみ
 2) 問題数は ${count} 問
-3) 形式：
+3) **重要: "translation", "explanation", "partOfSpeech" は必ず日本語で出力すること。** 特に translation は自然な和訳にし、英語のままにしないこと。
+   - translation に "(A) registration" のような英語の選択肢を含めないこと。完全な日本語にする。（例：「...提出してください」）
+   - options の配列には、選択肢の記号(A, B, C, D)を含めないこと。純粋な単語/フレーズのみ。
+4) 形式：
 {
   "questions": [
     {
       "id": "一意ID",
       "question": "...",
-      "translation": "...",
-      "options": ["A", "B", "C", "D"],
-      "answer": "...",
-      "explanation": "...",
-      "partOfSpeech": "...",
+      "translation": "（必ず日本語で、英語の単語を含めない）...",
+      "options": ["registration", "register", "registered", "registering"],
+      "answer": "registration",
+      "explanation": "（必ず日本語で）...",
+      "partOfSpeech": "（必ず日本語で）...",
       "example": "...",
       "category": "...",
       "importance": 1,
@@ -212,7 +210,7 @@ export async function POST(req: Request) {
 }
 苦手分野 ${weaknessText} を半分入れる。
 推定スコア：${estimatedScore}
-`; 
+`;
 
     // AI 実行
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
@@ -270,8 +268,8 @@ export async function POST(req: Request) {
             typeof r.category === "string"
               ? r.category
               : typeof r.partOfSpeech === "string"
-              ? r.partOfSpeech
-              : "other",
+                ? r.partOfSpeech
+                : "other",
           importance:
             typeof r.importance === "number"
               ? Math.min(5, Math.max(1, r.importance))

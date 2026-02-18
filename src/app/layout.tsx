@@ -1,24 +1,32 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/Header";
 import AIQuestionSidebar from "@/components/AIQuestionSidebar";
 
-const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
-const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+const jetbrainsMono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jetbrains-mono" });
 
 export const metadata: Metadata = {
-  title: "TOEIC 単語学習アプリ",
-  description: "TOEIC対策に特化した単語学習支援アプリ",
+  title: "TOEIC PRO | AI学習アプリ",
+  description: "AIと共に最短でTOEICスコアアップを目指すプロフェッショナル学習ツール",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
   return (
-    <html lang="ja">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gray-50`}>
+    <html lang="ja" suppressHydrationWarning>
+      <body
+        className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased min-h-screen flex flex-col`}
+      >
         <Header />
-        <main className="max-w-6xl mx-auto p-6 min-h-screen">{children}</main>
-        <AIQuestionSidebar /> {/* 全ページ共通で表示 */}
+        <main className="flex-1 w-full max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+          {children}
+        </main>
+        <AIQuestionSidebar />
       </body>
     </html>
   );

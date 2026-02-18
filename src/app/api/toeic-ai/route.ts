@@ -23,7 +23,7 @@ export async function POST(req: Request) {
 
     // 無料ユーザー制限
     if (!subscribed) {
-      const today = new Date(); today.setHours(0,0,0,0);
+      const today = new Date(); today.setHours(0, 0, 0, 0);
       const { count } = await supabase
         .from("ai_usage_log")
         .select("*", { count: "exact", head: true })
@@ -43,13 +43,13 @@ export async function POST(req: Request) {
 
     ▼ 出力ルール
     - 出力は必ず JSON のみ。文以外は禁止。
-    - 日本人向けに自然な解説を行う。
+    - **解説・翻訳・ポイントは必ず「日本語」で行うこと。** 英語で説明してはいけない。
     - JSONキー構造は必ず固定（summary / examples / tips / extra）。
-    - 全ての例文には必ず「translation（訳）」と「point（文法または使い方の説明）」を含める。
+    - 全ての例文には必ず「translation（日本語訳）」と「point（日本語での文法・使い方の説明）」を含める。
     - 「importance」は重要度を★5段階で評価。
     - 単語・熟語・文法項目を聞かれた場合（例：runの意味、on timeの使い方など）は：
       1. 例文を2〜3件出す。
-      2. 各例文に「訳」「文法・意味のポイント」「重要度」を必ず付ける。
+      2. 各例文に「訳（日本語）」「文法・意味のポイント（日本語）」「重要度」を必ず付ける。
       3. さらに tips で学習のコツ・混同しやすい表現などを1〜3件出す。
     - 問題を求められた場合（例：「問題を出して」）は選択肢付き問題形式にし、「answer」を必ず含める。
     - 「勉強のコツ」などを聞かれた場合は例文を省略し、アドバイス中心にする。
@@ -59,22 +59,22 @@ export async function POST(req: Request) {
 
     出力フォーマット:
     {
-      "summary": "質問の要点を1〜2文でまとめる",
+      "summary": "質問の要点を1〜2文でまとめる（日本語）",
       "examples": [
         {
           "text": "例文または問題文(英語)",
-          "translation": "日本語訳",
-          "point": "文法や使い方の説明",
+          "translation": "日本語訳（必須・日本語）",
+          "point": "文法や使い方の説明（必須・日本語）",
           "importance": "★★★★★",
           "answer": "正解（問題の場合のみ）",
           "choices": ["A案","B案","C案"]
         }
       ],
       "tips": [
-        "単語・文法・勉強に関するコツや注意点を1〜3件"
+        "単語・文法・勉強に関するコツや注意点を1〜3件（日本語）"
       ],
       "extra": [
-        {"title":"補足","content":"関連表現・派生語・TOEIC頻出ポイントなど"}
+        {"title":"補足","content":"関連表現・派生語・TOEIC頻出ポイントなど（日本語）"}
       ]
     }
     `;

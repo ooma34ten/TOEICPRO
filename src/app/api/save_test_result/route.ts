@@ -76,14 +76,56 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid result object" }, { status: 400 });
     }
 
-    // 1) test_results に保存
+    // 1) 直近のスコアを取得
+    const { data: latestResult } = await supabaseAdmin
+      .from("test_results")
+      .select("predicted_score")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    let currentScore = latestResult?.predicted_score ?? 400; // 初回デフォルト
+
+    // 2) スコア変動計算 (サーバー側で計算して不正防止)
+    let scoreDelta = 0;
+
+    // 問題ごとの正誤判定とスコア計算
+    for (let i = 0; i < questions.length; i++) {
+      const q = questions[i];
+      const label = selected[i];
+      let userAnswer = "";
+
+      if (typeof label === "string" && label.length > 0) {
+        const idx = label.toUpperCase().charCodeAt(0) - 65;
+        if (idx >= 0 && idx < q.options.length) userAnswer = q.options[idx];
+      }
+
+      const isCorrect = userAnswer.trim().toLowerCase() === q.answer.trim().toLowerCase();
+      const importance = q.importance ?? 3; // デフォルト3
+
+      if (isCorrect) {
+        // 正解: 重要度が高いほど伸びる (例: ★5=10点, ★3=6点)
+        scoreDelta += importance * 2;
+      } else {
+        // 不正解: 重要度が高いほど下がる (例: ★5=-5点, ★3=-3点)
+        scoreDelta -= importance * 1;
+      }
+    }
+
+    // 新しいスコア (10〜990の範囲に収める)
+    let newScore = currentScore + scoreDelta;
+    if (newScore > 990) newScore = 990;
+    if (newScore < 10) newScore = 10;
+
+    // 3) test_results に保存
     const { data: testResult, error: testError } = await supabaseAdmin
       .from("test_results")
       .insert({
         user_id: userId,
         correct_count: result.correct,
         accuracy: result.accuracy,
-        predicted_score: result.predictedScore,
+        predicted_score: newScore, // 計算したスコアを使用
         weak_categories: result.weak,
       })
       .select()
@@ -92,7 +134,7 @@ export async function POST(req: Request) {
     if (testError) throw testError;
     const resultId: string = testResult.id;
 
-    // 2) 各問題を処理
+    // 4) 各問題を処理 (詳細保存)
     for (let i = 0; i < questions.length; i++) {
       const q = questions[i];
       const label = selected[i];
@@ -107,7 +149,7 @@ export async function POST(req: Request) {
       const isCorrect =
         userAnswer.trim().toLowerCase() === correctAnswer.trim().toLowerCase();
 
-      // 2-1 words_master
+      // 4-1 words_master
       const { data: existWord, error: existWordErr } = await supabaseAdmin
         .from("words_master")
         .select("id")
@@ -136,7 +178,7 @@ export async function POST(req: Request) {
         wordId = newWord.id;
       }
 
-      // 2-2 test_result_items
+      // 4-2 test_result_items
       const { error: itemErr } = await supabaseAdmin
         .from("test_result_items")
         .insert({
@@ -150,7 +192,7 @@ export async function POST(req: Request) {
         });
       if (itemErr) throw itemErr;
 
-      // 2-3 user_words
+      // 4-3 user_words
       const { data: existUserWord, error: existUserWordErr } = await supabaseAdmin
         .from("user_words")
         .select("*")
@@ -186,7 +228,7 @@ export async function POST(req: Request) {
         userWordId = insertedUserWord.id;
       }
 
-      // 2-4 user_word_history
+      // 4-4 user_word_history
       const { error: histErr } = await supabaseAdmin
         .from("user_word_history")
         .insert({
@@ -197,7 +239,7 @@ export async function POST(req: Request) {
       if (histErr) throw histErr;
     }
 
-    return NextResponse.json({ success: true, resultId });
+    return NextResponse.json({ success: true, resultId, newScore });
   } catch (e) {
     let message = "Unknown error occurred";
     if (e instanceof Error) message = e.message;

@@ -77,6 +77,18 @@ function calculatePriority(
 }
 
 // =============================
+// Fisher-Yates シャッフル
+// =============================
+function shuffleArray<T>(array: T[]): T[] {
+  const arr = [...array];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+// =============================
 // スマート問題取得ロジック
 // =============================
 async function getSmartQuestions(
@@ -99,7 +111,7 @@ async function getSmartQuestions(
   }
 
   const { data: allQuestions, error: qError } = await query;
-  if (qError || !allQuestions) {
+  if (qError || !allQuestions || allQuestions.length === 0) {
     console.error("Failed to fetch questions:", qError);
     return [];
   }
@@ -169,7 +181,7 @@ async function getSmartQuestions(
         });
       break;
 
-    case "weakness":
+    case "weakness": {
       // 弱点克服モード: 正解率の低い問題を優先
       filtered = scoredQuestions
         .filter((q) => {
@@ -181,93 +193,142 @@ async function getSmartQuestions(
           return rate < 0.7;
         })
         .sort((a, b) => b.priority - a.priority);
-      break;
 
-    case "review":
+      // フォールバック: 弱点問題がない場合は未回答の重要度が高い問題を出題
+      if (filtered.length === 0) {
+        console.log("[smart-questions] weakness fallback: using unanswered high-importance questions");
+        filtered = scoredQuestions
+          .filter((q) => !historyMap.has(q.id))
+          .sort((a, b) => (b.importance ?? 0) - (a.importance ?? 0));
+      }
+      break;
+    }
+
+    case "review": {
       // 復習モード: 復習期限が来ている問題のみ
       filtered = scoredQuestions
         .filter((q) => q.dueForReview && historyMap.has(q.id))
         .sort((a, b) => b.priority - a.priority);
+
+      // フォールバック: 復習対象がない場合は優先度順に全問題から出題
+      if (filtered.length === 0) {
+        console.log("[smart-questions] review fallback: using priority-sorted questions");
+        filtered = scoredQuestions
+          .sort((a, b) => b.priority - a.priority);
+      }
       break;
+    }
 
     default:
       filtered = scoredQuestions.sort((a, b) => b.priority - a.priority);
+  }
+
+  // グローバルフォールバック: どのモードでも0件なら全問題からランダム
+  if (filtered.length === 0) {
+    console.log("[smart-questions] global fallback: using all questions shuffled");
+    filtered = shuffleArray(scoredQuestions);
   }
 
   // 5. 指定数だけ返却（シャッフル要素を加える）
   const result = filtered.slice(0, Math.min(count * 2, filtered.length));
 
   // 上位候補からランダムに選択
-  for (let i = result.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [result[i], result[j]] = [result[j], result[i]];
-  }
+  const shuffled = shuffleArray(result);
 
-  return result.slice(0, count);
+  return shuffled.slice(0, count);
 }
 
 // =============================
-// 弱点カテゴリ分析
+// 弱点カテゴリ分析（安全版）
 // =============================
 async function getWeaknessAnalysis(userId: string) {
-  const { data: history, error } = await supabase
-    .from("user_question_history")
-    .select(`
-      question_id,
-      correct_count,
-      incorrect_count,
-      toeic_questions!inner (category, categories!inner (level1, level2))
-    `)
-    .eq("user_id", userId);
+  try {
+    // Step 1: ユーザーの回答履歴を取得
+    const { data: history, error: hError } = await supabase
+      .from("user_question_history")
+      .select("question_id, correct_count, incorrect_count")
+      .eq("user_id", userId);
 
-  if (error || !history) return [];
+    if (hError || !history || history.length === 0) return [];
 
-  type CategoryStats = {
-    categoryId: number;
-    categoryName: string;
-    totalCorrect: number;
-    totalIncorrect: number;
-  };
+    // Step 2: 関連する質問のカテゴリを個別に取得
+    const questionIds = history.map((h) => h.question_id);
+    const { data: questions, error: qError } = await supabase
+      .from("toeic_questions")
+      .select("id, category")
+      .in("id", questionIds);
 
-  const categoryMap = new Map<number, CategoryStats>();
+    if (qError || !questions) return [];
 
-  history.forEach((h: any) => {
-    // toeic_questions might be an array or object depending on Supabase mapping
-    const q = Array.isArray(h.toeic_questions) ? h.toeic_questions[0] : h.toeic_questions;
-    if (!q) return;
+    // 質問IDからカテゴリIDへのマップ
+    const questionCategoryMap = new Map<string, number>();
+    questions.forEach((q) => {
+      if (q.category) questionCategoryMap.set(q.id, q.category);
+    });
 
-    const catId = q.category;
-    if (!catId) return;
+    // Step 3: カテゴリ情報を取得（存在する場合のみ）
+    const categoryIds = [...new Set(
+      questions.map((q) => q.category).filter((c): c is number => c !== null)
+    )];
 
-    // categories might be an array or object
-    const cat = Array.isArray(q.categories) ? q.categories[0] : q.categories;
-    const catName = cat?.level2 || cat?.level1 || "その他";
+    const categoryNameMap = new Map<number, string>();
+    if (categoryIds.length > 0) {
+      const { data: cats } = await supabase
+        .from("categories")
+        .select("id, level1, level2")
+        .in("id", categoryIds);
 
-    const existing = categoryMap.get(catId);
-
-    if (existing) {
-      existing.totalCorrect += h.correct_count;
-      existing.totalIncorrect += h.incorrect_count;
-    } else {
-      categoryMap.set(catId, {
-        categoryId: catId,
-        categoryName: catName,
-        totalCorrect: h.correct_count,
-        totalIncorrect: h.incorrect_count,
-      });
+      if (cats) {
+        cats.forEach((c: { id: number; level1: string | null; level2: string | null }) => {
+          categoryNameMap.set(c.id, c.level2 || c.level1 || "その他");
+        });
+      }
     }
-  });
 
-  // 正解率でソート（低い順）
-  return Array.from(categoryMap.values())
-    .map((c) => ({
-      ...c,
-      total: c.totalCorrect + c.totalIncorrect,
-      correctRate: c.totalCorrect / (c.totalCorrect + c.totalIncorrect),
-    }))
-    .filter((c) => c.total >= 3) // 最低3回以上解いたカテゴリのみ
-    .sort((a, b) => a.correctRate - b.correctRate)
-    .slice(0, 5);
+    // Step 4: カテゴリ別に集計
+    type CategoryStats = {
+      categoryId: number;
+      categoryName: string;
+      totalCorrect: number;
+      totalIncorrect: number;
+    };
+
+    const categoryStatsMap = new Map<number, CategoryStats>();
+
+    history.forEach((h) => {
+      const catId = questionCategoryMap.get(h.question_id);
+      if (!catId) return;
+
+      const catName = categoryNameMap.get(catId) || `カテゴリ ${catId}`;
+      const existing = categoryStatsMap.get(catId);
+
+      if (existing) {
+        existing.totalCorrect += h.correct_count;
+        existing.totalIncorrect += h.incorrect_count;
+      } else {
+        categoryStatsMap.set(catId, {
+          categoryId: catId,
+          categoryName: catName,
+          totalCorrect: h.correct_count,
+          totalIncorrect: h.incorrect_count,
+        });
+      }
+    });
+
+    // 正解率でソート（低い順）
+    return Array.from(categoryStatsMap.values())
+      .map((c) => ({
+        ...c,
+        total: c.totalCorrect + c.totalIncorrect,
+        correctRate: c.totalCorrect / (c.totalCorrect + c.totalIncorrect),
+      }))
+      .filter((c) => c.total >= 3)
+      .sort((a, b) => a.correctRate - b.correctRate)
+      .slice(0, 5);
+  } catch (e) {
+    console.error("Weakness analysis error:", e);
+    return [];
+  }
 }
 
 // =============================
@@ -318,3 +379,4 @@ export async function GET(req: Request) {
   const questions = await getSmartQuestions(userId, "quick", 5);
   return NextResponse.json({ questions });
 }
+
