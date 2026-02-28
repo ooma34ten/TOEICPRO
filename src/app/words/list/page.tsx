@@ -19,6 +19,7 @@ export interface Word {
   importance: string;
   wrong: number;
   successRate: number;
+  synonyms?: string;
 }
 
 export default function WordListPage() {
@@ -81,6 +82,7 @@ export default function WordListPage() {
         importance: string | null;
         total: number | null;
         correct: number | null;
+        synonyms: string | null;
       }
 
 
@@ -102,6 +104,7 @@ export default function WordListPage() {
           importance: item.importance ?? "",
           wrong,
           successRate,
+          synonyms: item.synonyms ?? "",
         };
       });
 
@@ -272,8 +275,18 @@ export default function WordListPage() {
                 </div>
               )}
               {w.translation && <div><p className="font-medium">訳:</p><p className="text-gray-700 break-words">{w.translation}</p></div>}
+              {w.synonyms && (
+                <div className="flex items-center gap-2 flex-wrap mt-1">
+                  <span className="text-xs font-semibold text-purple-600">類義語:</span>
+                  {w.synonyms.split(",").map((s: string, i: number) => (
+                    <span key={i} className="text-xs bg-purple-50 text-purple-700 px-2 py-0.5 rounded-full border border-purple-200">
+                      {s.trim()}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
-            
+
             {/* 正解率・誤答数 */}
             <div className="mt-3 text-sm font-semibold">
               <p className="text-gray-700">正解数: {w.correct_count} 回 / 誤答数: {w.wrong} 回</p>
@@ -284,8 +297,8 @@ export default function WordListPage() {
                     w.successRate >= 0.8
                       ? "text-green-600"
                       : w.successRate >= 0.5
-                      ? "text-yellow-600"
-                      : "text-red-600"
+                        ? "text-yellow-600"
+                        : "text-red-600"
                   }
                 >
                   {(w.successRate * 100).toFixed(1)} %

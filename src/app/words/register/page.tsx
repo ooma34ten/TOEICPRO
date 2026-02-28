@@ -150,6 +150,21 @@ export default function RegisterPage() {
                   <p>
                     <strong>重要度:</strong> {row.importance}
                   </p>
+                  {row.synonyms && (
+                    <div className="flex items-center gap-2 flex-wrap mt-1">
+                      <span className="text-xs font-semibold text-purple-600">類義語:</span>
+                      {row.synonyms.split(",").map((s: string, i: number) => (
+                        <span key={i} className="text-xs bg-purple-50 text-purple-700 px-2 py-0.5 rounded-full border border-purple-200">
+                          {s.trim()}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {row.isAlreadyRegistered && (
+                    <span className="inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-700 border border-green-300">
+                      ✅ 登録済み
+                    </span>
+                  )}
                   <div className="flex gap-2 mt-2">
                     <button
                       onClick={() => speakText(row.word)}

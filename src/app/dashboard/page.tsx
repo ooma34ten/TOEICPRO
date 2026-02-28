@@ -244,6 +244,7 @@ export default function Dashboard() {
     const [loading, setLoading] = useState(true);
     const [userName, setUserName] = useState("ゲスト");
     const [chartData, setChartData] = useState<any[]>([]);
+    const [chartPeriod, setChartPeriod] = useState<"week" | "month" | "year">("week");
 
     const greeting = getGreeting();
     const dailyQuote = getDailyQuote();
@@ -295,30 +296,67 @@ export default function Dashboard() {
             if (data) {
                 setStats(data);
             }
+            setLoading(false);
+        };
 
-            // Fetch Chart Data
+        const fetchChartData = async () => {
+            const {
+                data: { session },
+            } = await supabase.auth.getSession();
+
+            if (!session) return;
+
+            let daysToSubtract = 7;
+            if (chartPeriod === "month") daysToSubtract = 30;
+            if (chartPeriod === "year") daysToSubtract = 365;
+
+            const startDate = new Date(Date.now() - daysToSubtract * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
             const { data: activityData } = await supabase
                 .from("user_activity_logs")
                 .select("activity_date, xp_earned")
                 .eq("user_id", session.user.id)
-                .gte("activity_date", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
+                .gte("activity_date", startDate)
                 .order("activity_date", { ascending: true });
 
             if (activityData) {
-                const formattedData = activityData.map((log: any) => ({
-                    name: new Date(log.activity_date).toLocaleDateString("ja-JP", { weekday: "short" }),
-                    xp: log.xp_earned,
-                }));
-                if (formattedData.length > 0) {
+                if (chartPeriod === "year") {
+                    // 年間表示の場合は月ごとに集計
+                    const monthlyData: Record<string, number> = {};
+                    activityData.forEach((log: any) => {
+                        const month = new Date(log.activity_date).toLocaleDateString("ja-JP", { month: "short" });
+                        monthlyData[month] = (monthlyData[month] || 0) + log.xp_earned;
+                    });
+                    const formattedData = Object.keys(monthlyData).map(month => ({
+                        name: month,
+                        xp: monthlyData[month]
+                    }));
+                    setChartData(formattedData);
+                } else if (chartPeriod === "month") {
+                    // 月間表示の場合はM/D
+                    const formattedData = activityData.map((log: any) => ({
+                        name: new Date(log.activity_date).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" }),
+                        xp: log.xp_earned,
+                    }));
+                    setChartData(formattedData);
+                } else {
+                    // 週間表示の場合は曜日
+                    const formattedData = activityData.map((log: any) => ({
+                        name: new Date(log.activity_date).toLocaleDateString("ja-JP", { weekday: "short" }),
+                        xp: log.xp_earned,
+                    }));
                     setChartData(formattedData);
                 }
+            } else {
+                setChartData([]);
             }
-
-            setLoading(false);
         };
 
-        fetchUserParams();
-    }, [router]);
+        if (loading) {
+            fetchUserParams();
+        }
+        fetchChartData();
+    }, [router, chartPeriod, loading]);
 
     if (loading) {
         return (
@@ -568,8 +606,14 @@ export default function Dashboard() {
                         <TrendingUp className="w-6 h-6 text-indigo-500" />
                         週間学習進捗
                     </h2>
-                    <select className="bg-slate-100 dark:bg-slate-800 border-none text-slate-600 dark:text-slate-400 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500">
-                        <option>今週</option>
+                    <select
+                        value={chartPeriod}
+                        onChange={(e) => setChartPeriod(e.target.value as "week" | "month" | "year")}
+                        className="bg-slate-100 dark:bg-slate-800 border-none text-slate-600 dark:text-slate-400 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                    >
+                        <option value="week">今週</option>
+                        <option value="month">今月</option>
+                        <option value="year">今年</option>
                     </select>
                 </div>
                 {chartData.length > 0 ? (

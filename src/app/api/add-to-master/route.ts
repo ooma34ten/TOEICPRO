@@ -9,6 +9,7 @@ interface WordRow {
   example: string;
   translation: string;
   importance: string;
+  synonyms?: string;
 }
 
 interface WordsMaster {
@@ -19,6 +20,7 @@ interface WordsMaster {
   example_sentence: string | null;
   translation: string | null;
   importance: string | null;
+  synonyms: string | null;
   registered_at: string;
 }
 
@@ -67,6 +69,7 @@ export async function POST(req: Request) {
         example_sentence: w.example || null,
         translation: w.translation || null,
         importance: w.importance || null,
+        synonyms: w.synonyms || null,
         registered_at: new Date().toISOString(),
       }));
 

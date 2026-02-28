@@ -82,11 +82,11 @@ export default function Header() {
     { href: "/words/toeic_ai", label: "AIアシスタント" },
     { href: "/words/ai_teacher", label: "AI問題演習" },
     { href: "/words/questions", label: "問題バンク" },
-    { href: "/words/contact", label: "お問い合わせ" },
     { href: "/words/subscribe", label: "サブスクリプション" },
   ];
 
   const settingLinks = [
+    { href: "/words/contact", label: "お問い合わせ" },
     { href: "/words/setting", label: "設定" },
     { href: "/legal/privacy", label: "プライバシー" },
     { href: "/legal/terms", label: "利用規約" },

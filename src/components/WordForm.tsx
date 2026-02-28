@@ -15,7 +15,9 @@ export interface Row {
   example: string;
   translation: string;
   importance: string;
+  synonyms?: string;
   selected?: boolean;
+  isAlreadyRegistered?: boolean;
 }
 
 interface WordFormProps {
@@ -68,6 +70,24 @@ export default function WordForm({ onAdd }: WordFormProps) {
         .select("*")
         .eq("word", finalWord);
 
+      // 🔹 ユーザーの登録済み単語をチェック
+      const { data: { user } } = await supabase.auth.getUser();
+      let registeredMeanings = new Set<string>();
+      if (user?.id && existingWords && existingWords.length > 0) {
+        const wordIds = existingWords.map((w: { id: string }) => w.id);
+        const { data: userWords } = await supabase
+          .from("user_words")
+          .select("word_id")
+          .eq("user_id", user.id)
+          .in("word_id", wordIds);
+        const registeredWordIds = new Set((userWords ?? []).map((uw: { word_id: string }) => uw.word_id));
+        existingWords.forEach((w: { id: string; meaning: string }) => {
+          if (registeredWordIds.has(w.id)) {
+            registeredMeanings.add(w.meaning);
+          }
+        });
+      }
+
       let displayRows: Row[] = [];
 
       if (!existingWords || existingWords.length === 0) {
@@ -87,7 +107,7 @@ export default function WordForm({ onAdd }: WordFormProps) {
 
         const clean = geminiData.answer.replace(/^```json\s*[\r\n]?/, "").replace(/```$/, "").trim();
 
-        type GeminiRow = Partial<Row> & { definition?: string };
+        type GeminiRow = Partial<Row> & { definition?: string; synonyms?: string };
         let parsed: { definitions?: GeminiRow[]; meanings?: GeminiRow[] } = {};
         try {
           parsed = JSON.parse(clean);
@@ -103,7 +123,9 @@ export default function WordForm({ onAdd }: WordFormProps) {
           example: m.example ?? "",
           translation: m.translation ?? "",
           importance: m.importance ?? "",
+          synonyms: m.synonyms ?? "",
           selected: true,
+          isAlreadyRegistered: false,
         }));
 
         if (!newRows.length) {
@@ -125,15 +147,20 @@ export default function WordForm({ onAdd }: WordFormProps) {
         displayRows = newRows;
       } else {
         // 🔹 既存単語を UI に表示
-        displayRows = existingWords.map((r) => ({
-          word: r.word,
-          part_of_speech: r.part_of_speech ?? "",
-          meaning: r.meaning ?? "",
-          example: r.example_sentence ?? "",
-          translation: r.translation ?? "",
-          importance: r.importance ?? "",
-          selected: true,
-        }));
+        displayRows = existingWords.map((r: { word: string; part_of_speech?: string; meaning?: string; example_sentence?: string; translation?: string; importance?: string; synonyms?: string }) => {
+          const isRegistered = registeredMeanings.has(r.meaning ?? "");
+          return {
+            word: r.word,
+            part_of_speech: r.part_of_speech ?? "",
+            meaning: r.meaning ?? "",
+            example: r.example_sentence ?? "",
+            translation: r.translation ?? "",
+            importance: r.importance ?? "",
+            synonyms: r.synonyms ?? "",
+            selected: !isRegistered,
+            isAlreadyRegistered: isRegistered,
+          };
+        });
       }
 
       setRows(displayRows);
@@ -265,9 +292,8 @@ export default function WordForm({ onAdd }: WordFormProps) {
                 <motion.div
                   key={idx}
                   whileHover={{ scale: 1.02 }}
-                  className={`border rounded-2xl p-4 bg-white shadow-md relative flex flex-col gap-3 ${
-                    r.selected ? "ring-2 ring-blue-300" : ""
-                  }`}
+                  className={`border rounded-2xl p-4 bg-white shadow-md relative flex flex-col gap-3 ${r.selected ? "ring-2 ring-blue-300" : ""
+                    }`}
                 >
                   <div className="absolute top-3 right-3">
                     <input
@@ -283,9 +309,16 @@ export default function WordForm({ onAdd }: WordFormProps) {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-xl font-bold text-gray-900">{r.word}</p>
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${getPartOfSpeechClasses(r.part_of_speech)}`}>
-                        {r.part_of_speech}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${getPartOfSpeechClasses(r.part_of_speech)}`}>
+                          {r.part_of_speech}
+                        </span>
+                        {r.isAlreadyRegistered && (
+                          <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-700 border border-green-300">
+                            ✅ 登録済み
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${getImportanceClasses(r.importance)}`}>
                       {r.importance}
@@ -295,6 +328,17 @@ export default function WordForm({ onAdd }: WordFormProps) {
                   <p className="text-gray-800">{r.meaning}</p>
                   <div className="bg-gray-50 border-l-4 border-blue-300 pl-3 py-2 italic text-gray-700">{r.example}</div>
                   <p className="text-gray-600 text-sm">{r.translation}</p>
+
+                  {r.synonyms && (
+                    <div className="flex items-center gap-2 flex-wrap mt-1">
+                      <span className="text-xs font-semibold text-purple-600">類義語:</span>
+                      {r.synonyms.split(",").map((s, i) => (
+                        <span key={i} className="text-xs bg-purple-50 text-purple-700 px-2 py-0.5 rounded-full border border-purple-200">
+                          {s.trim()}
+                        </span>
+                      ))}
+                    </div>
+                  )}
 
                   <button
                     onClick={() => speakText(r.example)}

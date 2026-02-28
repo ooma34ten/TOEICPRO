@@ -35,6 +35,7 @@ type WordMaster = {
   translation: string;
   importance: string;
   registered_at: string;
+  synonyms?: string;
 };
 
 type UserWord = {
@@ -160,6 +161,15 @@ export default function ReviewPage() {
   const [sessionResult, setSessionResult] = useState<SessionResult | null>(null);
   const [sessionXp, setSessionXp] = useState(0);
   const [slideDirection, setSlideDirection] = useState(1);
+  const [isAnswering, setIsAnswering] = useState(false);
+  const [lastAnswer, setLastAnswer] = useState<boolean | null>(null);
+
+  // Quiz states
+  const [quizPhase, setQuizPhase] = useState<"quiz" | "result">("quiz");
+  const [posChoices, setPosChoices] = useState<string[]>([]);
+  const [selectedPos, setSelectedPos] = useState<string | null>(null);
+  const [posCorrect, setPosCorrect] = useState<boolean | null>(null);
+
 
   const router = useRouter();
 
@@ -263,6 +273,7 @@ export default function ReviewPage() {
           wrong: number;
           success_rate: number;
           last_answered: string;
+          synonyms: string | null;
         }
 
         const userWords: UserWord[] = (data ?? []).map((item: UserWordStatsRPC) => ({
@@ -284,6 +295,7 @@ export default function ReviewPage() {
             translation: item.translation,
             importance: item.importance,
             registered_at: String(item.registered_at),
+            synonyms: item.synonyms ?? "",
           },
         }));
 
@@ -341,7 +353,9 @@ export default function ReviewPage() {
   /** 回答処理 */
   const handleAnswer = useCallback(async (isOk: boolean): Promise<void> => {
     try {
-      if (!userId || sessionResult) return;
+      if (!userId || sessionResult || isAnswering) return;
+      setIsAnswering(true);
+      setLastAnswer(isOk);
       const now = new Date().toISOString();
 
       await supabase.from("user_word_history").insert({
@@ -397,10 +411,15 @@ export default function ReviewPage() {
           setSlideDirection(1);
           setCurrentIndex((prev) => prev + 1);
           setShowAnswer(false);
-        }, 600);
+          setIsAnswering(false);
+          setLastAnswer(null);
+          // クイズリセット
+          setQuizPhase("quiz");
+          setSelectedPos(null);
+          setPosCorrect(null);
+        }, 150);
       } else {
         // セッション完了
-        const correctCount = (isOk ? 1 : 0) + words.slice(0, currentIndex).filter(() => true).length; // approximate
         setTimeout(() => {
           setSessionResult({
             totalAnswered: currentIndex + 1,
@@ -409,12 +428,14 @@ export default function ReviewPage() {
             maxStreak: isOk ? Math.max(maxStreak, streak + 1) : maxStreak,
             xpEarned: sessionXp + xpGained,
           });
-        }, 600);
+          setIsAnswering(false);
+          setLastAnswer(null);
+        }, 150);
       }
     } catch (err) {
       console.error(err);
     }
-  }, [userId, words, currentIndex, stats, streak, maxStreak, sessionXp, sessionResult]);
+  }, [userId, words, currentIndex, stats, streak, maxStreak, sessionXp, sessionResult, isAnswering]);
 
   /** スキップ（末尾に回す） */
   const handleSkip = useCallback(() => {
@@ -428,18 +449,58 @@ export default function ReviewPage() {
     setSlideDirection(1);
   }, [words, currentIndex, sessionResult]);
 
+  const ALL_POS = ["名詞", "動詞", "形容詞", "副詞", "接続詞", "前置詞"];
+
+  /** 品詞クイズの選択肢を生成 */
+  const generatePosChoices = useCallback((correctPos: string) => {
+    const others = ALL_POS.filter((p) => p !== correctPos);
+    // シャッフルしてダミー3つ取得
+    for (let i = others.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [others[i], others[j]] = [others[j], others[i]];
+    }
+    const choices = [correctPos, ...others.slice(0, 3)];
+    // シャッフル
+    for (let i = choices.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [choices[i], choices[j]] = [choices[j], choices[i]];
+    }
+    return choices;
+  }, []);
+
+  /** 品詞選択ハンドラ */
+  const handlePosSelect = useCallback((pos: string) => {
+    if (selectedPos !== null || !words[currentIndex]) return;
+    const correct = pos === words[currentIndex].words_master.part_of_speech;
+    setSelectedPos(pos);
+    setPosCorrect(correct);
+    setShowAnswer(true);
+    setQuizPhase("result");
+  }, [selectedPos, words, currentIndex, handleAnswer]);
+
+  /** 新しい単語が表示されたら選択肢を生成 */
+  useEffect(() => {
+    if (words[currentIndex] && quizPhase === "quiz") {
+      const pc = generatePosChoices(words[currentIndex].words_master.part_of_speech);
+      setPosChoices(pc);
+    }
+  }, [currentIndex, words, quizPhase, generatePosChoices]);
+
   /** キーボードショートカット */
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (sessionResult) return;
-      if (e.key === " " || e.key === "Enter") {
-        e.preventDefault();
-        if (!showAnswer) {
-          setShowAnswer(true);
+      // クイズフェーズ: 1-4キーで品詞選択
+      if (quizPhase === "quiz" && posChoices.length > 0) {
+        const num = parseInt(e.key);
+        if (num >= 1 && num <= posChoices.length) {
+          e.preventDefault();
+          handlePosSelect(posChoices[num - 1]);
         }
       }
-      if (showAnswer) {
-        if (e.key === "ArrowRight" || e.key === "o") {
+      // 結果フェーズ: OK/NG
+      if (quizPhase === "result" && showAnswer) {
+        if (posCorrect && (e.key === "ArrowRight" || e.key === "o")) {
           e.preventDefault();
           handleAnswer(true);
         }
@@ -456,7 +517,7 @@ export default function ReviewPage() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [showAnswer, handleAnswer, handleSkip, sessionResult]);
+  }, [showAnswer, handleAnswer, handleSkip, handlePosSelect, sessionResult, quizPhase, posChoices, posCorrect]);
 
   // =============================
   // ローディング画面
@@ -677,8 +738,8 @@ export default function ReviewPage() {
                 animate={{ scale: 1, rotate: 0 }}
                 transition={{ delay: 0.2, type: "spring" }}
                 className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg ${showPhaseModal === "phase2"
-                    ? "bg-gradient-to-br from-emerald-400 to-teal-500 shadow-emerald-200 dark:shadow-emerald-900/30"
-                    : "bg-gradient-to-br from-violet-500 to-purple-600 shadow-violet-200 dark:shadow-violet-900/30"
+                  ? "bg-gradient-to-br from-emerald-400 to-teal-500 shadow-emerald-200 dark:shadow-emerald-900/30"
+                  : "bg-gradient-to-br from-violet-500 to-purple-600 shadow-violet-200 dark:shadow-violet-900/30"
                   }`}
               >
                 {showPhaseModal === "phase2" ? (
@@ -781,10 +842,10 @@ export default function ReviewPage() {
                 <div className="h-1.5 w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
                   <motion.div
                     className={`h-full rounded-full ${stats.phase === "finished"
-                        ? "bg-gradient-to-r from-emerald-400 to-teal-400"
-                        : stats.phase === "phase2"
-                          ? "bg-gradient-to-r from-emerald-400 to-emerald-500"
-                          : "bg-gradient-to-r from-indigo-400 to-indigo-500"
+                      ? "bg-gradient-to-r from-emerald-400 to-teal-400"
+                      : stats.phase === "phase2"
+                        ? "bg-gradient-to-r from-emerald-400 to-emerald-500"
+                        : "bg-gradient-to-r from-indigo-400 to-indigo-500"
                       }`}
                     initial={{ width: 0 }}
                     animate={{ width: `${Math.min(targetProgress * 100, 100)}%` }}
@@ -849,23 +910,42 @@ export default function ReviewPage() {
                 </button>
               </div>
 
-              {/* 答え表示 or ボタン */}
+              {/* 品詞クイズ or 結果表示 */}
               <AnimatePresence mode="wait">
-                {!showAnswer ? (
+                {quizPhase === "quiz" ? (
                   <motion.div
-                    key="buttons-hidden"
+                    key="quiz-phase"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0, y: -10 }}
                     className="space-y-3"
                   >
-                    <button
-                      onClick={() => setShowAnswer(true)}
-                      className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-bold py-3 rounded-xl transition shadow-lg shadow-indigo-200 dark:shadow-indigo-900/30 flex items-center justify-center gap-2"
-                    >
-                      <Sparkles className="w-5 h-5" />
-                      答えを見る
-                    </button>
+                    <p className="text-center text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                      この単語の品詞は？
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {posChoices.map((pos, idx) => (
+                        <motion.button
+                          key={pos}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => handlePosSelect(pos)}
+                          disabled={selectedPos !== null}
+                          className={`py-3 px-4 rounded-xl font-bold text-sm transition shadow-md flex items-center justify-center gap-2 ${selectedPos === pos
+                            ? pos === m.part_of_speech
+                              ? "bg-emerald-500 text-white shadow-emerald-200"
+                              : "bg-red-500 text-white shadow-red-200"
+                            : selectedPos !== null
+                              ? pos === m.part_of_speech
+                                ? "bg-emerald-100 text-emerald-700 border-2 border-emerald-400"
+                                : "bg-gray-100 text-gray-400"
+                              : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700"
+                            }`}
+                        >
+                          <span className="text-xs text-slate-400 dark:text-slate-500 font-mono w-4">{idx + 1}</span>
+                          {pos}
+                        </motion.button>
+                      ))}
+                    </div>
                     <button
                       onClick={handleSkip}
                       className="w-full py-2.5 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 text-sm font-medium transition flex items-center justify-center gap-2"
@@ -874,18 +954,34 @@ export default function ReviewPage() {
                       あとで復習する
                     </button>
                     <p className="text-center text-[10px] text-slate-300 dark:text-slate-600">
-                      Space で表示 • S でスキップ
+                      1〜4 で選択 • S でスキップ
                     </p>
                   </motion.div>
                 ) : (
                   <motion.div
-                    key="answer-shown"
+                    key="result-phase"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.4 }}
                     className="space-y-4"
                   >
+                    {/* 品詞クイズ結果バナー */}
+                    <motion.div
+                      initial={{ scale: 0.9 }}
+                      animate={{ scale: 1 }}
+                      className={`p-3 rounded-xl text-center font-bold text-sm ${posCorrect
+                        ? "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
+                        : "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800"
+                        }`}
+                    >
+                      {posCorrect ? (
+                        <span>✅ 正解！品詞は「{m.part_of_speech}」です</span>
+                      ) : (
+                        <span>❌ 不正解… 正しくは「{m.part_of_speech}」です</span>
+                      )}
+                    </motion.div>
+
                     {/* 回答詳細 */}
                     <div className="bg-gradient-to-br from-slate-50 to-indigo-50/50 dark:from-slate-800/50 dark:to-indigo-950/30 p-5 rounded-2xl space-y-3 border border-slate-100 dark:border-slate-700">
                       <p className="text-lg font-bold text-slate-900 dark:text-white">
@@ -899,6 +995,16 @@ export default function ReviewPage() {
                           {m.part_of_speech}
                         </span>
                       </div>
+                      {m.synonyms && (
+                        <div className="flex items-center gap-2 flex-wrap mt-1">
+                          <span className="text-xs font-semibold text-purple-600">類義語:</span>
+                          {m.synonyms.split(",").map((s: string, i: number) => (
+                            <span key={i} className="text-xs bg-purple-50 text-purple-700 px-2 py-0.5 rounded-full border border-purple-200">
+                              {s.trim()}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                       <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-200 dark:border-slate-700">
                         <span>
                           正解: <strong className="text-emerald-600 dark:text-emerald-400">{current.correct ?? 0}</strong> 回
@@ -926,25 +1032,39 @@ export default function ReviewPage() {
                     {/* OK / NG ボタン */}
                     <div className="flex gap-3">
                       <motion.button
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => handleAnswer(true)}
-                        className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3.5 rounded-xl transition shadow-lg shadow-emerald-200 dark:shadow-emerald-900/20 flex items-center justify-center gap-2"
+                        whileTap={{ scale: posCorrect ? 0.95 : 1 }}
+                        onClick={() => { if (posCorrect) handleAnswer(true); }}
+                        disabled={isAnswering || !posCorrect}
+                        className={`flex-1 font-bold py-3.5 rounded-xl transition shadow-lg flex items-center justify-center gap-2 ${!posCorrect
+                            ? "bg-slate-200 text-slate-400 dark:bg-slate-800 dark:text-slate-600 cursor-not-allowed shadow-none"
+                            : isAnswering && lastAnswer === true
+                              ? "bg-emerald-700 text-white scale-95 shadow-emerald-400 dark:shadow-emerald-800/40"
+                              : isAnswering
+                                ? "bg-gray-300 text-gray-500 cursor-not-allowed shadow-none"
+                                : "bg-emerald-500 hover:bg-emerald-600 text-white shadow-emerald-200 dark:shadow-emerald-900/20"
+                          }`}
                       >
                         <Check className="w-5 h-5" />
-                        わかった
+                        {!posCorrect ? "正解不可" : isAnswering && lastAnswer === true ? "✓ OK!" : "わかった"}
                       </motion.button>
                       <motion.button
                         whileTap={{ scale: 0.95 }}
                         onClick={() => handleAnswer(false)}
-                        className="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-3.5 rounded-xl transition shadow-lg shadow-red-200 dark:shadow-red-900/20 flex items-center justify-center gap-2"
+                        disabled={isAnswering}
+                        className={`flex-1 font-bold py-3.5 rounded-xl transition shadow-lg flex items-center justify-center gap-2 ${isAnswering && lastAnswer === false
+                          ? "bg-red-700 text-white scale-95 shadow-red-400 dark:shadow-red-800/40"
+                          : isAnswering
+                            ? "bg-gray-300 text-gray-500 cursor-not-allowed shadow-none"
+                            : "bg-red-500 hover:bg-red-600 text-white shadow-red-200 dark:shadow-red-900/20"
+                          }`}
                       >
                         <X className="w-5 h-5" />
-                        わからない
+                        {isAnswering && lastAnswer === false ? "✗ NG" : "わからない"}
                       </motion.button>
                     </div>
 
                     <p className="text-center text-[10px] text-slate-300 dark:text-slate-600">
-                      → わかった • ← わからない
+                      {posCorrect ? "→ わかった • ← わからない" : "← わからない"}
                     </p>
                   </motion.div>
                 )}

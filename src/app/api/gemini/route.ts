@@ -47,7 +47,8 @@ export async function POST(req: Request) {
                         "meaning": "意味",
                         "example": "TOEICでよく出る例文。",
                         "translation": "例文の日本語訳",
-                        "importance": "★★★★★/★★★★/★★★/★★/★(数字ではなく★の記号で)"
+                        "importance": "★★★★★/★★★★/★★★/★★/★(数字ではなく★の記号で)",
+                        "synonyms": "類義語をカンマ区切りで（例：obtain, acquire, gain）。なければ空文字列。"
                       }
                     ]
                   }
