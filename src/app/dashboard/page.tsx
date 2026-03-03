@@ -17,7 +17,7 @@ import {
     TrendingUp,
     Quote,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, getJSTDateString } from "@/lib/utils";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
 // =============================
@@ -310,7 +310,7 @@ export default function Dashboard() {
             if (chartPeriod === "month") daysToSubtract = 30;
             if (chartPeriod === "year") daysToSubtract = 365;
 
-            const startDate = new Date(Date.now() - daysToSubtract * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+            const startDate = getJSTDateString(new Date(Date.now() - daysToSubtract * 24 * 60 * 60 * 1000));
 
             const { data: activityData } = await supabase
                 .from("user_activity_logs")
@@ -319,36 +319,50 @@ export default function Dashboard() {
                 .gte("activity_date", startDate)
                 .order("activity_date", { ascending: true });
 
-            if (activityData) {
-                if (chartPeriod === "year") {
-                    // 年間表示の場合は月ごとに集計
-                    const monthlyData: Record<string, number> = {};
-                    activityData.forEach((log: any) => {
-                        const month = new Date(log.activity_date).toLocaleDateString("ja-JP", { month: "short" });
-                        monthlyData[month] = (monthlyData[month] || 0) + log.xp_earned;
-                    });
-                    const formattedData = Object.keys(monthlyData).map(month => ({
-                        name: month,
-                        xp: monthlyData[month]
-                    }));
-                    setChartData(formattedData);
-                } else if (chartPeriod === "month") {
-                    // 月間表示の場合はM/D
-                    const formattedData = activityData.map((log: any) => ({
-                        name: new Date(log.activity_date).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" }),
-                        xp: log.xp_earned,
-                    }));
-                    setChartData(formattedData);
-                } else {
-                    // 週間表示の場合は曜日
-                    const formattedData = activityData.map((log: any) => ({
-                        name: new Date(log.activity_date).toLocaleDateString("ja-JP", { weekday: "short" }),
-                        xp: log.xp_earned,
-                    }));
-                    setChartData(formattedData);
+            // アクティビティデータをMapに変換
+            const dataMap = new Map<string, number>();
+            (activityData ?? []).forEach((log: any) => {
+                const key = log.activity_date;
+                dataMap.set(key, (dataMap.get(key) || 0) + log.xp_earned);
+            });
+
+            if (chartPeriod === "year") {
+                // 年間表示: 過去12ヶ月を0埋め
+                const now = new Date();
+                const monthlyData: { name: string; xp: number }[] = [];
+                const monthlyMap = new Map<string, number>();
+                (activityData ?? []).forEach((log: any) => {
+                    const d = new Date(log.activity_date);
+                    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+                    monthlyMap.set(key, (monthlyMap.get(key) || 0) + log.xp_earned);
+                });
+                for (let i = 11; i >= 0; i--) {
+                    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+                    const label = d.toLocaleDateString("ja-JP", { month: "short" });
+                    monthlyData.push({ name: label, xp: monthlyMap.get(key) || 0 });
                 }
+                setChartData(monthlyData);
+            } else if (chartPeriod === "month") {
+                // 月間表示: 過去30日を0埋め
+                const result: { name: string; xp: number }[] = [];
+                for (let i = 29; i >= 0; i--) {
+                    const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
+                    const dateKey = getJSTDateString(d);
+                    const label = d.toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" });
+                    result.push({ name: label, xp: dataMap.get(dateKey) || 0 });
+                }
+                setChartData(result);
             } else {
-                setChartData([]);
+                // 週間表示: 過去7日を0埋め
+                const result: { name: string; xp: number }[] = [];
+                for (let i = 6; i >= 0; i--) {
+                    const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
+                    const dateKey = getJSTDateString(d);
+                    const label = d.toLocaleDateString("ja-JP", { weekday: "short" });
+                    result.push({ name: label, xp: dataMap.get(dateKey) || 0 });
+                }
+                setChartData(result);
             }
         };
 
@@ -604,7 +618,7 @@ export default function Dashboard() {
                 <div className="flex items-center justify-between mb-6">
                     <h2 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
                         <TrendingUp className="w-6 h-6 text-indigo-500" />
-                        週間学習進捗
+                        {chartPeriod === "week" ? "週間" : chartPeriod === "month" ? "月間" : "年間"}学習進捗
                     </h2>
                     <select
                         value={chartPeriod}

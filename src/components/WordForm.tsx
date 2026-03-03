@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { speakText } from "@/lib/speech";
-import { getImportanceClasses, getPartOfSpeechClasses } from "@/lib/utils";
+import { getImportanceClasses, getPartOfSpeechClasses, importanceToStars } from "@/lib/utils";
 import { Loader2, Volume2, Save, Wand2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import toast, { Toaster } from "react-hot-toast";
@@ -321,7 +321,7 @@ export default function WordForm({ onAdd }: WordFormProps) {
                       </div>
                     </div>
                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${getImportanceClasses(r.importance)}`}>
-                      {r.importance}
+                      {importanceToStars(r.importance)}
                     </span>
                   </div>
 

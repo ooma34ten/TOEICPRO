@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@supabase/supabase-js";
+import { getJSTDateString, getJSTYesterday } from "@/lib/utils";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 // Use Service Role Key to allow updating stats (bypass RLS)
@@ -9,7 +10,7 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 export async function updateUserStats(userId: string, xpGained: number, questionsAnswered: number) {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getJSTDateString();
 
     // 1. Get current stats
     const { data: stats, error } = await supabase
@@ -28,9 +29,7 @@ export async function updateUserStats(userId: string, xpGained: number, question
     let lastActivity = stats.last_activity_date;
 
     if (lastActivity !== today) {
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        const yesterdayStr = yesterday.toISOString().split('T')[0];
+        const yesterdayStr = getJSTYesterday();
 
         if (lastActivity === yesterdayStr) {
             newStreak += 1;

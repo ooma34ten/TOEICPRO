@@ -46,7 +46,7 @@ export async function POST(req: Request) {
     - **解説・翻訳・ポイントは必ず「日本語」で行うこと。** 英語で説明してはいけない。
     - JSONキー構造は必ず固定（summary / examples / tips / extra）。
     - 全ての例文には必ず「translation（日本語訳）」と「point（日本語での文法・使い方の説明）」を含める。
-    - 「importance」は重要度を★5段階で評価。
+    - 「importance」は重要度を1〜5の数字で評価（5が最重要）。
     - 単語・熟語・文法項目を聞かれた場合（例：runの意味、on timeの使い方など）は：
       1. 例文を2〜3件出す。
       2. 各例文に「訳（日本語）」「文法・意味のポイント（日本語）」「重要度」を必ず付ける。
@@ -65,7 +65,7 @@ export async function POST(req: Request) {
           "text": "例文または問題文(英語)",
           "translation": "日本語訳（必須・日本語）",
           "point": "文法や使い方の説明（必須・日本語）",
-          "importance": "★★★★★",
+          "importance": 5,
           "answer": "正解（問題の場合のみ）",
           "choices": ["A案","B案","C案"]
         }

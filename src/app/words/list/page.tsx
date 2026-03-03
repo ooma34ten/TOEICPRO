@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { speakText } from "@/lib/speech";
-import { getImportanceClasses, getPartOfSpeechClasses } from "@/lib/utils";
+import { getImportanceClasses, getPartOfSpeechClasses, importanceToStars, isWeakWord } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 
 // UI用単語型
@@ -11,6 +11,7 @@ export interface Word {
   id: string;
   registered_at: string;
   correct_count: number;
+  total: number;
   word: string;
   part_of_speech: string;
   meaning: string;
@@ -96,6 +97,7 @@ export default function WordListPage() {
           id: item.user_word_id,
           registered_at: item.registered_at,
           correct_count: correct,
+          total,
           word: item.word ?? "",
           part_of_speech: item.part_of_speech ?? "",
           meaning: item.meaning ?? "",
@@ -249,7 +251,7 @@ export default function WordListPage() {
       {/* 単語カード */}
       <div className="p-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {filteredWords.map((w) => (
-          <div key={w.id} className={`shadow-md rounded-xl p-4 flex flex-col justify-between hover:shadow-lg transition-shadow ${selectedIds.includes(w.id) ? "ring-2 ring-red-400" : ""} ${w.correct_count >= 6 && w.successRate! >= 0.9 ? "bg-green-100 hover:bg-green-200" : "bg-white hover:bg-gray-100"}`}>
+          <div key={w.id} className={`shadow-md rounded-xl p-4 flex flex-col justify-between hover:shadow-lg transition-shadow ${selectedIds.includes(w.id) ? "ring-2 ring-red-400" : ""} ${w.correct_count >= 6 && w.successRate! >= 0.9 ? "bg-green-100 hover:bg-green-200" : isWeakWord(w.total, w.successRate) ? "bg-red-50 hover:bg-red-100 border-l-4 border-red-400" : "bg-white hover:bg-gray-100"}`}>
             <div className="flex justify-between items-center mb-2">
               <input type="checkbox" checked={selectedIds.includes(w.id)} onChange={() => toggleSelect(w.id)} className="w-4 h-4 accent-red-500" />
               <span className="text-xs text-gray-500">{new Date(w.registered_at).toLocaleDateString("ja-JP")}</span>
@@ -259,7 +261,8 @@ export default function WordListPage() {
               <span className="text-lg font-bold truncate">{w.word}</span>
               <div className="flex gap-2">
                 {w.part_of_speech && <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${getPartOfSpeechClasses(w.part_of_speech)}`}>{w.part_of_speech}</span>}
-                {w.importance && <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${getImportanceClasses(w.importance)}`}>{w.importance}</span>}
+                {w.importance && <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${getImportanceClasses(w.importance)}`}>{importanceToStars(w.importance)}</span>}
+                {isWeakWord(w.total, w.successRate) && <span className="px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap bg-red-100 text-red-700">🔴 苦手</span>}
               </div>
             </div>
 

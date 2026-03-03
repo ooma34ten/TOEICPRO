@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { initVoices, speakText } from "@/lib/speech";
-import { getImportanceClasses, getPartOfSpeechClasses } from "@/lib/utils";
+import { getImportanceClasses, getPartOfSpeechClasses, getJSTDateString, getJSTYesterday, parseImportance, importanceToStars, isWeakWord } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import Confetti from "react-confetti";
 import { motion, AnimatePresence } from "framer-motion";
@@ -214,12 +214,10 @@ export default function ReviewPage() {
     const rows = (data as { date: string; daily_correct: number }[]) ?? [];
     if (rows.length === 0) return { yesterday: 0, today: 0, avg30: 0 };
 
-    const todayStr = new Date().toISOString().slice(0, 10);
+    const todayStr = getJSTDateString();
     const todayCount = rows.find((r) => r.date === todayStr)?.daily_correct ?? 0;
 
-    const yesterdayDate = new Date();
-    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-    const yesterdayStr = yesterdayDate.toISOString().slice(0, 10);
+    const yesterdayStr = getJSTYesterday();
 
     let yesterday = rows.find((r) => r.date === yesterdayStr)?.daily_correct;
     if (yesterday === undefined) {
@@ -321,8 +319,7 @@ export default function ReviewPage() {
           return diffDays >= nextReview;
         });
 
-        const rank = (imp: string) =>
-          imp === "★★★★★" ? 5 : imp === "★★★★" ? 4 : imp === "★★★" ? 3 : imp === "★★" ? 2 : imp === "★" ? 1 : 0;
+        const rank = (imp: string) => parseImportance(imp);
 
         const grouped: Record<number, UserWord[]> = {};
         reviewWords.forEach((w) => {
@@ -877,7 +874,7 @@ export default function ReviewPage() {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -slideDirection * 50 }}
               transition={{ duration: 0.3 }}
-              className="bg-white dark:bg-slate-900 shadow-xl dark:shadow-2xl rounded-3xl p-6 md:p-8 border border-slate-200 dark:border-slate-800"
+              className={`bg-white dark:bg-slate-900 shadow-xl dark:shadow-2xl rounded-3xl p-6 md:p-8 border ${isWeakWord(current.total ?? 0, current.successRate ?? 1) ? "border-red-300 dark:border-red-800 ring-1 ring-red-200 dark:ring-red-900/50" : "border-slate-200 dark:border-slate-800"}`}
             >
               {/* 単語ヘッダー */}
               <div className="flex items-center justify-between mb-5">
@@ -892,9 +889,16 @@ export default function ReviewPage() {
                     <Volume2 className="w-5 h-5" />
                   </button>
                 </div>
-                <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${getImportanceClasses(m.importance)}`}>
-                  {m.importance}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${getImportanceClasses(m.importance)}`}>
+                    {importanceToStars(m.importance)}
+                  </span>
+                  {isWeakWord(current.total ?? 0, current.successRate ?? 1) && (
+                    <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 animate-pulse">
+                      🔴 苦手
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* 例文 */}
@@ -1027,6 +1031,13 @@ export default function ReviewPage() {
                           </strong>
                         </span>
                       </div>
+                      {isWeakWord(current.total ?? 0, current.successRate ?? 1) && (
+                        <div className="mt-2 p-2 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+                          <p className="text-xs font-bold text-red-600 dark:text-red-400 flex items-center gap-1">
+                            ⚠️ 苦手な単語です。繰り返し取り組みましょう！
+                          </p>
+                        </div>
+                      )}
                     </div>
 
                     {/* OK / NG ボタン */}
@@ -1036,12 +1047,12 @@ export default function ReviewPage() {
                         onClick={() => { if (posCorrect) handleAnswer(true); }}
                         disabled={isAnswering || !posCorrect}
                         className={`flex-1 font-bold py-3.5 rounded-xl transition shadow-lg flex items-center justify-center gap-2 ${!posCorrect
-                            ? "bg-slate-200 text-slate-400 dark:bg-slate-800 dark:text-slate-600 cursor-not-allowed shadow-none"
-                            : isAnswering && lastAnswer === true
-                              ? "bg-emerald-700 text-white scale-95 shadow-emerald-400 dark:shadow-emerald-800/40"
-                              : isAnswering
-                                ? "bg-gray-300 text-gray-500 cursor-not-allowed shadow-none"
-                                : "bg-emerald-500 hover:bg-emerald-600 text-white shadow-emerald-200 dark:shadow-emerald-900/20"
+                          ? "bg-slate-200 text-slate-400 dark:bg-slate-800 dark:text-slate-600 cursor-not-allowed shadow-none"
+                          : isAnswering && lastAnswer === true
+                            ? "bg-emerald-700 text-white scale-95 shadow-emerald-400 dark:shadow-emerald-800/40"
+                            : isAnswering
+                              ? "bg-gray-300 text-gray-500 cursor-not-allowed shadow-none"
+                              : "bg-emerald-500 hover:bg-emerald-600 text-white shadow-emerald-200 dark:shadow-emerald-900/20"
                           }`}
                       >
                         <Check className="w-5 h-5" />

@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { PostgrestError } from "@supabase/supabase-js";
+import { parseImportance } from "@/lib/utils";
 
 interface WordRow {
   word: string;
@@ -78,7 +79,7 @@ export async function POST(req: Request) {
       }
     }
 
-  
+
 
     // ③ words_master に既存単語を取得
     const wordList = rows.map((r) => r.word);
@@ -114,7 +115,7 @@ export async function POST(req: Request) {
         meaning: r.meaning || null,
         example_sentence: r.example || null,
         translation: r.translation || null,
-        importance: r.importance || null,
+        importance: r.importance ? String(parseImportance(r.importance)) : null,
         registered_at: new Date().toISOString(),
       }));
 
@@ -138,7 +139,7 @@ export async function POST(req: Request) {
       .in("word_id", wordIds);
 
     const existingUserIds = new Set(existingUserWords?.map((w) => w.word_id) ?? []);
-    
+
     const newUserWords: UserWords[] = wordIds
       .filter((id) => !existingUserIds.has(id))
       .map((id) => ({
