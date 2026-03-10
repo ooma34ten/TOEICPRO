@@ -5,6 +5,7 @@ import WordForm, { Row } from "@/components/WordForm";
 import { speakText } from "@/lib/speech";
 import { supabase } from "@/lib/supabaseClient";
 import { Volume2 } from "lucide-react";
+import ReportButton from "@/components/ReportButton";
 
 type WordsMaster = {
   word: string;
@@ -178,6 +179,7 @@ export default function RegisterPage() {
                     >
                       <Volume2 size={14} /> 例文
                     </button>
+                    <ReportButton wordText={row.word} />
                   </div>
                 </li>
               ))}

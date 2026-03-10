@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { speakText } from "@/lib/speech";
 import { getImportanceClasses, getPartOfSpeechClasses, importanceToStars, isWeakWord } from "@/lib/utils";
+import ReportButton from "@/components/ReportButton";
 import { useRouter } from "next/navigation";
 
 // UI用単語型
@@ -312,6 +313,7 @@ export default function WordListPage() {
             <div className="flex items-center justify-between mt-4 text-xs text-gray-500">
               <div className="flex gap-2">
                 <button onClick={() => speakText(w.word)} className="bg-indigo-300 text-white px-2 py-1 rounded hover:bg-indigo-400 text-xs">🔊 単語</button>
+                <ReportButton wordId={w.id} wordText={w.word} />
               </div>
             </div>
           </div>

@@ -22,6 +22,7 @@ import {
   Star,
 } from "lucide-react";
 import { updateUserStats } from "@/app/actions/updateStats";
+import ReportButton from "@/components/ReportButton";
 
 // =============================
 // 型定義
@@ -1038,6 +1039,11 @@ export default function ReviewPage() {
                           </p>
                         </div>
                       )}
+                    </div>
+
+                    {/* 報告ボタン */}
+                    <div className="flex justify-end">
+                      <ReportButton wordId={m.id} wordText={m.word} userId={userId} compact />
                     </div>
 
                     {/* OK / NG ボタン */}

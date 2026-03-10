@@ -149,36 +149,7 @@ export async function POST(req: Request) {
       const isCorrect =
         userAnswer.trim().toLowerCase() === correctAnswer.trim().toLowerCase();
 
-      // 4-1 words_master
-      const { data: existWord, error: existWordErr } = await supabaseAdmin
-        .from("words_master")
-        .select("id")
-        .eq("word", correctAnswer)
-        .limit(1)
-        .maybeSingle();
-      if (existWordErr) throw existWordErr;
-
-      let wordId: string;
-      if (existWord?.id) {
-        wordId = existWord.id;
-      } else {
-        const { data: newWord, error: insertWordError } = await supabaseAdmin
-          .from("words_master")
-          .insert({
-            word: correctAnswer,
-            part_of_speech: q.partOfSpeech,
-            meaning: q.translation,
-            example_sentence: q.example,
-            translation: q.translation,
-            importance: String(q.importance ?? 3),
-          })
-          .select()
-          .single();
-        if (insertWordError) throw insertWordError;
-        wordId = newWord.id;
-      }
-
-      // 4-2 test_result_items
+      // 4-1 test_result_items (単語登録は行わずテスト結果のアイテムだけ保存)
       const { error: itemErr } = await supabaseAdmin
         .from("test_result_items")
         .insert({
@@ -191,52 +162,6 @@ export async function POST(req: Request) {
           category: q.category ?? null,
         });
       if (itemErr) throw itemErr;
-
-      // 4-3 user_words
-      const { data: existUserWord, error: existUserWordErr } = await supabaseAdmin
-        .from("user_words")
-        .select("*")
-        .eq("user_id", userId)
-        .eq("word_id", wordId)
-        .limit(1)
-        .maybeSingle();
-      if (existUserWordErr) throw existUserWordErr;
-
-      let userWordId: string;
-      if (existUserWord?.id) {
-        const { error: updateErr } = await supabaseAdmin
-          .from("user_words")
-          .update({
-            correct_count: (existUserWord.correct_count ?? 0) + (isCorrect ? 1 : 0),
-            incorrect_count: (existUserWord.incorrect_count ?? 0) + (isCorrect ? 0 : 1),
-          })
-          .eq("id", existUserWord.id);
-        if (updateErr) throw updateErr;
-        userWordId = existUserWord.id;
-      } else {
-        const { data: insertedUserWord, error: insertUserWordErr } = await supabaseAdmin
-          .from("user_words")
-          .insert({
-            user_id: userId,
-            word_id: wordId,
-            correct_count: isCorrect ? 1 : 0,
-            incorrect_count: isCorrect ? 0 : 1,
-          })
-          .select()
-          .single();
-        if (insertUserWordErr) throw insertUserWordErr;
-        userWordId = insertedUserWord.id;
-      }
-
-      // 4-4 user_word_history
-      const { error: histErr } = await supabaseAdmin
-        .from("user_word_history")
-        .insert({
-          user_id: userId,
-          user_word_id: userWordId,
-          is_correct: isCorrect,
-        });
-      if (histErr) throw histErr;
     }
 
     return NextResponse.json({ success: true, resultId, newScore });

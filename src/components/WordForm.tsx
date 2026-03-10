@@ -7,6 +7,7 @@ import { getImportanceClasses, getPartOfSpeechClasses, importanceToStars } from 
 import { Loader2, Volume2, Save, Wand2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import toast, { Toaster } from "react-hot-toast";
+import ReportButton from "@/components/ReportButton";
 
 export interface Row {
   word: string;
@@ -340,12 +341,15 @@ export default function WordForm({ onAdd }: WordFormProps) {
                     </div>
                   )}
 
-                  <button
-                    onClick={() => speakText(r.example)}
-                    className="mt-2 self-start flex items-center gap-1 bg-indigo-500 text-white px-3 py-1 rounded hover:bg-indigo-600 transition"
-                  >
-                    <Volume2 size={16} /> 再生
-                  </button>
+                  <div className="mt-2 flex items-center justify-between">
+                    <button
+                      onClick={() => speakText(r.example)}
+                      className="self-start flex items-center gap-1 bg-indigo-500 text-white px-3 py-1 rounded hover:bg-indigo-600 transition"
+                    >
+                      <Volume2 size={16} /> 再生
+                    </button>
+                    <ReportButton wordText={r.word} compact />
+                  </div>
                 </motion.div>
               ))}
           </motion.div>

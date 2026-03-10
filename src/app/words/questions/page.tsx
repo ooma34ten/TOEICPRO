@@ -23,6 +23,7 @@ import {
   Trophy,
 } from "lucide-react";
 import { updateUserStats } from "@/app/actions/updateStats";
+import ReportButton from "@/components/ReportButton";
 
 // =============================
 // 型定義
@@ -38,6 +39,7 @@ type Question = {
   category?: number;
   importance: number;
   level: number;
+  synonyms?: string[];
 };
 
 type WeaknessCategory = {
@@ -572,6 +574,19 @@ export default function QuestionBankPage() {
                   </div>
                   <p className="text-slate-700 dark:text-slate-300 leading-relaxed mb-2">{currentQ.explanation}</p>
                   <p className="text-sm text-slate-500 dark:text-slate-400 border-t border-slate-100 dark:border-slate-800 pt-2 mt-2">訳: {currentQ.translation}</p>
+                  {currentQ.synonyms && currentQ.synonyms.length > 0 && (
+                    <div className="flex items-center gap-2 flex-wrap mt-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                      <span className="text-xs font-semibold text-purple-600">類義語:</span>
+                      {currentQ.synonyms.map((s, i) => (
+                        <span key={i} className="text-xs bg-purple-50 text-purple-700 px-2 py-0.5 rounded-full border border-purple-200">
+                          {s.trim()}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex justify-end mt-4">
+                    <ReportButton wordId={currentQ.id} wordText={currentQ.question} userId={userId} compact />
+                  </div>
                 </div>
                 <motion.button
                   onClick={nextQuestion}
