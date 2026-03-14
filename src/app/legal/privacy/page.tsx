@@ -15,9 +15,11 @@ export default function PrivacyPage() {
             1. 収集する情報
           </h2>
           <ul className="list-disc pl-5 space-y-1">
-            <li>ユーザー登録情報：メールアドレス、パスワード</li>
-            <li>単語学習データ（単語、意味、例文、進捗など）</li>
-            <li>問い合わせフォームで送信された内容</li>
+            <li>ユーザー登録情報：メールアドレス、パスワード等</li>
+            <li>学習データ：単語帳データ、学習進捗、テスト結果、予想スコア等</li>
+            <li>AI機能利用時のデータ：入力テキスト、音声データ（発話内容）、およびAIによる分析結果</li>
+            <li>決済関連情報（有料プランをご利用の場合、決済は外部サービスStripeを通じて安全に処理され、当アプリはクレジットカード情報を保持しません）</li>
+            <li>問い合わせに関する情報</li>
           </ul>
         </section>
 
@@ -26,39 +28,41 @@ export default function PrivacyPage() {
             2. 利用目的
           </h2>
           <ul className="list-disc pl-5 space-y-1">
-            <li>ユーザー登録情報の管理および認証</li>
-            <li>単語学習データの管理</li>
-            <li>サービス改善および問い合わせ対応</li>
+            <li>本サービスの提供、認証、およびユーザー体験の向上</li>
+            <li>AIを用いた学習コンテンツ（例文、解説、英会話応答など）の生成および最適化</li>
+            <li>ユーザーの学習定着度やスコア予測の分析</li>
+            <li>サービス改善、新機能開発、および問い合わせ対応</li>
           </ul>
         </section>
 
         <section>
           <h2 className="text-lg sm:text-xl font-semibold text-blue-700 mb-2 border-l-4 border-blue-500 pl-3">
-            3. 第三者提供
+            3. 第三者提供・外部サービス連携
           </h2>
           <ul className="list-disc pl-5 space-y-1">
-            <li>ユーザーの個人情報は本人の同意なしに第三者に提供しません。</li>
-            <li>ただし、法令に基づく場合を除きます。</li>
+            <li>本サービスでは、学習機能提供のためOpenAI社などの外部AI APIを利用しており、プロンプトとして必要なテキストや音声データを送信する場合があります。送信されたデータはAPI事業者の規約に基づき処理されます。</li>
+            <li>有料定額サービス等の決済処理のため、決済代行サービス（Stripe等）に必要な情報を連携します。</li>
+            <li>上記および法令に基づく場合を除き、ユーザーの個人情報を本人の同意なしに第三者に提供しません。</li>
           </ul>
         </section>
 
         <section>
           <h2 className="text-lg sm:text-xl font-semibold text-blue-700 mb-2 border-l-4 border-blue-500 pl-3">
-            4. データの保管
+            4. データの保管とセキュリティ
           </h2>
           <ul className="list-disc pl-5 space-y-1">
-            <li>データはSupabase上に安全に保管されます。</li>
-            <li>パスワードはハッシュ化して管理されます。</li>
+            <li>データはセキュアなクラウドデータベース（Supabase等）上に保管されます。</li>
+            <li>ログインパスワードは安全にハッシュ化され管理されます。</li>
           </ul>
         </section>
 
         <section>
           <h2 className="text-lg sm:text-xl font-semibold text-blue-700 mb-2 border-l-4 border-blue-500 pl-3">
-            5. Cookie・ログ
+            5. Cookieおよびアクセスログ
           </h2>
           <ul className="list-disc pl-5 space-y-1">
-            <li>アクセスログを取得する場合があります。</li>
-            <li>個人を特定できる情報として使用しません。</li>
+            <li>サービスの利用状況把握のため、アクセスログやCookie情報を取得する場合があります。</li>
+            <li>これらは個人を特定する目的では使用しません。</li>
           </ul>
         </section>
 
@@ -67,8 +71,8 @@ export default function PrivacyPage() {
             6. プライバシーポリシーの変更
           </h2>
           <ul className="list-disc pl-5 space-y-1">
-            <li>本ポリシーは予告なく変更される場合があります。</li>
-            <li>変更後はアプリ内で通知または更新日を表示します。</li>
+            <li>本ポリシーは法令の変更やサービスのアップデートに伴い、予告なく変更される場合があります。</li>
+            <li>重要な変更がある場合は、アプリ内での通知または更新日の表示をもってお知らせします。</li>
           </ul>
         </section>
 
@@ -77,9 +81,7 @@ export default function PrivacyPage() {
             お問い合わせ
           </h2>
           <p className="text-gray-600">
-            プライバシーに関するお問い合わせは
-            <span className="font-medium text-blue-600"> お問い合わせフォーム </span>
-            よりご連絡ください。
+            プライバシーに関するお問い合わせは<span className="font-medium text-blue-600"> お問い合わせフォーム </span>よりご連絡ください。
           </p>
         </section>
       </div>

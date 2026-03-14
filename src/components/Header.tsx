@@ -74,8 +74,10 @@ export default function Header() {
     };
   }, []);
 
-  const mainLinks = [
-    { href: "/dashboard", label: "ダッシュボード", disabled: false },
+  type NavLink = { href: string; label: string; disabled?: boolean };
+
+  const mainLinks: NavLink[] = [
+    { href: "/", label: "ダッシュボード", disabled: false },
     { href: "/words/list", label: "My単語帳", disabled: false },
     { href: "/words/register", label: "単語登録", disabled: false },
     { href: "/words/review", label: "復習モード", disabled: false },
@@ -86,12 +88,12 @@ export default function Header() {
     { href: "/words/subscribe", label: "サブスクリプション", disabled: true },
   ];
 
-  const settingLinks = [
+  const settingLinks: NavLink[] = [
     { href: "/words/contact", label: "お問い合わせ" },
     { href: "/words/setting", label: "設定" },
     { href: "/legal/privacy", label: "プライバシー" },
     { href: "/legal/terms", label: "利用規約" },
-    { href: "/legal/tokutei", label: "特定商取引法" },
+    //{ href: "/legal/tokutei", label: "特定商取引法" },
   ];
 
   const handleLinkClick = (e: React.MouseEvent<HTMLAnchorElement>, link: { label: string; disabled?: boolean }, closeMenu?: () => void) => {
@@ -123,7 +125,16 @@ export default function Header() {
 
         {/* スコア表示 (PC) */}
         {predictedScore && (
-          <div className="hidden md:flex items-center gap-2 bg-indigo-50 px-3 py-1.5 rounded-full border border-indigo-100 ml-6">
+          <div
+            onClick={(e) => {
+              e.preventDefault();
+              toast(`「予想スコア」は現在開発中です！\nリリースまで楽しみにお待ちください🚀`, {
+                icon: '🛠️',
+                style: { borderRadius: '10px', background: '#333', color: '#fff' }
+              });
+            }}
+            className="hidden md:flex items-center gap-2 bg-indigo-50 px-3 py-1.5 rounded-full border border-indigo-100 ml-6 grayscale opacity-60 cursor-not-allowed"
+          >
             <span className="text-xs font-bold text-indigo-400">PREDICTED SCORE</span>
             <span className="text-lg font-extrabold text-indigo-700">{predictedScore}</span>
           </div>
@@ -240,7 +251,16 @@ export default function Header() {
               {userId ? (
                 <div className="flex flex-col gap-3">
                   {predictedScore && (
-                    <div className="flex items-center justify-between bg-white p-3 rounded-lg border border-gray-200">
+                    <div
+                      onClick={(e) => {
+                        e.preventDefault();
+                        toast(`「予想スコア」は現在開発中です！\nリリースまで楽しみにお待ちください🚀`, {
+                          icon: '🛠️',
+                          style: { borderRadius: '10px', background: '#333', color: '#fff' }
+                        });
+                      }}
+                      className="flex items-center justify-between bg-white p-3 rounded-lg border border-gray-200 grayscale opacity-60 cursor-not-allowed"
+                    >
                       <span className="text-xs font-bold text-gray-500">予想スコア</span>
                       <span className="text-lg font-bold text-indigo-600">{predictedScore}点</span>
                     </div>
