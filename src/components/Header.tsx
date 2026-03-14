@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { Menu, X, LogIn, LogOut, Settings } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import toast from "react-hot-toast";
 
 export default function Header() {
   const [userId, setUserId] = useState<string | null>(null);
@@ -74,15 +75,15 @@ export default function Header() {
   }, []);
 
   const mainLinks = [
-    { href: "/dashboard", label: "ダッシュボード" },
-    { href: "/words/list", label: "My単語帳" },
-    { href: "/words/register", label: "単語登録" },
-    { href: "/words/review", label: "復習モード" },
-    { href: "/words/progress", label: "学習進捗" },
-    { href: "/words/toeic_ai", label: "AIアシスタント" },
-    { href: "/words/ai_teacher", label: "AI問題演習" },
-    { href: "/words/questions", label: "問題バンク" },
-    { href: "/words/subscribe", label: "サブスクリプション" },
+    { href: "/dashboard", label: "ダッシュボード", disabled: false },
+    { href: "/words/list", label: "My単語帳", disabled: false },
+    { href: "/words/register", label: "単語登録", disabled: false },
+    { href: "/words/review", label: "復習モード", disabled: false },
+    { href: "/words/progress", label: "学習進捗", disabled: false },
+    { href: "/words/toeic_ai", label: "AIアシスタント", disabled: true },
+    { href: "/words/ai_teacher", label: "AI問題演習", disabled: true },
+    { href: "/words/questions", label: "問題バンク", disabled: true },
+    { href: "/words/subscribe", label: "サブスクリプション", disabled: true },
   ];
 
   const settingLinks = [
@@ -92,6 +93,24 @@ export default function Header() {
     { href: "/legal/terms", label: "利用規約" },
     { href: "/legal/tokutei", label: "特定商取引法" },
   ];
+
+  const handleLinkClick = (e: React.MouseEvent<HTMLAnchorElement>, link: { label: string; disabled?: boolean }, closeMenu?: () => void) => {
+    if (link.disabled) {
+      e.preventDefault();
+      toast(`「${link.label}」は現在開発中です！\nリリースまで楽しみにお待ちください🚀`, {
+        icon: '🛠️',
+        style: {
+          borderRadius: '10px',
+          background: '#333',
+          color: '#fff',
+        },
+      });
+      return;
+    }
+    if (closeMenu) {
+      closeMenu();
+    }
+  };
 
   return (
     <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md shadow-sm border-b border-gray-100">
@@ -116,9 +135,10 @@ export default function Header() {
             <Link
               key={link.href}
               href={link.href}
-              className={`transition px-3 py-2 rounded-lg whitespace-nowrap ${pathname === link.href
+              onClick={(e) => handleLinkClick(e, link)}
+              className={`transition px-3 py-2 rounded-lg whitespace-nowrap ${link.disabled ? 'opacity-50 cursor-not-allowed text-gray-400' : ''} ${!link.disabled && pathname === link.href
                 ? "text-blue-600 bg-blue-50 font-semibold"
-                : "text-gray-600 hover:text-blue-600 hover:bg-gray-50"
+                : !link.disabled ? "text-gray-600 hover:text-blue-600 hover:bg-gray-50" : ""
                 }`}
             >
               {link.label}
@@ -147,10 +167,10 @@ export default function Header() {
                     <Link
                       key={link.href}
                       href={link.href}
-                      onClick={() => setSettingsOpen(false)}
-                      className={`block px-4 py-2 text-sm hover:bg-gray-50 ${pathname === link.href
+                      onClick={(e) => handleLinkClick(e, link, () => setSettingsOpen(false))}
+                      className={`block px-4 py-2 text-sm ${link.disabled ? 'opacity-50 cursor-not-allowed hover:bg-transparent text-gray-400' : 'hover:bg-gray-50 text-gray-700'} ${!link.disabled && pathname === link.href
                         ? "text-blue-600 font-semibold bg-blue-50"
-                        : "text-gray-700"
+                        : ""
                         }`}
                     >
                       {link.label}
@@ -206,10 +226,10 @@ export default function Header() {
               <Link
                 key={link.href}
                 href={link.href}
-                onClick={() => setMenuOpen(false)}
-                className={`block px-5 py-3 text-sm transition ${pathname === link.href
+                onClick={(e) => handleLinkClick(e, link, () => setMenuOpen(false))}
+                className={`block px-5 py-3 text-sm transition ${link.disabled ? 'opacity-50 cursor-not-allowed text-gray-400' : 'text-gray-700 hover:bg-gray-50'} ${!link.disabled && pathname === link.href
                   ? "text-blue-600 bg-blue-50 font-semibold"
-                  : "text-gray-700 hover:bg-gray-50"
+                  : ""
                   }`}
               >
                 {link.label}

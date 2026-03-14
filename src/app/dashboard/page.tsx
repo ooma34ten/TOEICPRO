@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { cn, getJSTDateString } from "@/lib/utils";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import toast from "react-hot-toast";
 
 // =============================
 // 型定義
@@ -191,6 +192,7 @@ const ActionCard = ({
     gradient,
     onClick,
     delay = 0,
+    disabled = false,
 }: {
     title: string;
     desc: string;
@@ -198,15 +200,31 @@ const ActionCard = ({
     gradient: string;
     onClick: () => void;
     delay?: number;
+    disabled?: boolean;
 }) => (
     <motion.button
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.5, delay }}
-        onClick={onClick}
+        onClick={(e: React.MouseEvent) => {
+            if (disabled) {
+                e.preventDefault();
+                toast(`「${title}」は現在開発中です！\nリリースまで楽しみにお待ちください🚀`, {
+                    icon: '🛠️',
+                    style: {
+                        borderRadius: '10px',
+                        background: '#333',
+                        color: '#fff',
+                    },
+                });
+                return;
+            }
+            onClick();
+        }}
         className={cn(
-            "group relative overflow-hidden text-left p-6 rounded-3xl transition-all duration-300 transform hover:scale-[1.02] hover:shadow-xl w-full",
-            gradient
+            "group relative overflow-hidden text-left p-6 rounded-3xl transition-all duration-300 w-full",
+            gradient,
+            disabled ? "grayscale opacity-60 cursor-not-allowed" : "transform hover:scale-[1.02] hover:shadow-xl"
         )}
     >
         <div className="absolute inset-0 bg-white/10 dark:bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -597,6 +615,7 @@ export default function Dashboard() {
                     gradient="bg-gradient-to-br from-indigo-600 to-violet-600"
                     onClick={() => router.push("/words/ai_teacher")}
                     delay={0.7}
+                    disabled={true}
                 />
                 <ActionCard
                     title="スマート復習"
@@ -605,6 +624,7 @@ export default function Dashboard() {
                     gradient="bg-gradient-to-br from-emerald-500 to-teal-600"
                     onClick={() => router.push("/words/questions")}
                     delay={0.8}
+                    disabled={true}
                 />
             </div>
 
