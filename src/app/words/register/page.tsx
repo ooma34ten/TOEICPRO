@@ -47,6 +47,11 @@ export default function RegisterPage() {
     } = await supabase.auth.getUser();
 
     if (!user) {
+      // ゲストモードの場合はエラーメッセージを表示するが、ページは閲覧可能
+      if (localStorage.getItem("guestMode") === "true") {
+        setErrorMessage("ゲストモードでは単語の保存ができません。ログインしてご利用ください。");
+        return;
+      }
       setErrorMessage("保存にはログインが必要です");
       return;
     }

@@ -23,6 +23,11 @@ type Question = {
   example?: string;
   importance: number;
   synonyms?: string[];
+  optionDetails?: {
+    option: string;
+    meaning: string;
+    partOfSpeech: string;
+  }[];
 };
 
 type SessionStats = {
@@ -148,6 +153,7 @@ export default function AITeacherPage() {
         example: q.example ?? "",
         importance: Math.min(5, Math.max(1, Math.round(q.importance ?? 3))),
         synonyms: q.synonyms ?? [],
+        optionDetails: q.optionDetails ?? [],
       }));
     } catch (err) {
       console.error("Question generation failed:", err);
@@ -454,7 +460,7 @@ export default function AITeacherPage() {
       <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 p-4">
         <div className="max-w-2xl mx-auto">
           <h1 className="text-2xl font-bold text-center text-indigo-700 mb-8">
-            🧠 TOEIC AI 問題演習
+            🧠 TOEIC AI 問題演習 (Part 5)
           </h1>
 
           <div className="bg-white rounded-2xl shadow-xl p-8 text-center">
@@ -496,7 +502,7 @@ export default function AITeacherPage() {
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-xl font-bold text-indigo-700 flex items-center gap-2">
             <Zap className="text-yellow-500" size={24} />
-            AI 問題演習
+            AI 問題演習 (Part 5)
           </h1>
           <div className="flex items-center gap-4">
             {sessionStats.streak >= 3 && (
@@ -534,10 +540,13 @@ export default function AITeacherPage() {
           {/* 問題ヘッダー */}
           <div className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-6 py-4">
             <div className="flex items-center justify-between">
-              <span className="text-sm opacity-90">
+              <span className="text-sm font-medium opacity-90">
                 問題 {sessionStats.total + 1}
               </span>
               <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold bg-indigo-800 text-white px-2 py-1 rounded">
+                  Part 5
+                </span>
                 <span className="text-xs bg-white/20 px-2 py-1 rounded">
                   重要度: {"★".repeat(currentQuestion.importance)}
                 </span>
@@ -638,6 +647,22 @@ export default function AITeacherPage() {
                       <p><span className="font-medium">解説:</span> {currentQuestion.explanation}</p>
                     )}
                     <p><span className="font-medium">品詞:</span> {currentQuestion.partOfSpeech}</p>
+                    {currentQuestion.optionDetails && currentQuestion.optionDetails.length > 0 && (
+                      <div className="mt-3 bg-white/50 p-3 rounded-lg border border-gray-100">
+                        <p className="font-medium mb-1 border-b border-gray-200 pb-1">選択肢の解説:</p>
+                        <ul className="space-y-1">
+                          {currentQuestion.optionDetails.map((detail, idx) => (
+                            <li key={idx} className="flex flex-col sm:flex-row sm:gap-2">
+                              <span className="font-semibold text-gray-800 w-28 shrink-0">{detail.option}</span>
+                              <span className="text-gray-600">
+                                <span className="text-xs text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded mr-1.5">{detail.partOfSpeech}</span>
+                                {detail.meaning}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
                 </div>
 

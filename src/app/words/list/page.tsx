@@ -41,12 +41,21 @@ export default function WordListPage() {
 
   const router = useRouter();
 
-  // ログインチェック
+  // ログイン / ゲストチェック
+  const [isGuest, setIsGuest] = useState(false);
   useEffect(() => {
     (async () => {
       const { data } = await supabase.auth.getSession();
-      if (!data.session) router.replace("/auth/login");
-      else setLoading(false);
+      if (!data.session) {
+        if (localStorage.getItem("guestMode") === "true") {
+          setIsGuest(true);
+          setLoading(false);
+        } else {
+          router.replace("/auth/login");
+        }
+      } else {
+        setLoading(false);
+      }
     })();
   }, [router]);
 

@@ -171,6 +171,9 @@ export default function ReviewPage() {
   const [selectedPos, setSelectedPos] = useState<string | null>(null);
   const [posCorrect, setPosCorrect] = useState<boolean | null>(null);
 
+  const [isGuestMode, setIsGuestMode] = useState(false);
+
+
 
   const router = useRouter();
 
@@ -189,6 +192,13 @@ export default function ReviewPage() {
     (async () => {
       const { data } = await supabase.auth.getSession();
       if (!data.session) {
+        if (localStorage.getItem("guestMode") === "true") {
+          // ゲストモード
+          setIsGuestMode(true);
+          await initVoices();
+          setLoading(false);
+          return;
+        }
         router.replace("/auth/login");
         return;
       }
@@ -247,9 +257,48 @@ export default function ReviewPage() {
 
   /** 単語取得 */
   useEffect(() => {
-    if (!userId) return;
+    const fetchGuestWords = async (): Promise<void> => {
+      try {
+        setLoading(true);
+        setError(null);
+        // 重要度5の単語を多めに取得してシャッフル
+        const { data, error } = await supabase
+          .from("words_master")
+          .select<string, WordMaster>("*")
+          .eq("importance", "5")
+          .limit(100);
 
-    const fetchWords = async (): Promise<void> => {
+        if (error) throw error;
+
+        if (!data || data.length === 0) {
+          setWords([]);
+          return;
+        }
+        
+        const guestWords: UserWord[] = shuffleArray(data).slice(0, 10).map((item: WordMaster) => ({
+          id: `guest-${item.id}`,
+          user_id: "guest",
+          word_id: item.id,
+          registered_at: new Date().toISOString(),
+          words_master: item,
+          total: 0,
+          correct: 0,
+          wrong: 0,
+          successRate: 0,
+          lastAnswered: new Date().toISOString(),
+        }));
+        
+        setWords(guestWords);
+      } catch (err) {
+        console.error(err);
+        setError("体験版データの取得中にエラーが発生しました。");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const fetchUserWords = async (): Promise<void> => {
+      if (!userId) return;
       try {
         setLoading(true);
         setError(null);
@@ -298,7 +347,6 @@ export default function ReviewPage() {
           },
         }));
 
-        // 復習対象
         const today = new Date();
         const reviewWords = userWords.filter((w) => {
           const lastReview = new Date(w.lastAnswered!);
@@ -321,7 +369,6 @@ export default function ReviewPage() {
         });
 
         const rank = (imp: string) => parseImportance(imp);
-
         const grouped: Record<number, UserWord[]> = {};
         reviewWords.forEach((w) => {
           const r = rank(w.words_master.importance);
@@ -340,18 +387,70 @@ export default function ReviewPage() {
         setError("データ取得中にエラーが発生しました。");
       } finally {
         setLoading(false);
-        await fetchStats(userId);
+        if (userId) await fetchStats(userId);
       }
     };
 
-    fetchWords();
+    if (isGuestMode) {
+      fetchGuestWords();
+    } else if (userId) {
+      fetchUserWords();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId]);
+  }, [userId, isGuestMode]);
 
   /** 回答処理 */
   const handleAnswer = useCallback(async (isOk: boolean): Promise<void> => {
     try {
-      if (!userId || sessionResult || isAnswering) return;
+      if (sessionResult || isAnswering) return;
+
+      // --- Guest Mode Logic ---
+      if (isGuestMode) {
+        setIsAnswering(true);
+        setLastAnswer(isOk);
+
+        if (isOk) {
+          const newStreak = streak + 1;
+          setStreak(newStreak);
+          if (newStreak > maxStreak) setMaxStreak(newStreak);
+          if (newStreak >= 3 && newStreak % 3 === 0) {
+            setConfettiTrigger(true);
+            setTimeout(() => setConfettiTrigger(false), 4000);
+          }
+        } else {
+          setStreak(0);
+        }
+
+        if (currentIndex + 1 < words.length) {
+          setTimeout(() => {
+            setSlideDirection(1);
+            setCurrentIndex((prev) => prev + 1);
+            setShowAnswer(false);
+            setIsAnswering(false);
+            setLastAnswer(null);
+            setQuizPhase("quiz");
+            setSelectedPos(null);
+            setPosCorrect(null);
+          }, 150);
+        } else {
+          setTimeout(() => {
+            setSessionResult({
+              totalAnswered: currentIndex + 1,
+              correctCount: 0, // Not tracked for guests
+              wrongCount: 0,   // Not tracked for guests
+              maxStreak: isOk ? Math.max(maxStreak, streak + 1) : maxStreak,
+              xpEarned: 0,     // No XP for guests
+            });
+            setIsAnswering(false);
+            setLastAnswer(null);
+          }, 150);
+        }
+        return;
+      }
+      
+      // --- Registered User Logic ---
+      if (!userId) return;
+
       setIsAnswering(true);
       setLastAnswer(isOk);
       const now = new Date().toISOString();
@@ -433,7 +532,7 @@ export default function ReviewPage() {
     } catch (err) {
       console.error(err);
     }
-  }, [userId, words, currentIndex, stats, streak, maxStreak, sessionXp, sessionResult, isAnswering]);
+  }, [userId, words, currentIndex, stats, streak, maxStreak, sessionXp, sessionResult, isAnswering, isGuestMode]);
 
   /** スキップ（末尾に回す） */
   const handleSkip = useCallback(() => {
@@ -767,6 +866,12 @@ export default function ReviewPage() {
       </AnimatePresence>
 
       <div className="max-w-xl mx-auto px-4 pt-6">
+        {isGuestMode && (
+          <div className="mb-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded" role="alert">
+            <p className="font-bold">ゲストモード（体験版）</p>
+            <p>これは体験版です。最重要単語からランダムで10問が出題されます。全ての機能を利用するには、アカウント登録を行ってください。</p>
+          </div>
+        )}
         {/* ヘッダー */}
         <motion.div
           initial={{ opacity: 0, y: -10 }}
@@ -1091,7 +1196,7 @@ export default function ReviewPage() {
         </div>
 
         {/* 統計ブロック（下部） */}
-        {stats && (
+        {stats && !isGuestMode && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}

@@ -16,10 +16,13 @@ import {
   Sparkles,
   TrendingUp,
   Quote,
+  LogIn,
+  AlertTriangle,
 } from "lucide-react";
 import { cn, getJSTDateString } from "@/lib/utils";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import toast from "react-hot-toast";
+import OnboardingPopup from "@/components/OnboardingPopup";
 
 // =============================
 // 型定義
@@ -263,6 +266,8 @@ export default function Dashboard() {
   const [userName, setUserName] = useState("ゲスト");
   const [chartData, setChartData] = useState<any[]>([]);
   const [chartPeriod, setChartPeriod] = useState<"week" | "month" | "year">("week");
+  const [isGuest, setIsGuest] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   const greeting = getGreeting();
   const dailyQuote = getDailyQuote();
@@ -274,11 +279,37 @@ export default function Dashboard() {
       } = await supabase.auth.getSession();
 
       if (!session) {
+        // ゲストモード判定
+        const guestFlag = localStorage.getItem("guestMode");
+        if (guestFlag === "true") {
+          setIsGuest(true);
+          setUserName("ゲスト");
+          setStats({
+            streak_current: 0,
+            streak_max: 0,
+            total_xp: 0,
+            level: 1,
+            daily_goal_current: 0,
+            daily_goal_target: 10,
+          });
+          setLoading(false);
+          return;
+        }
         router.push("/auth/login");
         return;
       }
 
+      // ログイン済みの場合はゲストフラグを解除
+      localStorage.removeItem("guestMode");
+      setIsGuest(false);
+
       setUserName(session.user.email?.split("@")[0] || "ユーザー");
+
+      // 初回オンボーディング判定
+      const onboardingDone = localStorage.getItem("onboarding_done");
+      if (!onboardingDone) {
+        setShowOnboarding(true);
+      }
 
       // Fetch real stats
       let { data, error } = await supabase
@@ -417,6 +448,40 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen pb-20">
+      {/* オンボーディングポップアップ */}
+      <OnboardingPopup isOpen={showOnboarding} onClose={() => setShowOnboarding(false)} />
+
+      {/* ゲストモードバナー */}
+      {isGuest && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-6 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-4 flex items-center gap-3"
+        >
+          <div className="p-2 bg-amber-100 dark:bg-amber-900/40 rounded-xl shrink-0">
+            <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-bold text-amber-800 dark:text-amber-200">
+              ゲストモードで利用中
+            </p>
+            <p className="text-xs text-amber-600 dark:text-amber-400">
+              データの保存・記録はできません。ログインすると全機能をご利用いただけます。
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              localStorage.removeItem("guestMode");
+              router.push("/auth/login");
+            }}
+            className="flex items-center gap-1.5 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-bold rounded-xl transition shrink-0"
+          >
+            <LogIn className="w-4 h-4" />
+            ログイン
+          </button>
+        </motion.div>
+      )}
+
       {/* Header Section */}
       <header className="mb-8">
         <motion.div
@@ -426,7 +491,7 @@ export default function Dashboard() {
         >
           <div>
             <h1 className="text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight mb-2">
-              {greeting.text}、<span className="text-indigo-600 dark:text-indigo-400">{userName}</span> さん {greeting.emoji}
+              {greeting.text}、<span className="text-indigo-600 dark:text-indigo-400">TOEICPRO</span> さん {greeting.emoji}
             </h1>
             <p className="text-slate-600 dark:text-slate-400 text-lg">
               {greeting.subText}
@@ -615,7 +680,7 @@ export default function Dashboard() {
           gradient="bg-gradient-to-br from-indigo-600 to-violet-600"
           onClick={() => router.push("/words/ai_teacher")}
           delay={0.7}
-          disabled={true}
+          disabled={false}
         />
         <ActionCard
           title="スマート復習"

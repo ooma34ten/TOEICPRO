@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import Link from "next/link";
-import { Loader2 } from "lucide-react";
+import { Loader2, UserCircle } from "lucide-react";
 import { FcGoogle } from "react-icons/fc";
 
 export default function LoginPage() {
@@ -152,6 +152,24 @@ export default function LoginPage() {
             こちら
           </Link>
         </p>
+
+        {/* ゲストモードボタン */}
+        <div className="mt-4 pt-4 border-t border-gray-200">
+          <button
+            type="button"
+            onClick={() => {
+              localStorage.setItem("guestMode", "true");
+              router.replace("/");
+            }}
+            className="w-full py-2.5 rounded-lg flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium transition border border-gray-300"
+          >
+            <UserCircle size={20} />
+            ゲストとして利用する
+          </button>
+          <p className="text-xs text-center text-gray-400 mt-2">
+            ※ゲストモードではデータの保存ができません
+          </p>
+        </div>
 
         {msg && <p className="text-red-500 mt-3 text-center">{msg}</p>}
       </div>

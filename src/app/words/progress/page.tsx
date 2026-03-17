@@ -73,6 +73,10 @@ export default function ProgressPage() {
     (async () => {
       const { data } = await supabase.auth.getSession();
       if (!data.session) {
+        if (localStorage.getItem("guestMode") === "true") {
+          setLoading(false);
+          return;
+        }
         router.replace("/auth/login");
       } else {
         await fetchProgress();

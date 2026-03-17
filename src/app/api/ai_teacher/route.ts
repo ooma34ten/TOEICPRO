@@ -27,6 +27,11 @@ type Question = {
   category: string;
   importance: number;
   synonyms: string[];
+  optionDetails?: {
+    option: string;
+    meaning: string;
+    partOfSpeech: string;
+  }[];
 };
 
 type RawQuestion = Record<string, unknown>;
@@ -39,9 +44,12 @@ type ParsedResponse = {
 // 型ガード
 // =============================
 function isQuestion(obj: unknown): obj is Question {
-  if (typeof obj !== "object" || obj === null) return false;
+  if (typeof obj !== "object" || obj === null) {
+    console.log("[isQuestion] Failed: Not an object");
+    return false;
+  }
   const q = obj as Record<string, unknown>;
-  return (
+  const isValid = (
     typeof q.id === "string" &&
     typeof q.question === "string" &&
     typeof q.translation === "string" &&
@@ -53,9 +61,12 @@ function isQuestion(obj: unknown): obj is Question {
     typeof q.partOfSpeech === "string" &&
     typeof q.category === "string" &&
     typeof q.importance === "number" &&
-    Array.isArray(q.synonyms) &&
-    q.synonyms.every((s) => typeof s === "string")
+    (q.synonyms === undefined || (Array.isArray(q.synonyms) && q.synonyms.every((s) => typeof s === "string")))
   );
+  if (!isValid) {
+    console.log("[isQuestion] Failed for object. id:", typeof q.id, "q:", typeof q.question, "trans:", typeof q.translation, "opt:", Array.isArray(q.options), "ans:", typeof q.answer, "exp:", typeof q.explanation, "pos:", typeof q.partOfSpeech, "cat:", typeof q.category, "imp:", typeof q.importance);
+  }
+  return isValid;
 }
 
 // =============================
@@ -106,13 +117,11 @@ function normalizeOptionText(raw: unknown): string {
 // =============================
 // 翻訳の空欄補完
 // =============================
-function fillTranslationPlaceholder(translation: string, fillText: string): string {
-  const pattern = /_{2,}|＿{2,}|＿|_____|____|__|（　）|（☐）|（　）/g;
-  if (pattern.test(translation)) {
-    const replacement = fillText.trim() !== "" ? fillText : "（語句）";
-    return translation.replace(pattern, replacement);
-  }
-  return translation;
+function fillTranslationPlaceholder(translation: string): string {
+  // 英語の答えをそのまま当てはめると「従業員のprivacyに関する」のようになって不自然なため、
+  // プロンプト側で「完全な日本語の文にする」よう指示し、万が一空欄が残っていた場合は（空欄の部分）などにするかそのままにします。
+  // ここではAIが生成した和訳を極力そのまま活かすため、無理に英語を挿入しません。
+  return translation.replace(/_{2,}|＿{2,}|＿|_____|____|__|（　）|（☐）/g, "（空欄）");
 }
 
 // =============================
@@ -188,15 +197,22 @@ export async function POST(req: Request) {
 1) 出力は JSON のみ
 2) 問題数は ${count} 問
 3) **重要: "translation", "explanation", "partOfSpeech" は必ず日本語で出力すること。** 特に translation は自然な和訳にし、英語のままにしないこと。
-   - translation に "(A) registration" のような英語の選択肢を含めないこと。完全な日本語にする。（例：「...提出してください」）
+   - translation に "(A) registration" のような英語の選択肢を含めないこと。
+   - translation に "_____" や "(  )" のような空欄記号を含めず、正解を当てはめた【完全な日本語の文】にすること。
    - options の配列には、選択肢の記号(A, B, C, D)を含めないこと。純粋な単語/フレーズのみ。
-4) 形式：
+4) **出題形式・難易度の厳密な調整**:
+   - 出題形式は【すべて TOEIC Part 5 形式の短文穴埋め問題】のみに限定してください。長文や会話問題は不可です。
+   - ユーザーの推定スコアは ${estimatedScore} 点です。
+   - このスコアレベルの学習者にとって【少し歯ごたえのある（正解率60%程度になるような）】適切な難度の単語・文法・イディオムを出題してください。
+   - 簡単すぎる基礎単語（例：run, make, easyなど）は避け、スコア ${estimatedScore} 点を取得するために必須となる頻出語彙や引っ掛け問題を意識してください。
+   - 苦手分野 ${weaknessText} を半分入れてください。
+5) 形式：
 {
   "questions": [
     {
       "id": "一意ID",
       "question": "...",
-      "translation": "（必ず日本語で、英語の単語を含めない）...",
+      "translation": "（正解を当てはめた、自然で完全な日本語の文）...",
       "options": ["registration", "register", "registered", "registering"],
       "answer": "registration",
       "explanation": "（必ず日本語で）...",
@@ -204,28 +220,38 @@ export async function POST(req: Request) {
       "example": "...",
       "category": "...",
       "importance": 1,
-      "synonyms": ["..."]
+      "synonyms": ["..."],
+      "optionDetails": [
+        { "option": "registration", "meaning": "登録", "partOfSpeech": "名詞" },
+        { "option": "register", "meaning": "登録する", "partOfSpeech": "動詞" },
+        { "option": "registered", "meaning": "登録された", "partOfSpeech": "形容詞" },
+        { "option": "registering", "meaning": "登録すること", "partOfSpeech": "動名詞/現在分詞" }
+      ]
     }
   ]
 }
-苦手分野 ${weaknessText} を半分入れる。
-推定スコア：${estimatedScore}
 `;
 
-    // AI 実行
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+    console.log("========== AI Teacher Prompt ==========\n", prompt, "\n=============================================");
 
     let parsed: ParsedResponse | null = null;
     for (let attempt = 1; attempt <= 3; attempt++) {
       const result = await model.generateContent(prompt);
       const text = result.response.text();
 
-      console.log(`[ai_teacher] Gemini attempt ${attempt}`);
+      console.log(`\n\n[ai_teacher] ====== Gemini attempt ${attempt} ======`);
       console.log(text);
-
+      console.log(`=====================================================\n\n`);
 
       parsed = parseJsonSafe(text);
-      if (parsed) break;
+      if (parsed) {
+        console.log("[ai_teacher] Successfully parsed JSON structure");
+        break;
+      } else {
+        console.error("[ai_teacher] Failed to parse JSON on attempt", attempt);
+      }
     }
 
     if (!parsed) {
@@ -239,7 +265,7 @@ export async function POST(req: Request) {
     // ----------------------------
     // バリデーション
     // ----------------------------
-    const validated: Question[] = parsed.questions
+    const validatedRaw = parsed.questions
       .map((raw, i) => {
         if (typeof raw !== "object" || raw === null) return null;
         const r = raw as RawQuestion;
@@ -251,9 +277,14 @@ export async function POST(req: Request) {
           options[j] = normalizeOptionText(rawOps[j]);
         }
 
+        // ensure we have exactly 4 valid string options (minimum fallback)
+        for (let j = 0; j < 4; j++) {
+          if (!options[j]) options[j] = `Option ${j + 1}`;
+        }
+
         const answer = resolveAnswer(r.answer ?? "", options);
         const translationRaw = typeof r.translation === "string" ? r.translation : "";
-        const translation = fillTranslationPlaceholder(translationRaw, answer);
+        const translation = fillTranslationPlaceholder(translationRaw);
 
         const q: Question = {
           id: typeof r.id === "string" ? r.id : `q_${Date.now()}_${i}`,
@@ -277,11 +308,35 @@ export async function POST(req: Request) {
           synonyms: Array.isArray(r.synonyms)
             ? r.synonyms.filter((s): s is string => typeof s === "string")
             : [],
+          optionDetails: Array.isArray(r.optionDetails)
+            ? r.optionDetails.filter((d: any): d is { option: string; meaning: string; partOfSpeech: string } =>
+              typeof d === "object" && d !== null &&
+              typeof d.option === "string" &&
+              typeof d.meaning === "string" &&
+              typeof d.partOfSpeech === "string"
+            )
+            : [],
         };
 
-        return isQuestion(q) ? q : null;
-      })
-      .filter((q): q is Question => q !== null);
+        if (!isQuestion(q)) {
+          const errMsg = `[isQuestion] Validation failed. id:${typeof (q as any)?.id}, q:${typeof (q as any)?.question}, trans:${typeof (q as any)?.translation}, opt:${Array.isArray((q as any)?.options)}, ans:${typeof (q as any)?.answer}, exp:${typeof (q as any)?.explanation}, pos:${typeof (q as any)?.partOfSpeech}, cat:${typeof (q as any)?.category}, imp:${typeof (q as any)?.importance}, syn:${typeof (q as any)?.synonyms}`;
+          console.error(errMsg, JSON.stringify(q, null, 2));
+          (q as any)._error = errMsg;
+          return q as any; // エラーメッセージを持たせて一旦返す
+        }
+        return q as any;
+      });
+
+    const failedQuestions = validatedRaw.filter((q: any) => q?._error);
+    const validated = validatedRaw.filter((q: any): q is Question => !q?._error);
+
+    if (validated.length === 0 && failedQuestions.length > 0) {
+      return NextResponse.json({
+        questions: [],
+        limitReached: false,
+        message: `問題データの形式エラー: ${failedQuestions[0]._error}`
+      });
+    }
 
     // 利用ログ保存
     await supabase.from("ai_usage_log").insert({ user_id: userId });
@@ -299,6 +354,7 @@ export async function POST(req: Request) {
       console.log("category:", q.category);
       console.log("importance:", q.importance);
       console.log("synonyms:", q.synonyms);
+      console.log("optionDetails:", q.optionDetails);
     });
 
 
@@ -307,11 +363,12 @@ export async function POST(req: Request) {
       limitReached: false,
       message: "生成成功",
     });
-  } catch (err) {
+  } catch (err: any) {
+    console.error("[ai_teacher] Error in API:", err);
     return NextResponse.json({
       questions: [],
       limitReached: false,
-      message: "サーバーエラー",
+      message: `サーバーエラー: ${err?.message || String(err)}`,
     });
   }
 }

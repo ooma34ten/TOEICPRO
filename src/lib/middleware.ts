@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-// 保護したいパス配下
-const protectedPrefixes = ["/words", "/admin"];
+// 保護したいパス配下（/admin のみ保護、/words はページ側でゲスト判定）
+const protectedPrefixes = ["/admin"];
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;

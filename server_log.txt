@@ -1,0 +1,15 @@
+
+> toeic-app@0.1.0 dev
+> next dev --turbopack
+
+ 笞 Port 3000 is in use by process 17320, using available port 3001 instead.
+   笆ｲ Next.js 16.0.8 (Turbopack)
+   - Local:         http://localhost:3001
+   - Network:       http://10.32.1.36:3001
+   - Environments: .env.local
+
+ 笨・Starting...
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+ 筧ｯ Unable to acquire lock at C:\Users\risay\source\repos\Nextjs_ws\TOEICPRO\.next\dev\lock, is another instance of next dev running?
+   Suggestion: If you intended to restart next dev, terminate the other process, and then try again.
+[?25h

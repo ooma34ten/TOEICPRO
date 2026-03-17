@@ -17,7 +17,9 @@ export default function ContactPage() {
     (async () => {
       const { data } = await supabase.auth.getSession();
       if (!data.session) {
-        router.replace("/auth/login");
+        if (localStorage.getItem("guestMode") !== "true") {
+          router.replace("/auth/login");
+        }
       } else {
         setUserId(data.session.user.id);
       }

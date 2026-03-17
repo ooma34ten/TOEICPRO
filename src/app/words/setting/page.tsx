@@ -16,6 +16,10 @@ export default function SettingsPage() {
     (async () => {
       const { data } = await supabase.auth.getSession();
       if (!data.session) {
+        if (localStorage.getItem("guestMode") === "true") {
+          setLoading(false);
+          return;
+        }
         router.replace("/auth/login");
       } else {
         setUserId(data.session.user.id);

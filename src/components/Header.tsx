@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { Menu, X, LogIn, LogOut, Settings } from "lucide-react";
+import { Menu, X, LogIn, LogOut, Settings, AlertTriangle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import toast from "react-hot-toast";
 
@@ -13,7 +13,18 @@ export default function Header() {
   const [predictedScore, setPredictedScore] = useState<number | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [isGuest, setIsGuest] = useState(false);
   const pathname = usePathname();
+
+  // ゲストモード検出
+  useEffect(() => {
+    const checkGuest = () => {
+      setIsGuest(localStorage.getItem("guestMode") === "true");
+    };
+    checkGuest();
+    window.addEventListener("storage", checkGuest);
+    return () => window.removeEventListener("storage", checkGuest);
+  }, []);
 
   useEffect(() => {
     const getUserData = async () => {
@@ -123,8 +134,16 @@ export default function Header() {
           <span className="text-gray-500 font-medium text-[10px] tracking-widest -mt-0.5">AI LEARNING</span>
         </Link>
 
+        {/* ゲストモードバッジ (PC) */}
+        {isGuest && (
+          <div className="hidden md:flex items-center gap-1.5 bg-amber-50 px-3 py-1.5 rounded-full border border-amber-200 ml-4">
+            <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+            <span className="text-xs font-bold text-amber-600">ゲストモード</span>
+          </div>
+        )}
+
         {/* スコア表示 (PC) */}
-        {predictedScore && (
+        {!isGuest && predictedScore && (
           <div
             onClick={(e) => {
               e.preventDefault();
@@ -195,7 +214,7 @@ export default function Header() {
 
         {/* ログイン / ログアウト */}
         <div className="hidden md:flex items-center gap-2 ml-4">
-          {userId ? (
+          {userId && !isGuest ? (
             <Link
               href="/auth/logout"
               className="flex items-center gap-1 text-sm text-gray-500 hover:text-red-500 transition"
@@ -206,7 +225,8 @@ export default function Header() {
           ) : (
             <Link
               href="/auth/login"
-              className="flex items-center gap-1 text-sm text-gray-500 hover:text-blue-600 transition"
+              onClick={() => localStorage.removeItem("guestMode")}
+              className="flex items-center gap-1 text-sm text-blue-500 hover:text-blue-600 font-medium transition"
             >
               <LogIn size={16} />
               ログイン
