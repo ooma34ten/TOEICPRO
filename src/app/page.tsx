@@ -674,8 +674,8 @@ export default function Dashboard() {
       {/* Main Actions */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
         <ActionCard
-          title="AI講師モード"
-          desc="AIとの英会話で実践的なスピーキングとリスニング力を鍛えましょう。"
+          title="Part5強化モード"
+          desc="AIがパート5形式で問題を出題します。文法・語彙力を鍛えましょう。"
           icon={BookOpen}
           gradient="bg-gradient-to-br from-indigo-600 to-violet-600"
           onClick={() => router.push("/words/ai_teacher")}

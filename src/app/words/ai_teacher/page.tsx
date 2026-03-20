@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { speakText } from "@/lib/speech";
 import Confetti from "react-confetti";
-import { Volume2, ChevronRight, Trophy, Zap, Target, RotateCcw } from "lucide-react";
+import { Volume2, ChevronRight, Trophy, Zap, Target, RotateCcw, Type, BookOpen, History as HistoryIcon } from "lucide-react";
 import { updateUserStats } from "@/app/actions/updateStats";
 
 // =============================
@@ -28,6 +28,7 @@ type Question = {
     meaning: string;
     partOfSpeech: string;
   }[];
+  accuracy?: number | null;
 };
 
 type SessionStats = {
@@ -42,6 +43,7 @@ type GenerateResponse = {
   questions: Question[];
   limitReached?: boolean;
   message?: string;
+  needsMore?: boolean;
 };
 
 // =============================
@@ -64,7 +66,7 @@ export default function AITeacherPage() {
     startTime: new Date(),
   });
   const [showConfetti, setShowConfetti] = useState(false);
-  const [targetCount] = useState(20);
+  const [targetCount] = useState(10);
   const [latestScore, setLatestScore] = useState<number | null>(null);
   const [weakCategories, setWeakCategories] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -113,8 +115,8 @@ export default function AITeacherPage() {
   // =============================
   // 問題生成
   // =============================
-  const generateQuestions = useCallback(async (count: number = 5): Promise<Question[]> => {
-    if (!userId) return [];
+  const generateQuestions = useCallback(async (count: number = 5, mode: "initial" | "fill" | "both" = "both"): Promise<GenerateResponse | null> => {
+    if (!userId) return null;
 
     try {
       const payload = {
@@ -122,6 +124,7 @@ export default function AITeacherPage() {
         estimatedScore: latestScore ?? 450,
         weaknesses: weakCategories,
         count,
+        mode,
       };
 
       const res = await fetch("/api/ai_teacher", {
@@ -132,32 +135,28 @@ export default function AITeacherPage() {
 
       const data: GenerateResponse = await res.json();
 
-      if (data.limitReached) {
-        setError(data.message || "本日の利用制限に達しました");
-        return [];
+      if (data.questions) {
+        data.questions = data.questions.map((q: any, i: number) => ({
+          id: q.id ?? `q_${Date.now()}_${i}`,
+          question: q.question,
+          translation: q.translation ?? "",
+          options: q.options,
+          answer: q.answer,
+          explanation: q.explanation ?? "",
+          partOfSpeech: q.partOfSpeech ?? "",
+          category: q.category ?? q.partOfSpeech ?? "other",
+          example: q.example ?? "",
+          importance: Math.min(5, Math.max(1, Math.round(q.importance ?? 3))),
+          synonyms: q.synonyms ?? [],
+          optionDetails: q.optionDetails ?? [],
+          accuracy: q.accuracy,
+        }));
       }
 
-      if (!Array.isArray(data.questions)) {
-        return [];
-      }
-
-      return data.questions.map((q, i) => ({
-        id: q.id ?? `q_${Date.now()}_${i}`,
-        question: q.question,
-        translation: q.translation ?? "",
-        options: q.options,
-        answer: q.answer,
-        explanation: q.explanation ?? "",
-        partOfSpeech: q.partOfSpeech ?? "",
-        category: q.category ?? q.partOfSpeech ?? "other",
-        example: q.example ?? "",
-        importance: Math.min(5, Math.max(1, Math.round(q.importance ?? 3))),
-        synonyms: q.synonyms ?? [],
-        optionDetails: q.optionDetails ?? [],
-      }));
+      return data;
     } catch (err) {
       console.error("Question generation failed:", err);
-      return [];
+      return null;
     }
   }, [userId, latestScore, weakCategories]);
 
@@ -171,17 +170,36 @@ export default function AITeacherPage() {
       setGenerating(true);
       setError(null);
 
-      const newQuestions = await generateQuestions(5);
-      if (newQuestions.length > 0) {
-        setQuestions(newQuestions);
+      // 1. まずはDBから既存の問題を高速に取得
+      const response = await generateQuestions(10, "initial");
+
+      if (response?.questions && response.questions.length > 0) {
+        setQuestions(response.questions);
         setCurrentIndex(0);
         answerStartTimeRef.current = Date.now();
+        setGenerating(false);
+
+        // 2. 問題が足りなければ裏でAI生成を走らせる
+        if (response.needsMore) {
+          const fillCount = 10 - response.questions.length;
+          generateQuestions(fillCount, "fill").then(fillRes => {
+            if (fillRes?.questions) {
+              setQuestions(prev => [...prev, ...fillRes.questions]);
+            }
+          });
+        }
+      } else {
+        // DBに何もなければ、AI、または both で取得
+        const fullRes = await generateQuestions(10, "both");
+        if (fullRes?.questions && fullRes.questions.length > 0) {
+          setQuestions(fullRes.questions);
+          setCurrentIndex(0);
+          answerStartTimeRef.current = Date.now();
+        } else if (fullRes?.limitReached) {
+          setError(fullRes.message || "本日の利用制限に達しました");
+        }
+        setGenerating(false);
       }
-
-      setGenerating(false);
-
-      // バックグラウンドで次の問題をプリフェッチ
-      prefetchQuestions();
     };
 
     loadInitialQuestions();
@@ -193,8 +211,10 @@ export default function AITeacherPage() {
   const prefetchQuestions = useCallback(async () => {
     if (prefetchedRef.current.length > 0) return;
 
-    const newQuestions = await generateQuestions(5);
-    prefetchedRef.current = newQuestions;
+    const response = await generateQuestions(5, "both");
+    if (response?.questions) {
+      prefetchedRef.current = response.questions;
+    }
   }, [generateQuestions]);
 
   // =============================
@@ -280,16 +300,12 @@ export default function AITeacherPage() {
     // 目標達成チェック
     if (sessionStats.total >= targetCount) {
       setSessionComplete(true);
+      setSessionStats(prev => ({ ...prev, endTime: new Date() }));
       return;
     }
 
-    // 次の問題があるかチェック
-    if (currentIndex + 1 < questions.length) {
-      setCurrentIndex((prev) => prev + 1);
-      setSelectedAnswer(null);
-      setShowResult(false);
-      answerStartTimeRef.current = Date.now();
-    } else {
+    // 現在の問題が最後の問題か、またはquestions配列が空の場合
+    if (currentIndex >= questions.length - 1) {
       // プリフェッチした問題を使用
       if (prefetchedRef.current.length > 0) {
         setQuestions(prefetchedRef.current);
@@ -299,28 +315,42 @@ export default function AITeacherPage() {
         setShowResult(false);
         answerStartTimeRef.current = Date.now();
 
-        // 次のプリフェッチを開始
+        // 更に裏でプリフェッチ
         prefetchQuestions();
       } else {
         // プリフェッチがない場合は同期的に生成
         setGenerating(true);
-        const newQuestions = await generateQuestions(5);
-        if (newQuestions.length > 0) {
-          setQuestions(newQuestions);
+        const response = await generateQuestions(5, "both");
+        if (response?.questions && response.questions.length > 0) {
+          setQuestions(response.questions);
           setCurrentIndex(0);
           setSelectedAnswer(null);
           setShowResult(false);
           answerStartTimeRef.current = Date.now();
+        } else {
+          // 問題が生成できなかった場合、セッション完了とみなす
+          setSessionComplete(true);
+          setSessionStats(prev => ({ ...prev, endTime: new Date() }));
         }
         setGenerating(false);
       }
+    } else {
+      // 次の問題へ進む
+      setCurrentIndex((prev) => prev + 1);
+      setSelectedAnswer(null);
+      setShowResult(false);
+      answerStartTimeRef.current = Date.now();
     }
   };
 
   // =============================
   // セッションリスタート
   // =============================
-  const handleRestart = () => {
+  const handleRestart = async () => {
+    setQuestions([]);
+    setCurrentIndex(0);
+    setSelectedAnswer(null);
+    setShowResult(false);
     setSessionComplete(false);
     setSessionStats({
       total: 0,
@@ -329,21 +359,68 @@ export default function AITeacherPage() {
       maxStreak: 0,
       startTime: new Date(),
     });
+    prefetchedRef.current = [];
+
+    setGenerating(true);
+    const response = await generateQuestions(10, "initial");
+    if (response?.questions && response.questions.length > 0) {
+      setQuestions(response.questions);
+      answerStartTimeRef.current = Date.now();
+
+      if (response.needsMore) {
+        generateQuestions(10 - response.questions.length, "fill").then(fillRes => {
+          if (fillRes?.questions) {
+            setQuestions(prev => [...prev, ...fillRes.questions]);
+          }
+        });
+      }
+    } else {
+      const fullRes = await generateQuestions(10, "both");
+      if (fullRes?.questions) {
+        setQuestions(fullRes.questions);
+      }
+    }
+    setGenerating(false);
+  };
+
+  // =============================
+  // セッションリトライ
+  // =============================
+  const handleRetry = async () => {
+    setQuestions([]);
     setCurrentIndex(0);
     setSelectedAnswer(null);
     setShowResult(false);
+    setSessionComplete(false);
+    setSessionStats({
+      total: 0,
+      correct: 0,
+      streak: 0,
+      maxStreak: 0,
+      startTime: new Date(),
+    });
     prefetchedRef.current = [];
 
-    // 新しい問題を生成
-    (async () => {
-      setGenerating(true);
-      const newQuestions = await generateQuestions(5);
-      if (newQuestions.length > 0) {
-        setQuestions(newQuestions);
-        answerStartTimeRef.current = Date.now();
+    setGenerating(true);
+    const response = await generateQuestions(10, "initial");
+    if (response?.questions && response.questions.length > 0) {
+      setQuestions(response.questions);
+      answerStartTimeRef.current = Date.now();
+
+      if (response.needsMore) {
+        generateQuestions(10 - response.questions.length, "fill").then(fillRes => {
+          if (fillRes?.questions) {
+            setQuestions(prev => [...prev, ...fillRes.questions]);
+          }
+        });
       }
-      setGenerating(false);
-    })();
+    } else {
+      const fullRes = await generateQuestions(10, "both");
+      if (fullRes?.questions) {
+        setQuestions(fullRes.questions);
+      }
+    }
+    setGenerating(false);
   };
 
   // =============================
@@ -550,6 +627,15 @@ export default function AITeacherPage() {
                 <span className="text-xs bg-white/20 px-2 py-1 rounded">
                   重要度: {"★".repeat(currentQuestion.importance)}
                 </span>
+                {currentQuestion.accuracy !== undefined && currentQuestion.accuracy !== null ? (
+                  <span className="text-xs bg-red-600 text-white px-2 py-1 rounded animate-pulse">
+                    正解率: {currentQuestion.accuracy}%
+                  </span>
+                ) : (
+                  <span className="text-xs bg-green-600 text-white px-2 py-1 rounded">
+                    初出題
+                  </span>
+                )}
                 <button
                   onClick={() => speakText(currentQuestion.question)}
                   className="p-1.5 rounded-full hover:bg-white/20 transition"
@@ -646,7 +732,29 @@ export default function AITeacherPage() {
                     {currentQuestion.explanation && (
                       <p><span className="font-medium">解説:</span> {currentQuestion.explanation}</p>
                     )}
-                    <p><span className="font-medium">品詞:</span> {currentQuestion.partOfSpeech}</p>
+                    <div className="flex flex-wrap gap-2 pt-2">
+                      <span className="flex items-center gap-1 px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded text-xs font-semibold border border-indigo-100">
+                        <Type size={12} />
+                        {currentQuestion.partOfSpeech}
+                      </span>
+                      {currentQuestion.category?.split(" > ").map((cat, i) => (
+                        <span key={i} className="flex items-center gap-1 px-2 py-0.5 bg-purple-50 text-purple-600 rounded text-xs font-semibold border border-purple-100">
+                          <BookOpen size={12} />
+                          {cat}
+                        </span>
+                      ))}
+                      {/*currentQuestion.accuracy !== null && currentQuestion.accuracy !== undefined ? (
+                         <span className="flex items-center gap-1 px-2 py-0.5 bg-red-50 text-red-600 rounded text-xs font-semibold border border-red-100">
+                           <HistoryIcon size={12} />
+                           前回の正解率: {currentQuestion.accuracy}%
+                         </span>
+                       ) : (
+                         <span className="flex items-center gap-1 px-2 py-0.5 bg-green-50 text-green-600 rounded text-xs font-semibold border border-green-100">
+                           <Zap size={12} />
+                           初出題
+                         </span>
+                       )*/}
+                    </div>
                     {currentQuestion.optionDetails && currentQuestion.optionDetails.length > 0 && (
                       <div className="mt-3 bg-white/50 p-3 rounded-lg border border-gray-100">
                         <p className="font-medium mb-1 border-b border-gray-200 pb-1">選択肢の解説:</p>

@@ -32,6 +32,7 @@ type Question = {
     meaning: string;
     partOfSpeech: string;
   }[];
+  accuracy?: number | null;
 };
 
 type RawQuestion = Record<string, unknown>;
@@ -96,20 +97,11 @@ function parseJsonSafe(text: string): ParsedResponse | null {
 // =============================
 // 選択肢正規化
 // =============================
-// 正規化: "(A) apple" -> "apple", "A. apple" -> "apple"
-// 正規化: "(A) apple" -> "apple", "A. apple" -> "apple"
 function normalizeOptionText(raw: unknown): string {
   if (typeof raw !== "string") return "";
-
-  // 1. remove leading (A), (1), A., 1. etc.
-  // We require a separator (paren, dot, colon) OR parens around the letter.
-  // This prevents stripping "Because" -> "ecause" (where B is matched as the index).
-  let text = raw.replace(/^[\(（][A-Da-d1-4][\)）]([\.\:\：]?\s*)?/, "").trim(); // Matches (A), (1)
-  text = text.replace(/^[A-Da-d1-4][\.\)\:\：]\s*/, "").trim(); // Matches A., 1., A)
-
-  // 2. remove leading non-alphanumeric symbols if any remain (e.g. "- ", ". ")
+  let text = raw.replace(/^[\(（][A-Da-d1-4][\)）]([\.\:\：]?\s*)?/, "").trim();
+  text = text.replace(/^[A-Da-d1-4][\.\)\:\：]\s*/, "").trim();
   text = text.replace(/^[\.\-\:\：]\s*/, "").trim();
-
   return text;
 }
 
@@ -118,9 +110,6 @@ function normalizeOptionText(raw: unknown): string {
 // 翻訳の空欄補完
 // =============================
 function fillTranslationPlaceholder(translation: string): string {
-  // 英語の答えをそのまま当てはめると「従業員のprivacyに関する」のようになって不自然なため、
-  // プロンプト側で「完全な日本語の文にする」よう指示し、万が一空欄が残っていた場合は（空欄の部分）などにするかそのままにします。
-  // ここではAIが生成した和訳を極力そのまま活かすため、無理に英語を挿入しません。
   return translation.replace(/_{2,}|＿{2,}|＿|_____|____|__|（　）|（☐）/g, "（空欄）");
 }
 
@@ -142,233 +131,438 @@ function resolveAnswer(answerRaw: unknown, options: [string, string, string, str
 }
 
 // =============================
+// スコア → レベル変換
+// =============================
+function scoreToLevel(score: number): number {
+  if (score < 400) return 1; // Beginner
+  if (score < 600) return 2; // Basic
+  if (score < 800) return 3; // Intermediate
+  return 4;                 // Advanced
+}
+
+// =============================
 // API 本体
 // =============================
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    console.log("[ai_teacher] request body:", body);
+    const mode = body.mode || "both"; // 'initial', 'fill', or 'both'
     const userId = req.headers.get("userId");
     if (!userId) {
       return NextResponse.json({ error: "userId が必要です" }, { status: 400 });
     }
 
-    const weaknesses = Array.isArray(body.weaknesses)
-      ? (body.weaknesses as string[])
-      : [];
-    const estimatedScore = typeof body.estimatedScore === "number" ? body.estimatedScore : 450;
-    const count = Math.min(50, Math.max(1, Number(body.count) || 10));
+    const dbQuestions: Question[] = [];
+    let allCategoriesData: any[] = [];
+    let estimatedScore = 450;
+    let weaknesses: string[] = [];
 
-    const weaknessText = weaknesses.length > 0 ? weaknesses.join(", ") : "";
+    console.time("[ai_teacher] total");
+    console.time("[ai_teacher] db_basic_fetch");
+    // 1. 基本データ (カテゴリ、最新スコア、学習履歴) を並列で取得
+    const [catRes, scoreRes, historyRes] = await Promise.all([
+      supabase.from("categories").select("id, level1, level2").order("id"),
+      supabase.from("test_results").select("predicted_score, weak_categories").eq("user_id", userId).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+      (mode === "initial" || mode === "both") 
+        ? supabase.from("test_results")
+            .select("created_at, test_result_items(question_id, is_correct)")
+            .eq("user_id", userId)
+        : Promise.resolve({ data: [] })
+    ]);
+    console.timeEnd("[ai_teacher] db_basic_fetch");
 
-    // サブスク確認
-    const { data: sub } = await supabase
-      .from("subscriptions")
-      .select("is_active")
-      .eq("user_id", userId)
-      .eq("is_active", true)
-      .maybeSingle();
+    allCategoriesData = catRes.data || [];
+    const latestResult = scoreRes.data;
+    estimatedScore = latestResult?.predicted_score ?? 450;
+    weaknesses = latestResult?.weak_categories ?? [];
+    const level = scoreToLevel(estimatedScore);
 
-    const subscribed = sub?.is_active === true;
+    // ----------------------------
+    // 2. DBから既存の弱点問題を抽出
+    // ----------------------------
+    if (mode === "initial" || mode === "both") {
+      const rawHistoryData = historyRes.data || [];
+      const historyMap = new Map<string, { correct: number; incorrect: number; lastAnswered: number }>();
 
-    // 無料ユーザー制限
-    if (!subscribed) {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      rawHistoryData.forEach((res: any) => {
+        const time = new Date(res.created_at).getTime();
+        res.test_result_items?.forEach((item: any) => {
+          const qId = item.question_id;
+          if (!historyMap.has(qId)) {
+            historyMap.set(qId, { correct: 0, incorrect: 0, lastAnswered: 0 });
+          }
+          const stats = historyMap.get(qId)!;
+          if (item.is_correct) stats.correct++;
+          else stats.incorrect++;
+          if (time > stats.lastAnswered) stats.lastAnswered = time;
+        });
+      });
 
-      const { count: usage } = await supabase
-        .from("ai_usage_log")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", userId)
-        .gte("used_at", today.toISOString());
+      const history = Array.from(historyMap.entries()).map(([question_id, stats]) => ({
+        question_id,
+        correct_count: stats.correct,
+        incorrect_count: stats.incorrect,
+        last_answered_at: new Date(stats.lastAnswered).toISOString()
+      }));
 
-      if ((usage ?? 0) >= 1) {
-        return NextResponse.json({
-          questions: [],
-          limitReached: true,
-          message: "無料ユーザーは本日すでに1回利用済みです。",
+      const now = new Date();
+
+      const weakQuestionSpecs = history
+        .map((h) => {
+          const total = h.correct_count + h.incorrect_count;
+          const accuracy = total > 0 ? Math.round((h.correct_count / total) * 100) : 0;
+          
+          let intervalMs = 0;
+          if (accuracy === 0) intervalMs = 1 * 60 * 60 * 1000;
+          else if (accuracy <= 30) intervalMs = 1 * 24 * 60 * 60 * 1000;
+          else if (accuracy <= 60) intervalMs = 3 * 24 * 60 * 60 * 1000;
+          else intervalMs = 7 * 24 * 60 * 60 * 1000;
+
+          const lastAnswered = new Date(h.last_answered_at);
+          const nextReview = new Date(lastAnswered.getTime() + intervalMs);
+          const isDue = now >= nextReview;
+
+          return { id: h.question_id, accuracy, isDue };
+        })
+        .filter(q => q.accuracy <= 80 && q.isDue)
+        .sort((a, b) => a.accuracy - b.accuracy)
+        .slice(0, 15) // 弱点上位15問を候補にする
+        .sort(() => Math.random() - 0.5) // その中からシャッフル
+        .slice(0, 5); // 最終的に5問選ぶ
+
+      if (weakQuestionSpecs.length > 0) {
+        console.time("[ai_teacher] db_questions_fetch");
+        const { data: dbQData } = await supabase
+          .from("toeic_questions")
+          .select("*")
+          .in("id", weakQuestionSpecs.map(s => s.id));
+        console.timeEnd("[ai_teacher] db_questions_fetch");
+
+        dbQData?.forEach(q => {
+          const h = history.find((h: any) => h.question_id === q.id);
+          const accuracy = h 
+            ? Math.round((h.correct_count / (h.correct_count + h.incorrect_count)) * 100) 
+            : null;
+          
+          dbQuestions.push({
+            id: q.id,
+            question: q.question,
+            translation: q.translation || "",
+            options: q.options as [string, string, string, string],
+            answer: q.answer,
+            explanation: q.explanation || "",
+            partOfSpeech: q.part_of_speech || "",
+            example: q.example_sentence || "",
+            category: q.category || "",
+            importance: q.importance || 3,
+            synonyms: q.synonyms || [],
+            accuracy,
+          });
+        });
+      }
+
+      const needed = 10 - dbQuestions.length;
+      if (needed > 0) {
+        console.time("[ai_teacher] db_random_fill");
+        // 既に選ばれたID + 直近12時間に解答したIDを除外
+        const answeredRecentlyIds = history
+          .filter((h: any) => (now.getTime() - new Date(h.last_answered_at).getTime()) < 12 * 60 * 60 * 1000)
+          .map((h: any) => h.question_id);
+        
+        const excludeIds = [...new Set([...dbQuestions.map(q => q.id), ...answeredRecentlyIds])];
+
+        let query = supabase
+          .from("toeic_questions")
+          .select("*")
+          .eq("level", level)
+          .order("id", { ascending: Math.random() > 0.5 }) // ランダム性のためID順を不定期に
+          .limit(needed);
+
+        if (excludeIds.length > 0) {
+          // IDsをチャンク分けしてフィルタリング（多すぎるとエラーになるため上位100件程度に絞る）
+          const filterIds = excludeIds.slice(0, 100);
+          query = query.not("id", "in", `(${filterIds.join(",")})`);
+        }
+        const { data: randomQData } = await query;
+        console.timeEnd("[ai_teacher] db_random_fill");
+
+        randomQData?.forEach(q => {
+          const h = history.find((h: any) => h.question_id === q.id);
+          const accuracy = h 
+            ? Math.round((h.correct_count / (h.correct_count + h.incorrect_count)) * 100) 
+            : null;
+
+          dbQuestions.push({
+            id: q.id,
+            question: q.question,
+            translation: q.translation || "",
+            options: q.options as [string, string, string, string],
+            answer: q.answer,
+            explanation: q.explanation || "",
+            partOfSpeech: q.part_of_speech || "",
+            example: q.example_sentence || "",
+            category: q.category || "",
+            importance: q.importance || 3,
+            synonyms: q.synonyms || [],
+            accuracy,
+          });
         });
       }
     }
 
-    // Gemini prompt
-    const prompt = `
+    // ----------------------------
+    // 2. モードが initial の場合は、DBにある分だけで即座に返す
+    // ----------------------------
+    if (mode === "initial") {
+      const categoryMap = new Map<string, string>();
+      allCategoriesData.forEach((c: any) => {
+        const name = c.level1 && c.level2 ? `${c.level1} > ${c.level2}` : (c.level2 || c.level1 || "");
+        categoryMap.set(String(c.id), name);
+      });
+
+      const finalQuestions = dbQuestions.map(q => ({
+        ...q,
+        category: categoryMap.get(String(q.category)) || q.category
+      }));
+
+      console.timeEnd("[ai_teacher] total");
+      return NextResponse.json({
+        questions: finalQuestions,
+        limitReached: false,
+        message: "DBからの問題取得に成功しました",
+        needsMore: finalQuestions.length < 10
+      });
+    }
+
+    // ----------------------------
+    // 3. 残りをAIで生成 (fill または both の場合)
+    // ----------------------------
+    const targetCount = 10;
+    let aiCount = 0;
+    if (mode === "fill") {
+      aiCount = body.count || 10;
+    } else {
+      aiCount = Math.max(0, targetCount - dbQuestions.length);
+    }
+
+    // (既に並列実行済みで取得済みの latestResult, estimatedScore, weaknesses, level を使用)
+
+    const categoryListText = allCategoriesData
+      ? allCategoriesData.map((c: any) => `- ${c.level2}`).join("\n")
+      : "";
+
+    const weaknessText = weaknesses.length > 0 ? weaknesses.join(", ") : "";
+
+    let aiQuestions: Question[] = [];
+
+    if (aiCount > 0) {
+      // サブスク確認 & 無料制限
+      const { data: sub } = await supabase
+        .from("subscriptions")
+        .select("is_active")
+        .eq("user_id", userId)
+        .eq("is_active", true)
+        .maybeSingle();
+
+      const subscribed = sub?.is_active === true;
+      if (!subscribed) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const { count: usage } = await supabase
+          .from("ai_usage_log")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", userId)
+          .gte("used_at", today.toISOString());
+
+        if ((usage ?? 0) >= 1) {
+          // すでに利用済みの場合はDB問題のみ返すかエラー
+          if (dbQuestions.length === 0) {
+            return NextResponse.json({
+              questions: [],
+              limitReached: true,
+              message: "無料ユーザーは本日すでに1回利用済みです。",
+            });
+          }
+        }
+      }
+
+      const prompt = `
 あなたはプロのTOEIC講師です。以下のルール厳守：
 1) 出力は JSON のみ
-2) 問題数は ${count} 問
+2) 問題数は ${aiCount} 問
 3) **重要: "translation", "explanation", "partOfSpeech" は必ず日本語で出力すること。** 特に translation は自然な和訳にし、英語のままにしないこと。
    - translation に "(A) registration" のような英語の選択肢を含めないこと。
    - translation に "_____" や "(  )" のような空欄記号を含めず、正解を当てはめた【完全な日本語の文】にすること。
-   - options の配列には、選択肢の記号(A, B, C, D)を含めないこと。純粋な単語/フレーズのみ。
-4) **出題形式・難易度の厳密な調整**:
-   - 出題形式は【すべて TOEIC Part 5 形式の短文穴埋め問題】のみに限定してください。長文や会話問題は不可です。
-   - ユーザーの推定スコアは ${estimatedScore} 点です。
-   - このスコアレベルの学習者にとって【少し歯ごたえのある（正解率60%程度になるような）】適切な難度の単語・文法・イディオムを出題してください。
-   - 簡単すぎる基礎単語（例：run, make, easyなど）は避け、スコア ${estimatedScore} 点を取得するために必須となる頻出語彙や引っ掛け問題を意識してください。
-   - 苦手分野 ${weaknessText} を半分入れてください。
-5) 形式：
+   - options の配列には、選択肢の記記号(A, B, C, D)を含めないこと。純粋な単語/フレーズのみ。
+4) **出題形式・難易度・重要度の厳密な調整**:
+   - 出題形式は【すべて TOEIC Part 5 形式の短文穴埋め問題】のみに限定してください。
+   - ユーザーの推定スコアは ${estimatedScore} 点です（難易度レベル: 1-4中 ${level}）。
+   - **重要度 (importance) は、1 (たまに出る), 2 (標準), 3 (超頻出) のいずれかを数値で指定してください**。
+   - **重要: 各問題の "category" は、必ず以下のリストにある「中分類名」のいずれか1つを【正確に】指定してください。**
+${categoryListText}
+   - 苦手分野 ${weaknessText} を意識してください。
+5) **多様性と重複の排除 (最重要)**:
+   - 全く同じ単語、似たフレーズ（例: 'are required', 'although' 等）を複数回の正解(answer)にすることは厳禁です。AIが生成する ${aiCount} 問は、すべて異なる文法事項・単語を問う問題にしてください。${
+     dbQuestions.length > 0 
+       ? `\n   - 今回、既に以下の単語・フレーズが出題されているため、今回の正解(answer)には絶対に使用しないでください: ${[...new Set(dbQuestions.map(q => q.answer))].filter(Boolean).join(", ")}` 
+       : ""
+   }
+6) 形式：
 {
   "questions": [
     {
       "id": "一意ID",
       "question": "...",
-      "translation": "（正解を当てはめた、自然で完全な日本語の文）...",
-      "options": ["registration", "register", "registered", "registering"],
-      "answer": "registration",
-      "explanation": "（必ず日本語で）...",
-      "partOfSpeech": "（必ず日本語で）...",
+      "translation": "...",
+      "options": ["...", "...", "...", "..."],
+      "answer": "...",
+      "explanation": "...",
+      "partOfSpeech": "...",
       "example": "...",
       "category": "...",
       "importance": 1,
       "synonyms": ["..."],
       "optionDetails": [
-        { "option": "registration", "meaning": "登録", "partOfSpeech": "名詞" },
-        { "option": "register", "meaning": "登録する", "partOfSpeech": "動詞" },
-        { "option": "registered", "meaning": "登録された", "partOfSpeech": "形容詞" },
-        { "option": "registering", "meaning": "登録すること", "partOfSpeech": "動名詞/現在分詞" }
+        { "option": "...", "meaning": "...", "partOfSpeech": "..." }
       ]
     }
   ]
 }
 `;
 
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+      console.time("[ai_teacher] gemini_generate");
+      const model = genAI.getGenerativeModel({ 
+        model: "gemini-2.0-flash",
+        generationConfig: {
+          temperature: 0.9, // 創造性と多様性を高めるために引き上げ
+        }
+      });
+      let parsed: ParsedResponse | null = null;
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        const result = await model.generateContent(prompt);
+        parsed = parseJsonSafe(result.response.text());
+        if (parsed) break;
+      }
+      console.timeEnd("[ai_teacher] gemini_generate");
 
-    console.log("========== AI Teacher Prompt ==========\n", prompt, "\n=============================================");
-
-    let parsed: ParsedResponse | null = null;
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      const result = await model.generateContent(prompt);
-      const text = result.response.text();
-
-      console.log(`\n\n[ai_teacher] ====== Gemini attempt ${attempt} ======`);
-      console.log(text);
-      console.log(`=====================================================\n\n`);
-
-      parsed = parseJsonSafe(text);
       if (parsed) {
-        console.log("[ai_teacher] Successfully parsed JSON structure");
-        break;
-      } else {
-        console.error("[ai_teacher] Failed to parse JSON on attempt", attempt);
+        aiQuestions = parsed.questions
+          .map((raw, i) => {
+            if (typeof raw !== "object" || raw === null) return null;
+            const r = raw as RawQuestion;
+            const rawOps = Array.isArray(r.options) ? r.options : [];
+            const options: [string, string, string, string] = ["", "", "", ""];
+            for (let j = 0; j < 4; j++) options[j] = normalizeOptionText(rawOps[j]);
+            for (let j = 0; j < 4; j++) if (!options[j]) options[j] = `Option ${j + 1}`;
+
+            const answer = resolveAnswer(r.answer ?? "", options);
+            const translation = fillTranslationPlaceholder(typeof r.translation === "string" ? r.translation : "");
+
+            const q: Question = {
+              id: typeof r.id === "string" ? r.id : `q_${Date.now()}_${i}`,
+              question: typeof r.question === "string" ? r.question : "",
+              translation,
+              options,
+              answer,
+              explanation: typeof r.explanation === "string" ? r.explanation : "",
+              partOfSpeech: typeof r.partOfSpeech === "string" ? r.partOfSpeech : "",
+              example: typeof r.example === "string" ? r.example : undefined,
+              category: typeof r.category === "string" ? r.category : "other",
+              importance: typeof r.importance === "number" ? Math.min(3, Math.max(1, r.importance)) : 2,
+              synonyms: Array.isArray(r.synonyms) ? r.synonyms.filter((s): s is string => typeof s === "string") : [],
+              optionDetails: Array.isArray(r.optionDetails)
+                ? (r.optionDetails as { option: string; meaning: string; partOfSpeech: string }[]).filter(
+                  (d) =>
+                    typeof d === "object" &&
+                    d !== null &&
+                    typeof d.option === "string" &&
+                    typeof d.meaning === "string" &&
+                    typeof d.partOfSpeech === "string"
+                )
+                : [],
+              accuracy: null, // 新規作成
+            };
+            return isQuestion(q) ? q : null;
+          })
+          .filter((q): q is Question => q !== null);
+
+        // 新規問題をDBに保存
+        const getCategoryId = (catName: string): string => {
+          if (!allCategoriesData) return catName;
+          const match = allCategoriesData.find((c: any) => (c.level2 === catName || c.level1 === catName));
+          return match ? String(match.id) : catName;
+        };
+
+        const { data: savedAIQ } = await supabase
+          .from("toeic_questions")
+          .insert(aiQuestions.map(q => ({
+            question: q.question,
+            translation: q.translation,
+            options: q.options,
+            answer: q.answer,
+            explanation: q.explanation,
+            example_sentence: q.example,
+            part_of_speech: q.partOfSpeech,
+            category: getCategoryId(q.category),
+            importance: q.importance,
+            synonyms: q.synonyms,
+            level,
+            created_by: "ai_teacher",
+          })))
+          .select();
+        
+        if (savedAIQ) {
+          aiQuestions = savedAIQ.map(q => ({
+            id: q.id,
+            question: q.question,
+            translation: q.translation || "",
+            options: q.options as [string, string, string, string],
+            answer: q.answer,
+            explanation: q.explanation || "",
+            partOfSpeech: q.part_of_speech || "",
+            example: q.example_sentence || "",
+            category: q.category || "",
+            importance: q.importance || 3,
+            synonyms: q.synonyms || [],
+            accuracy: null,
+          }));
+        }
+
+        // 利用ログ保存
+        await supabase.from("ai_usage_log").insert({ user_id: userId });
       }
     }
 
-    if (!parsed) {
-      return NextResponse.json({
-        questions: [],
-        limitReached: false,
-        message: "有効な問題を生成できませんでした。",
-      });
-    }
-
     // ----------------------------
-    // バリデーション
+    // 3. 結合 & カテゴリ名をIDから文字に変換
     // ----------------------------
-    const validatedRaw = parsed.questions
-      .map((raw, i) => {
-        if (typeof raw !== "object" || raw === null) return null;
-        const r = raw as RawQuestion;
-
-        // options
-        const rawOps = Array.isArray(r.options) ? r.options : [];
-        const options: [string, string, string, string] = ["", "", "", ""];
-        for (let j = 0; j < 4; j++) {
-          options[j] = normalizeOptionText(rawOps[j]);
-        }
-
-        // ensure we have exactly 4 valid string options (minimum fallback)
-        for (let j = 0; j < 4; j++) {
-          if (!options[j]) options[j] = `Option ${j + 1}`;
-        }
-
-        const answer = resolveAnswer(r.answer ?? "", options);
-        const translationRaw = typeof r.translation === "string" ? r.translation : "";
-        const translation = fillTranslationPlaceholder(translationRaw);
-
-        const q: Question = {
-          id: typeof r.id === "string" ? r.id : `q_${Date.now()}_${i}`,
-          question: typeof r.question === "string" ? r.question : "",
-          translation,
-          options,
-          answer,
-          explanation: typeof r.explanation === "string" ? r.explanation : "",
-          partOfSpeech: typeof r.partOfSpeech === "string" ? r.partOfSpeech : "",
-          example: typeof r.example === "string" ? r.example : undefined,
-          category:
-            typeof r.category === "string"
-              ? r.category
-              : typeof r.partOfSpeech === "string"
-                ? r.partOfSpeech
-                : "other",
-          importance:
-            typeof r.importance === "number"
-              ? Math.min(5, Math.max(1, r.importance))
-              : 3,
-          synonyms: Array.isArray(r.synonyms)
-            ? r.synonyms.filter((s): s is string => typeof s === "string")
-            : [],
-          optionDetails: Array.isArray(r.optionDetails)
-            ? r.optionDetails.filter((d: any): d is { option: string; meaning: string; partOfSpeech: string } =>
-              typeof d === "object" && d !== null &&
-              typeof d.option === "string" &&
-              typeof d.meaning === "string" &&
-              typeof d.partOfSpeech === "string"
-            )
-            : [],
-        };
-
-        if (!isQuestion(q)) {
-          const errMsg = `[isQuestion] Validation failed. id:${typeof (q as any)?.id}, q:${typeof (q as any)?.question}, trans:${typeof (q as any)?.translation}, opt:${Array.isArray((q as any)?.options)}, ans:${typeof (q as any)?.answer}, exp:${typeof (q as any)?.explanation}, pos:${typeof (q as any)?.partOfSpeech}, cat:${typeof (q as any)?.category}, imp:${typeof (q as any)?.importance}, syn:${typeof (q as any)?.synonyms}`;
-          console.error(errMsg, JSON.stringify(q, null, 2));
-          (q as any)._error = errMsg;
-          return q as any; // エラーメッセージを持たせて一旦返す
-        }
-        return q as any;
-      });
-
-    const failedQuestions = validatedRaw.filter((q: any) => q?._error);
-    const validated = validatedRaw.filter((q: any): q is Question => !q?._error);
-
-    if (validated.length === 0 && failedQuestions.length > 0) {
-      return NextResponse.json({
-        questions: [],
-        limitReached: false,
-        message: `問題データの形式エラー: ${failedQuestions[0]._error}`
-      });
-    }
-
-    // 利用ログ保存
-    await supabase.from("ai_usage_log").insert({ user_id: userId });
-
-    console.log("[ai_teacher] parsed questions count:", parsed.questions.length);
-
-    validated.forEach((q, i) => {
-      console.log(`--- validated question ${i + 1} ---`);
-      console.log("id:", q.id);
-      console.log("question:", q.question);
-      console.log("translation:", q.translation);
-      console.log("options:", q.options);
-      console.log("answer:", q.answer);
-      console.log("partOfSpeech:", q.partOfSpeech);
-      console.log("category:", q.category);
-      console.log("importance:", q.importance);
-      console.log("synonyms:", q.synonyms);
-      console.log("optionDetails:", q.optionDetails);
+    const categoryMap = new Map<string, string>();
+    allCategoriesData?.forEach((c: any) => {
+      // 大分類 > 中分類 の形式にする（中分類がなければ大分類のみ、逆も然り）
+      const name = c.level1 && c.level2 
+        ? `${c.level1} > ${c.level2}` 
+        : (c.level2 || c.level1 || "");
+      categoryMap.set(String(c.id), name);
     });
 
+    const finalQuestions = [...dbQuestions, ...aiQuestions].slice(0, targetCount).map(q => ({
+      ...q,
+      category: categoryMap.get(String(q.category)) || q.category
+    }));
 
+    console.timeEnd("[ai_teacher] total");
     return NextResponse.json({
-      questions: validated,
+      questions: finalQuestions,
       limitReached: false,
-      message: "生成成功",
+      message: "問題の取得・生成に成功しました",
     });
+
   } catch (err: any) {
     console.error("[ai_teacher] Error in API:", err);
     return NextResponse.json({
       questions: [],
       limitReached: false,
       message: `サーバーエラー: ${err?.message || String(err)}`,
-    });
+    }, { status: 500 });
   }
 }

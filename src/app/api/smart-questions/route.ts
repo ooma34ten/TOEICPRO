@@ -337,7 +337,9 @@ async function getWeaknessAnalysis(userId: string) {
 export async function POST(req: Request) {
   try {
     const body: SmartQuestionRequest = await req.json();
-    const { userId, mode, count = 10, categoryFilter, levelFilter } = body;
+    // AI問題演習は常に10問とするため、リクエストボディのcountは無視
+    const { userId, mode, categoryFilter, levelFilter } = body;
+    const count = 10;
 
     if (!userId) {
       return NextResponse.json({ error: "userId is required" }, { status: 400 });
@@ -346,7 +348,7 @@ export async function POST(req: Request) {
     const questions = await getSmartQuestions(
       userId,
       mode || "quick",
-      count,
+      count, // 10に固定
       categoryFilter,
       levelFilter
     );

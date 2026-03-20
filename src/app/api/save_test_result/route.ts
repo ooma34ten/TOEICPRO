@@ -106,7 +106,7 @@ export async function POST(req: Request) {
 
       if (isCorrect) {
         // 正解: 重要度が高いほど伸びる (例: ★5=10点, ★3=6点)
-        scoreDelta += importance * 2;
+        scoreDelta += importance * 1;
       } else {
         // 不正解: 重要度が高いほど下がる (例: ★5=-5点, ★3=-3点)
         scoreDelta -= importance * 1;
@@ -154,14 +154,19 @@ export async function POST(req: Request) {
         .from("test_result_items")
         .insert({
           result_id: resultId,
-          question: q.question,
-          correct_answer: correctAnswer,
+          question_id: q.id,
           user_answer: userAnswer,
           is_correct: isCorrect,
-          part_of_speech: q.partOfSpeech,
-          category: q.category ?? null,
         });
       if (itemErr) throw itemErr;
+
+      // 4-2 toeic_questions のグローバル統計を更新
+      if (q.id) {
+        await supabaseAdmin.rpc("increment_question_stats", {
+          q_id: q.id,
+          is_correct: isCorrect,
+        });
+      }
     }
 
     return NextResponse.json({ success: true, resultId, newScore });

@@ -95,6 +95,12 @@ async function saveAnswer(data: SaveAnswerRequest): Promise<{ success: boolean; 
             }
         }
 
+        // 3. toeic_questions のグローバル統計を更新
+        await supabase.rpc("increment_question_stats", {
+            q_id: questionId,
+            is_correct: isCorrect,
+        });
+
         return { success: true };
     } catch (err) {
         console.error("saveAnswer error:", err);
@@ -130,9 +136,9 @@ async function updatePredictedScore(userId: string, isCorrect: boolean, question
         // 3. 変動値を計算
         let delta = 0;
         if (isCorrect) {
-            delta = importance * 2;
+            delta = 1;
         } else {
-            delta = -1 * importance;
+            delta = -1;
         }
 
         let newScore = currentScore + delta;

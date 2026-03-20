@@ -10,7 +10,6 @@ const supabase = createClient(
 // 型定義
 // =============================
 type TestResultRow = {
-  level: number | null;
   weak_categories: string[];
 };
 
@@ -46,18 +45,29 @@ export async function POST(request: Request) {
     // -----------------------------
     const { data: testResult } = await supabase
       .from("test_results")
-      .select("level, weak_categories")
+      .select("weak_categories")
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
       .limit(1)
-      .single<TestResultRow>();
+      .maybeSingle();
 
-    if (!testResult || !testResult.level) {
+    if (!testResult) {
       return NextResponse.json(
         { message: "no test result" },
         { status: 200 }
       );
     }
+
+    // -----------------------------
+    // ユーザーレベルを取得
+    // -----------------------------
+    const { data: userStats } = await supabase
+      .from("user_stats")
+      .select("level")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    const currentLevel = userStats?.level ?? 1;
 
     if (
       !Array.isArray(testResult.weak_categories) ||
@@ -74,7 +84,7 @@ export async function POST(request: Request) {
     // -----------------------------
     const queueRows: QueueInsertRow[] =
       testResult.weak_categories.slice(0, 5).map((category) => ({
-        level: testResult.level as number,
+        level: currentLevel,
         category,
         status: "pending"
       }));

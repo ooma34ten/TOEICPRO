@@ -194,10 +194,7 @@ export default function QuestionBankPage() {
     setMaxStreak(0);
     setSessionXp(0);
 
-    let count = 10;
-    if (selectedMode === "quick") count = 5;
-    if (selectedMode === "focus") count = 20;
-    if (selectedMode === "weakness") count = 10;
+    const count = 10;
 
     try {
       const res = await fetch("/api/smart-questions", {
@@ -719,7 +716,7 @@ export default function QuestionBankPage() {
           />
           <ModeCard
             title="集中特訓"
-            desc="20問。本番形式でしっかりと。"
+            desc="10問。本番形式でしっかりと。"
             icon={Clock}
             color="bg-blue-600"
             onClick={() => startSession("focus")}
