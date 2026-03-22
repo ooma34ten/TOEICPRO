@@ -92,9 +92,9 @@ export default function Header() {
     { href: "/words/list", label: "My単語帳", disabled: false },
     { href: "/words/register", label: "単語登録", disabled: false },
     { href: "/words/review", label: "復習モード", disabled: false },
+    { href: "/words/ai_teacher", label: "Part5強化モード", disabled: false },
     { href: "/words/progress", label: "学習進捗", disabled: false },
     { href: "/words/toeic_ai", label: "AIアシスタント", disabled: true },
-    { href: "/words/ai_teacher", label: "AI問題演習", disabled: true },
     { href: "/words/questions", label: "問題バンク", disabled: true },
     { href: "/words/subscribe", label: "サブスクリプション", disabled: true },
   ];

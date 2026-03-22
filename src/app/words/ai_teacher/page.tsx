@@ -637,7 +637,10 @@ export default function AITeacherPage() {
                   </span>
                 )}
                 <button
-                  onClick={() => speakText(currentQuestion.question)}
+                  onClick={() => {
+                    const textToPlay = currentQuestion.question.replace(/_{2,}|＿{2,}|＿|_____|____|__|（　）|（☐）/g, currentQuestion.answer);
+                    speakText(textToPlay);
+                  }}
                   className="p-1.5 rounded-full hover:bg-white/20 transition"
                 >
                   <Volume2 size={18} />
