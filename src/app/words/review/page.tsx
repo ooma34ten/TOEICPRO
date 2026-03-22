@@ -685,7 +685,7 @@ export default function ReviewPage() {
             素晴らしい学習ペースです！
           </p>
           <button
-            onClick={() => router.push("/dashboard")}
+            onClick={() => router.push("/")}
             className="w-full px-6 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-xl font-bold hover:opacity-90 transition shadow-lg shadow-indigo-200 dark:shadow-indigo-900/30"
           >
             ダッシュボードに戻る
@@ -780,7 +780,7 @@ export default function ReviewPage() {
               もう一回
             </button>
             <button
-              onClick={() => router.push("/dashboard")}
+              onClick={() => router.push("/")}
               className="flex-1 px-4 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-xl font-bold hover:opacity-90 transition shadow-lg shadow-indigo-200 dark:shadow-indigo-900/30 flex items-center justify-center gap-2"
             >
               ダッシュボード
@@ -879,7 +879,7 @@ export default function ReviewPage() {
           className="flex items-center justify-between mb-6"
         >
           <button
-            onClick={() => router.push("/dashboard")}
+            onClick={() => router.push("/")}
             className="text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white text-sm font-medium transition"
           >
             ← 戻る

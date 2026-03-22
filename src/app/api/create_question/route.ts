@@ -87,7 +87,7 @@ function buildPrompt(item: categoryRow): string {
   "answer": "...",
   "explanation": "なぜその選択肢が正解かを**日本語**で詳しく説明",
   "example_sentence": "正解語を使った別の例文（英語）",
-  "part_of_speech": "品詞（名詞 / 動詞 / 形容詞 / 副詞 / 接続詞 / 冠詞 / 前置詞など **日本語で**）",
+  "part_of_speech": "品詞（名詞, 動詞, 形容詞, 副詞, 前置詞, 接続詞, 代名詞, 冠詞, 助動詞, 間投詞, 熟語・フレーズ, その他 のいずれか完全一致）",
   "category": ${item.id},
   "importance": "1~5 の数字で、TOEIC 頻出度を表す（5が頻出度が高い）",
   "synonyms": ["類義語1(日本語)", "類義語2(日本語)"],

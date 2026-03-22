@@ -4,6 +4,7 @@
 import { NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { createClient } from "@supabase/supabase-js";
+import { normalizePartOfSpeech } from "@/lib/utils";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
@@ -483,6 +484,7 @@ export async function POST(req: Request) {
    - translation に "(A) registration" のような英語の選択肢を含めないこと。
    - translation に "_____" や "(  )" のような空欄記号を含めず、正解を当てはめた【完全な日本語の文】にすること。
    - options の配列には、選択肢の記記号(A, B, C, D)を含めないこと。純粋な単語/フレーズのみ。
+   - "partOfSpeech" は必ず、名詞, 動詞, 形容詞, 副詞, 前置詞, 接続詞, 代名詞, 冠詞, 助動詞, 間投詞, 熟語・フレーズ, その他 のいずれか完全一致にすること。
 4) **出題形式・難易度・重要度の厳密な調整**:
    - 出題形式は【すべて TOEIC Part 5 形式の短文穴埋め問題】のみに限定してください。
    - ユーザーの推定スコアは ${estimatedScore} 点です（難易度レベル: 1-4中 ${level}）。
@@ -613,7 +615,7 @@ ${categoryListText}
               answer: q.answer,
               explanation: q.explanation,
               example_sentence: q.example,
-              part_of_speech: q.partOfSpeech,
+              part_of_speech: normalizePartOfSpeech(q.partOfSpeech),
               category: getCategoryId(q.category),
               importance: q.importance,
               synonyms: q.synonyms,

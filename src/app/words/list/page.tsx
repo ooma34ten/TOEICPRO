@@ -3,9 +3,20 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { speakText } from "@/lib/speech";
-import { getImportanceClasses, getPartOfSpeechClasses, importanceToStars, isWeakWord } from "@/lib/utils";
+import { getImportanceClasses, getPartOfSpeechClasses, importanceToStars, isWeakWord, parseImportance } from "@/lib/utils";
 import ReportButton from "@/components/ReportButton";
 import { useRouter } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Volume2,
+  Search,
+  Filter,
+  Trash2,
+  CheckSquare,
+  Square,
+  AlertTriangle,
+  Library,
+} from "lucide-react";
 
 // UI用単語型
 export interface Word {
@@ -72,7 +83,6 @@ export default function WordListPage() {
         return;
       }
 
-      // RPCで集計済み単語データ取得
       const { data: rpcData, error: rpcErr } = await supabase
         .rpc("get_user_word_stats", { p_user_id: userData.user.id });
 
@@ -95,7 +105,6 @@ export default function WordListPage() {
         correct: number | null;
         synonyms: string | null;
       }
-
 
       const formatted: Word[] = (rpcData ?? []).map((item: UserWordStatsRPC) => {
         const total = item.total ?? 0;
@@ -141,7 +150,7 @@ export default function WordListPage() {
       );
     }
     if (selectedPart) filtered = filtered.filter((w) => w.part_of_speech === selectedPart);
-    if (selectedImportance) filtered = filtered.filter((w) => w.importance === selectedImportance);
+    if (selectedImportance) filtered = filtered.filter((w) => parseImportance(w.importance) === Number(selectedImportance));
 
     switch (sortOption) {
       case "newest":
@@ -193,106 +202,270 @@ export default function WordListPage() {
     else setSelectedIds(filteredWords.map((w) => w.id));
   };
 
-  if (loading) return <p>読み込み中...</p>;
-  if (error) return <p className="text-red-500">{error}</p>;
+  if (loading) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-950">
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+          className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full mb-4"
+        />
+        <p className="text-slate-500 dark:text-slate-400 font-medium">読み込み中...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 p-4">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl p-8 shadow-xl text-center max-w-md border border-red-200 dark:border-red-800">
+          <p className="text-red-600 dark:text-red-400 font-medium">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-4 px-6 py-2 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition"
+          >
+            再読み込み
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const partOptions = Array.from(new Set(words.map((w) => w.part_of_speech))).filter(Boolean) as string[];
-  const importanceOptions = Array.from(new Set(words.map((w) => w.importance))).filter(Boolean) as string[];
+  const importanceOptions = Array.from(new Set(words.map((w) => parseImportance(w.importance)))).filter(Boolean).sort((a, b) => a - b);
 
   return (
-    <div className="p-4 relative">
-      {/* モーダル */}
-      {showModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/40 z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg w-80 text-center">
-            <h2 className="text-lg font-semibold mb-3">削除の確認</h2>
-            <p className="text-sm text-gray-600 mb-4">
-              {selectedIds.length} 件の単語を削除しますか？<br />
-              この操作は取り消せません。
-            </p>
-            <div className="flex justify-center gap-4">
-              <button onClick={() => setShowModal(false)} className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300">キャンセル</button>
-              <button onClick={handleBulkDelete} className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600">削除する</button>
-            </div>
+    <div className="relative pb-4">
+      {/* 削除確認モーダル */}
+      <AnimatePresence>
+        {showModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm z-50"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-2xl w-80 text-center border border-slate-200 dark:border-slate-800"
+            >
+              <div className="w-14 h-14 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                <AlertTriangle className="w-7 h-7 text-red-500" />
+              </div>
+              <h2 className="text-lg font-bold mb-2 text-slate-900 dark:text-white">削除の確認</h2>
+              <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">
+                {selectedIds.length} 件の単語を削除しますか？<br />
+                この操作は取り消せません。
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowModal(false)}
+                  className="flex-1 px-4 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl font-medium hover:bg-slate-200 dark:hover:bg-slate-700 transition"
+                >
+                  キャンセル
+                </button>
+                <button
+                  onClick={handleBulkDelete}
+                  className="flex-1 px-4 py-2.5 bg-red-500 text-white rounded-xl font-medium hover:bg-red-600 transition"
+                >
+                  削除する
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ヘッダー */}
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mb-6"
+      >
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+            <Library className="w-6 h-6 text-indigo-500" />
+            My単語帳
+          </h1>
+          <div className="flex items-center gap-2">
+            <span className="bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 px-3 py-1 rounded-full text-sm font-bold">
+              {words.length} 語
+            </span>
           </div>
         </div>
-      )}
+      </motion.div>
 
-      {/* 上部バー */}
-      <div className="bg-white p-4 rounded-xl shadow space-y-1 mb-4 flex flex-col md:flex-row justify-between items-center gap-2">
-        <p>登録語数: <b>{words.length}</b></p>
-        <div className="flex gap-2">
-          <button onClick={toggleSelectAll} className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm">
+      {/* 操作バー */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.05 }}
+        className="bg-white dark:bg-slate-900 p-4 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 mb-4"
+      >
+        <div className="flex flex-col md:flex-row gap-3">
+          {/* 検索 */}
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="単語または意味で検索"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition text-sm placeholder:text-slate-400 dark:placeholder:text-slate-500"
+            />
+          </div>
+
+          {/* フィルター */}
+          <div className="flex gap-2 flex-wrap">
+            <div className="relative">
+              <Filter className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+              <select
+                value={selectedPart}
+                onChange={(e) => setSelectedPart(e.target.value)}
+                className="pl-8 pr-3 py-2.5 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none appearance-none cursor-pointer"
+              >
+                <option value="">品詞すべて</option>
+                {partOptions.map((p) => <option key={p} value={p}>{p}</option>)}
+              </select>
+            </div>
+            <select
+              value={selectedImportance}
+              onChange={(e) => setSelectedImportance(e.target.value)}
+              className="px-3 py-2.5 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none appearance-none cursor-pointer"
+            >
+              <option value="">重要度すべて</option>
+              {importanceOptions.map((i) => <option key={i} value={i}>{"★".repeat(i)}</option>)}
+            </select>
+            <select
+              value={sortOption}
+              onChange={(e) => setSortOption(e.target.value as typeof sortOption)}
+              className="px-3 py-2.5 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none appearance-none cursor-pointer"
+            >
+              <option value="newest">新しい順</option>
+              <option value="oldest">古い順</option>
+              <option value="word_asc">A→Z</option>
+              <option value="word_desc">Z→A</option>
+              <option value="correct_desc">正解数↓</option>
+              <option value="correct_asc">正解数↑</option>
+              <option value="successRate_desc">正解率↓</option>
+              <option value="successRate_asc">正解率↑</option>
+            </select>
+          </div>
+        </div>
+
+        {/* 選択操作 */}
+        <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+          <button
+            onClick={toggleSelectAll}
+            className="flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition font-medium"
+          >
+            {selectedIds.length === filteredWords.length && filteredWords.length > 0 ? (
+              <CheckSquare className="w-4 h-4" />
+            ) : (
+              <Square className="w-4 h-4" />
+            )}
             {selectedIds.length === filteredWords.length && filteredWords.length > 0 ? "全解除" : "全選択"}
           </button>
           <button
             onClick={() => selectedIds.length > 0 && setShowModal(true)}
             disabled={selectedIds.length === 0}
-            className={`px-4 py-2 rounded text-white text-sm ${selectedIds.length === 0 ? "bg-gray-400 cursor-not-allowed" : "bg-red-500 hover:bg-red-600"}`}
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition ${
+              selectedIds.length === 0
+                ? "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed"
+                : "bg-red-500 text-white hover:bg-red-600 shadow-sm"
+            }`}
           >
-            🗑 一括削除（{selectedIds.length}件）
+            <Trash2 className="w-3.5 h-3.5" />
+            削除（{selectedIds.length}件）
           </button>
         </div>
-      </div>
-
-      {/* フィルター */}
-      <div className="flex flex-col md:flex-row gap-2 mb-4">
-        <input type="text" placeholder="単語または意味で検索" value={search} onChange={(e) => setSearch(e.target.value)} className="border p-2 rounded w-full md:w-1/3" />
-        <select value={selectedPart} onChange={(e) => setSelectedPart(e.target.value)} className="border p-2 rounded w-full md:w-1/6">
-          <option value="">品詞すべて</option>
-          {partOptions.map((p) => <option key={p} value={p}>{p}</option>)}
-        </select>
-        <select value={selectedImportance} onChange={(e) => setSelectedImportance(e.target.value)} className="border p-2 rounded w-full md:w-1/6">
-          <option value="">重要度すべて</option>
-          {importanceOptions.map((i) => <option key={i} value={i}>{i}</option>)}
-        </select>
-        <select value={sortOption} onChange={(e) => setSortOption(e.target.value as typeof sortOption)} className="border p-2 rounded w-full md:w-1/3">
-          <option value="newest">登録日：新しい順</option>
-          <option value="oldest">登録日：古い順</option>
-          <option value="word_asc">単語：A→Z</option>
-          <option value="word_desc">単語：Z→A</option>
-          <option value="correct_desc">正解数：多い順</option>
-          <option value="correct_asc">正解数：少ない順</option>
-          <option value="successRate_desc">正解率：高い順</option>
-          <option value="successRate_asc">正解率：低い順</option>
-        </select>
-      </div>
+      </motion.div>
 
       {/* 単語カード */}
-      <div className="p-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {filteredWords.map((w) => (
-          <div key={w.id} className={`shadow-md rounded-xl p-4 flex flex-col justify-between hover:shadow-lg transition-shadow ${selectedIds.includes(w.id) ? "ring-2 ring-red-400" : ""} ${w.correct_count >= 6 && w.successRate! >= 0.9 ? "bg-green-100 hover:bg-green-200" : isWeakWord(w.total, w.successRate) ? "bg-red-50 hover:bg-red-100 border-l-4 border-red-400" : "bg-white hover:bg-gray-100"}`}>
-            <div className="flex justify-between items-center mb-2">
-              <input type="checkbox" checked={selectedIds.includes(w.id)} onChange={() => toggleSelect(w.id)} className="w-4 h-4 accent-red-500" />
-              <span className="text-xs text-gray-500">{new Date(w.registered_at).toLocaleDateString("ja-JP")}</span>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {filteredWords.map((w, idx) => (
+          <motion.div
+            key={w.id}
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: Math.min(idx * 0.03, 0.5) }}
+            className={`bg-white dark:bg-slate-900 shadow-sm rounded-2xl p-5 flex flex-col justify-between hover:shadow-md transition-all border ${
+              selectedIds.includes(w.id)
+                ? "ring-2 ring-red-400 border-red-200 dark:border-red-800"
+                : w.correct_count >= 6 && w.successRate >= 0.9
+                ? "border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-900/10"
+                : isWeakWord(w.total, w.successRate)
+                ? "border-red-200 dark:border-red-800 border-l-4 !border-l-red-400"
+                : "border-slate-200 dark:border-slate-800"
+            }`}
+          >
+            <div className="flex justify-between items-center mb-3">
+              <input
+                type="checkbox"
+                checked={selectedIds.includes(w.id)}
+                onChange={() => toggleSelect(w.id)}
+                className="w-4 h-4 accent-red-500 rounded"
+              />
+              <span className="text-xs text-slate-400 dark:text-slate-500">
+                {new Date(w.registered_at).toLocaleDateString("ja-JP")}
+              </span>
             </div>
 
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-lg font-bold truncate">{w.word}</span>
-              <div className="flex gap-2">
-                {w.part_of_speech && <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${getPartOfSpeechClasses(w.part_of_speech)}`}>{w.part_of_speech}</span>}
-                {w.importance && <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${getImportanceClasses(w.importance)}`}>{importanceToStars(w.importance)}</span>}
-                {isWeakWord(w.total, w.successRate) && <span className="px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap bg-red-100 text-red-700">🔴 苦手</span>}
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-lg font-bold text-slate-900 dark:text-white truncate">{w.word}</span>
+              <div className="flex gap-1.5 shrink-0 ml-2">
+                {w.part_of_speech && (
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${getPartOfSpeechClasses(w.part_of_speech)}`}>
+                    {w.part_of_speech}
+                  </span>
+                )}
+                {w.importance && (
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${getImportanceClasses(w.importance)}`}>
+                    {importanceToStars(w.importance)}
+                  </span>
+                )}
+                {isWeakWord(w.total, w.successRate) && (
+                  <span className="px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400">
+                    🔴 苦手
+                  </span>
+                )}
               </div>
             </div>
 
             <div className="space-y-2 text-sm">
-              {w.meaning && <div><p className="font-medium">意味:</p><p className="text-gray-700 break-words">{w.meaning}</p></div>}
-              {w.example_sentence && (
+              {w.meaning && (
                 <div>
-                  <p className="font-medium flex items-center">
-                    例文:
-                    <button onClick={() => speakText(w.example_sentence)} className="ml-2 bg-indigo-300 text-white px-2 py-1 rounded hover:bg-indigo-400 text-xs">🔊</button>
-                  </p>
-                  <p className="text-gray-700 break-words">{w.example_sentence}</p>
+                  <p className="font-medium text-slate-500 dark:text-slate-400 text-xs mb-0.5">意味</p>
+                  <p className="text-slate-700 dark:text-slate-300 break-words">{w.meaning}</p>
                 </div>
               )}
-              {w.translation && <div><p className="font-medium">訳:</p><p className="text-gray-700 break-words">{w.translation}</p></div>}
+              {w.example_sentence && (
+                <div>
+                  <p className="font-medium text-slate-500 dark:text-slate-400 text-xs mb-0.5 flex items-center gap-1">
+                    例文
+                    <button
+                      onClick={() => speakText(w.example_sentence)}
+                      className="p-1 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 text-indigo-500 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition"
+                    >
+                      <Volume2 className="w-3 h-3" />
+                    </button>
+                  </p>
+                  <p className="text-slate-700 dark:text-slate-300 break-words text-xs leading-relaxed">{w.example_sentence}</p>
+                </div>
+              )}
+              {w.translation && (
+                <div>
+                  <p className="font-medium text-slate-500 dark:text-slate-400 text-xs mb-0.5">訳</p>
+                  <p className="text-slate-700 dark:text-slate-300 break-words text-xs">{w.translation}</p>
+                </div>
+              )}
               {w.synonyms && (
-                <div className="flex items-center gap-2 flex-wrap mt-1">
-                  <span className="text-xs font-semibold text-purple-600">類義語:</span>
+                <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                  <span className="text-xs font-semibold text-purple-600 dark:text-purple-400">類義語:</span>
                   {w.synonyms.split(",").map((s: string, i: number) => (
-                    <span key={i} className="text-xs bg-purple-50 text-purple-700 px-2 py-0.5 rounded-full border border-purple-200">
+                    <span key={i} className="text-xs bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 px-2 py-0.5 rounded-full border border-purple-200 dark:border-purple-800">
                       {s.trim()}
                     </span>
                   ))}
@@ -300,34 +473,67 @@ export default function WordListPage() {
               )}
             </div>
 
-            {/* 正解率・誤答数 */}
-            <div className="mt-3 text-sm font-semibold">
-              <p className="text-gray-700">正解数: {w.correct_count} 回 / 誤答数: {w.wrong} 回</p>
-              <p>
-                正解率:{" "}
+            {/* 正解率 */}
+            <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex gap-3 text-slate-500 dark:text-slate-400">
+                  <span>正解 <strong className="text-emerald-600 dark:text-emerald-400">{w.correct_count}</strong></span>
+                  <span>誤答 <strong className="text-red-500 dark:text-red-400">{w.wrong}</strong></span>
+                </div>
                 <span
-                  className={
+                  className={`font-bold ${
                     w.successRate >= 0.8
-                      ? "text-green-600"
+                      ? "text-emerald-600 dark:text-emerald-400"
                       : w.successRate >= 0.5
-                        ? "text-yellow-600"
-                        : "text-red-600"
-                  }
+                      ? "text-yellow-600 dark:text-yellow-400"
+                      : "text-red-600 dark:text-red-400"
+                  }`}
                 >
-                  {(w.successRate * 100).toFixed(1)} %
+                  {(w.successRate * 100).toFixed(0)}%
                 </span>
-              </p>
+              </div>
             </div>
 
-            <div className="flex items-center justify-between mt-4 text-xs text-gray-500">
-              <div className="flex gap-2">
-                <button onClick={() => speakText(w.word)} className="bg-indigo-300 text-white px-2 py-1 rounded hover:bg-indigo-400 text-xs">🔊 単語</button>
+            {/* アクション */}
+            <div className="flex items-center justify-between mt-3">
+              <div className="flex gap-1.5">
+                <button
+                  onClick={() => speakText(w.word)}
+                  className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 text-indigo-500 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition"
+                >
+                  <Volume2 className="w-4 h-4" />
+                </button>
                 <ReportButton wordId={w.id} wordText={w.word} />
               </div>
             </div>
-          </div>
+          </motion.div>
         ))}
       </div>
+
+      {/* 空状態 */}
+      {filteredWords.length === 0 && !loading && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="text-center py-20"
+        >
+          <Library className="w-16 h-16 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
+          <p className="text-slate-500 dark:text-slate-400 font-medium text-lg">
+            {search || selectedPart || selectedImportance
+              ? "条件に一致する単語がありません"
+              : "まだ単語が登録されていません"
+            }
+          </p>
+          {!search && !selectedPart && !selectedImportance && (
+            <button
+              onClick={() => router.push("/words/register")}
+              className="mt-4 px-6 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-xl font-bold hover:opacity-90 transition shadow-lg shadow-indigo-200 dark:shadow-indigo-900/30"
+            >
+              単語を登録する
+            </button>
+          )}
+        </motion.div>
+      )}
     </div>
   );
 }

@@ -91,7 +91,7 @@ export default function Header() {
     { href: "/", label: "ダッシュボード", disabled: false },
     { href: "/words/list", label: "My単語帳", disabled: false },
     { href: "/words/register", label: "単語登録", disabled: false },
-    { href: "/words/review", label: "復習モード", disabled: false },
+    { href: "/words/review", label: "単語復習モード", disabled: false },
     { href: "/words/ai_teacher", label: "Part5強化モード", disabled: false },
     { href: "/words/progress", label: "学習進捗", disabled: false },
     { href: "/words/toeic_ai", label: "AIアシスタント", disabled: true },
@@ -126,19 +126,19 @@ export default function Header() {
   };
 
   return (
-    <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md shadow-sm border-b border-gray-100">
+    <header className="sticky top-0 z-50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md shadow-sm border-b border-gray-100 dark:border-slate-800">
       <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
         {/* ロゴ */}
         <Link href="/" className="flex flex-col items-center leading-tight select-none group">
-          <span className="text-blue-600 font-extrabold text-xl tracking-tighter group-hover:text-blue-700 transition">TOEIC<span className="text-gray-900">PRO</span></span>
-          <span className="text-gray-500 font-medium text-[10px] tracking-widest -mt-0.5">AI LEARNING</span>
+          <span className="text-blue-600 dark:text-blue-400 font-extrabold text-xl tracking-tighter group-hover:text-blue-700 dark:group-hover:text-blue-300 transition">TOEIC<span className="text-gray-900 dark:text-white">PRO</span></span>
+          <span className="text-gray-500 dark:text-gray-400 font-medium text-[10px] tracking-widest -mt-0.5">AI LEARNING</span>
         </Link>
 
         {/* ゲストモードバッジ (PC) */}
         {isGuest && (
-          <div className="hidden md:flex items-center gap-1.5 bg-amber-50 px-3 py-1.5 rounded-full border border-amber-200 ml-4">
+          <div className="hidden md:flex items-center gap-1.5 bg-amber-50 dark:bg-amber-900/20 px-3 py-1.5 rounded-full border border-amber-200 dark:border-amber-800 ml-4">
             <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
-            <span className="text-xs font-bold text-amber-600">ゲストモード</span>
+            <span className="text-xs font-bold text-amber-600 dark:text-amber-400">ゲストモード</span>
           </div>
         )}
 
@@ -166,9 +166,9 @@ export default function Header() {
               key={link.href}
               href={link.href}
               onClick={(e) => handleLinkClick(e, link)}
-              className={`transition px-3 py-2 rounded-lg whitespace-nowrap ${link.disabled ? 'opacity-50 cursor-not-allowed text-gray-400' : ''} ${!link.disabled && pathname === link.href
-                ? "text-blue-600 bg-blue-50 font-semibold"
-                : !link.disabled ? "text-gray-600 hover:text-blue-600 hover:bg-gray-50" : ""
+              className={`transition px-3 py-2 rounded-lg whitespace-nowrap ${link.disabled ? 'opacity-50 cursor-not-allowed text-gray-400 dark:text-gray-600' : ''} ${!link.disabled && pathname === link.href
+                ? "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 font-semibold"
+                : !link.disabled ? "text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-slate-800" : ""
                 }`}
             >
               {link.label}
@@ -179,7 +179,7 @@ export default function Header() {
           <div className="relative">
             <button
               onClick={() => setSettingsOpen(!settingsOpen)}
-              className="flex items-center gap-1 text-gray-700 hover:text-blue-600 transition"
+              className="flex items-center gap-1 text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition"
             >
               <Settings size={18} />
               <span className="text-sm">その他</span>
@@ -191,15 +191,15 @@ export default function Header() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -5 }}
                   transition={{ duration: 0.15 }}
-                  className="absolute right-0 mt-2 w-44 bg-white border rounded-lg shadow-md overflow-hidden"
+                  className="absolute right-0 mt-2 w-44 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg shadow-md overflow-hidden"
                 >
                   {settingLinks.map((link) => (
                     <Link
                       key={link.href}
                       href={link.href}
                       onClick={(e) => handleLinkClick(e, link, () => setSettingsOpen(false))}
-                      className={`block px-4 py-2 text-sm ${link.disabled ? 'opacity-50 cursor-not-allowed hover:bg-transparent text-gray-400' : 'hover:bg-gray-50 text-gray-700'} ${!link.disabled && pathname === link.href
-                        ? "text-blue-600 font-semibold bg-blue-50"
+                      className={`block px-4 py-2 text-sm ${link.disabled ? 'opacity-50 cursor-not-allowed hover:bg-transparent text-gray-400 dark:text-gray-600' : 'hover:bg-gray-50 dark:hover:bg-slate-700 text-gray-700 dark:text-gray-300'} ${!link.disabled && pathname === link.href
+                        ? "text-blue-600 dark:text-blue-400 font-semibold bg-blue-50 dark:bg-blue-900/20"
                         : ""
                         }`}
                     >
@@ -217,7 +217,7 @@ export default function Header() {
           {userId && !isGuest ? (
             <Link
               href="/auth/logout"
-              className="flex items-center gap-1 text-sm text-gray-500 hover:text-red-500 transition"
+              className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition"
             >
               <LogOut size={16} />
               ログアウト
@@ -236,7 +236,7 @@ export default function Header() {
 
         {/* モバイルメニュー ボタン */}
         <button
-          className="md:hidden p-2 rounded-lg hover:bg-gray-100 transition"
+          className="md:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 transition text-gray-700 dark:text-gray-300"
           onClick={() => setMenuOpen(!menuOpen)}
         >
           {menuOpen ? <X size={22} /> : <Menu size={22} />}
@@ -251,15 +251,15 @@ export default function Header() {
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.25 }}
-            className="md:hidden bg-white border-t shadow-inner"
+            className="md:hidden bg-white dark:bg-slate-900 border-t border-gray-100 dark:border-slate-800 shadow-inner"
           >
             {[...mainLinks, ...settingLinks].map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
                 onClick={(e) => handleLinkClick(e, link, () => setMenuOpen(false))}
-                className={`block px-5 py-3 text-sm transition ${link.disabled ? 'opacity-50 cursor-not-allowed text-gray-400' : 'text-gray-700 hover:bg-gray-50'} ${!link.disabled && pathname === link.href
-                  ? "text-blue-600 bg-blue-50 font-semibold"
+                className={`block px-5 py-3 text-sm transition ${link.disabled ? 'opacity-50 cursor-not-allowed text-gray-400 dark:text-gray-600' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-800'} ${!link.disabled && pathname === link.href
+                  ? "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 font-semibold"
                   : ""
                   }`}
               >
@@ -267,7 +267,7 @@ export default function Header() {
               </Link>
             ))}
 
-            <div className="px-5 py-3 border-t bg-gray-50">
+            <div className="px-5 py-3 border-t border-gray-100 dark:border-slate-800 bg-gray-50 dark:bg-slate-800/50">
               {userId ? (
                 <div className="flex flex-col gap-3">
                   {predictedScore && (

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { normalizePartOfSpeech } from "@/lib/utils";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -69,7 +70,7 @@ function buildPrompt(item: QueueRow): string {
   "answer": "A. ...",
   "explanation": "なぜその選択肢が正解かを日本語で説明",
   "example_sentence": "正解語を使った別の例文（英語）",
-  "part_of_speech": "品詞（名詞 / 動詞 / 形容詞 / 副詞 など）",
+  "part_of_speech": "品詞（名詞, 動詞, 形容詞, 副詞, 前置詞, 接続詞, 代名詞, 冠詞, 助動詞, 間投詞, 熟語・フレーズ, その他 のいずれか完全一致）",
   "category": "${item.category ?? "vocabulary"}",
   "importance": "1~5 の数字で、TOEIC 頻出度を表す",
   "synonyms": ["類義語1", "類義語2"],
@@ -145,7 +146,7 @@ export async function POST() {
           answer: generated.answer,
           explanation: generated.explanation,
           example_sentence: generated.example_sentence,
-          part_of_speech: generated.part_of_speech,
+          part_of_speech: normalizePartOfSpeech(generated.part_of_speech),
           category: generated.category,
           importance: generated.importance,
           synonyms: generated.synonyms,

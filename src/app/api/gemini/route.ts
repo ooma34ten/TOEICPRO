@@ -43,7 +43,7 @@ export async function POST(req: Request) {
                     "definitions": [
                       {
                         "word": "単語（英語）",
-                        "part_of_speech": "品詞（日本語）",
+                        "part_of_speech": "品詞（名詞, 動詞, 形容詞, 副詞, 前置詞, 接続詞, 代名詞, 冠詞, 助動詞, 間投詞, 熟語・フレーズ, その他 のいずれか完全一致）",
                         "meaning": "意味",
                         "example": "TOEICでよく出る例文。",
                         "translation": "例文の日本語訳",

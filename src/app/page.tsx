@@ -34,6 +34,7 @@ interface UserStats {
   level: number;
   daily_goal_current: number;
   daily_goal_target: number;
+  nickname?: string | null;
 }
 
 // =============================
@@ -303,8 +304,6 @@ export default function Dashboard() {
       localStorage.removeItem("guestMode");
       setIsGuest(false);
 
-      setUserName(session.user.email?.split("@")[0] || "ユーザー");
-
       // 初回オンボーディング判定
       const onboardingDone = localStorage.getItem("onboarding_done");
       if (!onboardingDone) {
@@ -344,6 +343,10 @@ export default function Dashboard() {
 
       if (data) {
         setStats(data);
+        // ニックネームがあればそれを使用、なければメールアドレスの@前
+        setUserName(data.nickname || session.user.email?.split("@")[0] || "ユーザー");
+      } else {
+        setUserName(session.user.email?.split("@")[0] || "ユーザー");
       }
       setLoading(false);
     };
@@ -491,7 +494,7 @@ export default function Dashboard() {
         >
           <div>
             <h1 className="text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight mb-2">
-              {greeting.text}、<span className="text-indigo-600 dark:text-indigo-400">TOEICPRO</span> さん {greeting.emoji}
+              {greeting.text}、<span className="text-indigo-600 dark:text-indigo-400">{userName}</span> さん {greeting.emoji}
             </h1>
             <p className="text-slate-600 dark:text-slate-400 text-lg">
               {greeting.subText}
@@ -683,13 +686,13 @@ export default function Dashboard() {
           disabled={false}
         />
         <ActionCard
-          title="スマート復習"
+          title="単語復習モード"
           desc="苦手な単語を重点的に復習。忘却曲線に基づいた効率的な学習が可能です。"
           icon={Activity}
           gradient="bg-gradient-to-br from-emerald-500 to-teal-600"
-          onClick={() => router.push("/words/questions")}
+          onClick={() => router.push("/words/review")}
           delay={0.8}
-          disabled={true}
+          disabled={false}
         />
       </div>
 

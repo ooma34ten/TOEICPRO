@@ -2,7 +2,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { PostgrestError } from "@supabase/supabase-js";
-import { parseImportance } from "@/lib/utils";
+import { parseImportance, normalizePartOfSpeech } from "@/lib/utils";
 
 interface WordRow {
   word: string;
@@ -111,7 +111,7 @@ export async function POST(req: Request) {
       .map((r) => ({
         id: crypto.randomUUID(),
         word: r.word,
-        part_of_speech: r.part_of_speech || null,
+        part_of_speech: normalizePartOfSpeech(r.part_of_speech),
         meaning: r.meaning || null,
         example_sentence: r.example || null,
         translation: r.translation || null,

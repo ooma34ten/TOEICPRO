@@ -1,6 +1,7 @@
 // src/app/api/add-to-master/route.ts
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { parseImportance, normalizePartOfSpeech } from "@/lib/utils";
 
 interface WordRow {
   word: string;
@@ -64,11 +65,11 @@ export async function POST(req: Request) {
       .map((w) => ({
         id: crypto.randomUUID(),
         word: w.word,
-        part_of_speech: w.part_of_speech || null,
+        part_of_speech: normalizePartOfSpeech(w.part_of_speech),
         meaning: w.meaning || null,
         example_sentence: w.example || null,
         translation: w.translation || null,
-        importance: w.importance || null,
+        importance: w.importance ? String(parseImportance(w.importance)) : null,
         synonyms: w.synonyms || null,
         registered_at: new Date().toISOString(),
       }));

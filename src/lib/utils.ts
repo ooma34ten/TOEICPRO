@@ -82,11 +82,55 @@ export function isWeakWord(total: number, successRate: number): boolean {
 // 品詞クラス
 // =============================
 
+export const PART_OF_SPEECH_OPTIONS = [
+  "名詞",
+  "動詞",
+  "形容詞",
+  "副詞",
+  "前置詞",
+  "接続詞",
+  "代名詞",
+  "冠詞",
+  "助動詞",
+  "間投詞",
+  "熟語・フレーズ",
+  "その他"
+] as const;
+
+export type PartOfSpeech = typeof PART_OF_SPEECH_OPTIONS[number];
+
+export function normalizePartOfSpeech(part: string | null | undefined): string | null {
+  if (!part) return null;
+  let s = part.trim();
+  
+  // 過去形、複数形などの詳細を大分類にマッピング
+  if (s.includes("動詞")) return "動詞"; // 他動詞、自動詞、動詞(過去形)など
+  if (s.includes("名詞")) return "名詞"; // 不可算名詞、代名詞は先に判定したいが、"代名詞"が含まれるなら別途判定する
+  // ただし「代名詞」は「名詞」を含むので順番に注意する。
+  // より堅固なマッピング:
+  if (s.includes("代名詞")) return "代名詞";
+  if (s.includes("名詞")) return "名詞";
+  if (s.includes("動詞") && s.includes("助動詞")) return "助動詞";
+  if (s.includes("動詞")) return "動詞";
+  if (s.includes("形容詞")) return "形容詞";
+  if (s.includes("副詞")) return "副詞";
+  if (s.includes("前置詞")) return "前置詞";
+  if (s.includes("接続詞")) return "接続詞";
+  if (s.includes("冠詞")) return "冠詞";
+  if (s.includes("間投詞")) return "間投詞";
+  if (s.includes("熟語") || s.includes("フレーズ") || s.includes("イディオム")) return "熟語・フレーズ";
+
+  // それでも該当しない場合は「その他」
+  return "その他";
+}
+
 export const getPartOfSpeechClasses = (part: string) => {
   switch (part) {
     case "名詞":
+    case "代名詞":
       return "bg-blue-100 text-blue-700";
     case "動詞":
+    case "助動詞":
       return "bg-green-100 text-green-700";
     case "形容詞":
       return "bg-purple-100 text-purple-700";
@@ -96,6 +140,10 @@ export const getPartOfSpeechClasses = (part: string) => {
       return "bg-yellow-100 text-yellow-800";
     case "前置詞":
       return "bg-orange-100 text-orange-800";
+    case "熟語・フレーズ":
+      return "bg-teal-100 text-teal-800";
+    case "間投詞":
+    case "冠詞":
     default:
       return "bg-gray-100 text-gray-700";
   }

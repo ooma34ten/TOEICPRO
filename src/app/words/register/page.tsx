@@ -113,12 +113,12 @@ export default function RegisterPage() {
 
   return (
     <div className="max-w-5xl mx-auto p-6 space-y-8">
-      <div className="bg-white rounded-2xl shadow-md p-6 border border-gray-100">
-        <h1 className="text-2xl font-bold mb-4 text-gray-800">TOEIC単語登録</h1>
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-md p-6 border border-slate-200 dark:border-slate-800">
+        <h1 className="text-2xl font-bold mb-4 text-slate-900 dark:text-white">TOEIC単語登録</h1>
         <WordForm onAdd={handleAdd} />
       </div>
 
-      <div className="bg-white p-4 rounded-2xl shadow-md border border-gray-100 text-gray-700">
+      <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl shadow-md border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300">
         <p>
           登録語数: <b>{words.length}</b>
         </p>
@@ -127,8 +127,8 @@ export default function RegisterPage() {
       {errorMessage && <p className="text-red-500">{errorMessage}</p>}
 
       {rows.length > 0 && (
-        <div className="bg-white p-6 rounded-2xl shadow-md border border-gray-100">
-          <h2 className="text-xl font-semibold mb-4">生成履歴</h2>
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-md border border-slate-200 dark:border-slate-800">
+          <h2 className="text-xl font-semibold mb-4 text-slate-900 dark:text-white">生成履歴</h2>
           <ul className="space-y-3">
             {rows
               .slice()
@@ -136,7 +136,7 @@ export default function RegisterPage() {
               .map((row, idx) => (
                 <li
                   key={idx}
-                  className="border p-4 rounded-xl bg-gray-50 hover:bg-gray-100 transition"
+                  className="border border-slate-200 dark:border-slate-700 p-4 rounded-xl bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition"
                 >
                   <p>
                     <strong>単語:</strong> {row.word}

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { normalizePartOfSpeech } from "@/lib/utils";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -54,7 +55,7 @@ TOEIC 四択問題を 1 件だけ JSON のみで生成してください。
   "answer": "...",
   "explanation": "...",
   "example_sentence": "...",
-  "part_of_speech": "...",
+  "part_of_speech": "名詞/動詞/形容詞/副詞/前置詞/接続詞/代名詞/冠詞/助動詞/間投詞/熟語・フレーズ/その他 のいずれか完全一致",
   "category": "${item.category ?? ""}",
   "importance": 3,
   "synonyms": ["..."],
@@ -137,7 +138,10 @@ export async function POST() {
 
       const insert = await supabase
         .from("toeic_questions")
-        .insert(generated)
+        .insert({
+          ...generated,
+          part_of_speech: normalizePartOfSpeech(generated.part_of_speech)
+        })
         .select("id");
 
       if (!insert.data || insert.data.length === 0) continue;

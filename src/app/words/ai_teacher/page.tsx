@@ -383,45 +383,7 @@ export default function AITeacherPage() {
     setGenerating(false);
   };
 
-  // =============================
-  // セッションリトライ
-  // =============================
-  const handleRetry = async () => {
-    setQuestions([]);
-    setCurrentIndex(0);
-    setSelectedAnswer(null);
-    setShowResult(false);
-    setSessionComplete(false);
-    setSessionStats({
-      total: 0,
-      correct: 0,
-      streak: 0,
-      maxStreak: 0,
-      startTime: new Date(),
-    });
-    prefetchedRef.current = [];
 
-    setGenerating(true);
-    const response = await generateQuestions(10, "initial");
-    if (response?.questions && response.questions.length > 0) {
-      setQuestions(response.questions);
-      answerStartTimeRef.current = Date.now();
-
-      if (response.needsMore) {
-        generateQuestions(10 - response.questions.length, "fill").then(fillRes => {
-          if (fillRes?.questions) {
-            setQuestions(prev => [...prev, ...fillRes.questions]);
-          }
-        });
-      }
-    } else {
-      const fullRes = await generateQuestions(10, "both");
-      if (fullRes?.questions) {
-        setQuestions(fullRes.questions);
-      }
-    }
-    setGenerating(false);
-  };
 
   // =============================
   // ヘルパー関数
