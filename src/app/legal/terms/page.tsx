@@ -5,17 +5,17 @@ import LegalLayout from "../layout";
 export default function TermsPage() {
   return (
     <LegalLayout>
-      <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-4 sm:mb-6 text-center">
+      <h1 className="text-2xl sm:text-3xl font-bold text-[var(--foreground)] mb-4 sm:mb-6 text-center">
         利用規約
       </h1>
 
-      <p className="text-gray-600 mb-6 sm:mb-8 text-center text-xs sm:text-sm">
+      <p className="text-[var(--muted-foreground)] mb-6 sm:mb-8 text-center text-xs sm:text-sm">
         最終更新日: 2026年3月15日
       </p>
 
-      <div className="space-y-6 sm:space-y-8 text-gray-800 leading-relaxed text-sm sm:text-base">
+      <div className="space-y-6 sm:space-y-8 text-[var(--foreground)] leading-relaxed text-sm sm:text-base">
         <section>
-          <h2 className="text-lg sm:text-xl font-semibold text-blue-700 mb-2 border-l-4 border-blue-500 pl-3">
+          <h2 className="text-lg sm:text-xl font-semibold text-[var(--accent)] mb-2 border-l-4 border-[var(--accent)] pl-3">
             1. 利用条件
           </h2>
           <ul className="list-disc pl-5 space-y-1">
@@ -25,7 +25,7 @@ export default function TermsPage() {
         </section>
 
         <section>
-          <h2 className="text-lg sm:text-xl font-semibold text-blue-700 mb-2 border-l-4 border-blue-500 pl-3">
+          <h2 className="text-lg sm:text-xl font-semibold text-[var(--accent)] mb-2 border-l-4 border-[var(--accent)] pl-3">
             2. 禁止事項
           </h2>
           <ul className="list-disc pl-5 space-y-1">
@@ -37,7 +37,7 @@ export default function TermsPage() {
         </section>
 
         <section>
-          <h2 className="text-lg sm:text-xl font-semibold text-blue-700 mb-2 border-l-4 border-blue-500 pl-3">
+          <h2 className="text-lg sm:text-xl font-semibold text-[var(--accent)] mb-2 border-l-4 border-[var(--accent)] pl-3">
             3. 知的財産権
           </h2>
           <ul className="list-disc pl-5 space-y-1">
@@ -47,7 +47,7 @@ export default function TermsPage() {
         </section>
 
         <section>
-          <h2 className="text-lg sm:text-xl font-semibold text-blue-700 mb-2 border-l-4 border-blue-500 pl-3">
+          <h2 className="text-lg sm:text-xl font-semibold text-[var(--accent)] mb-2 border-l-4 border-[var(--accent)] pl-3">
             4. 料金および支払い
           </h2>
           <ul className="list-disc pl-5 space-y-1">
@@ -58,7 +58,7 @@ export default function TermsPage() {
         </section>
 
         <section>
-          <h2 className="text-lg sm:text-xl font-semibold text-blue-700 mb-2 border-l-4 border-blue-500 pl-3">
+          <h2 className="text-lg sm:text-xl font-semibold text-[var(--accent)] mb-2 border-l-4 border-[var(--accent)] pl-3">
             5. 免責事項
           </h2>
           <ul className="list-disc pl-5 space-y-1">
@@ -69,7 +69,7 @@ export default function TermsPage() {
         </section>
 
         <section>
-          <h2 className="text-lg sm:text-xl font-semibold text-blue-700 mb-2 border-l-4 border-blue-500 pl-3">
+          <h2 className="text-lg sm:text-xl font-semibold text-[var(--accent)] mb-2 border-l-4 border-[var(--accent)] pl-3">
             6. 規約の変更
           </h2>
           <p>本規約は予告なく変更されることがあります。重大な変更がある場合はアプリ内でお知らせし、以降の利用をもって変更に同意したものとみなします。</p>

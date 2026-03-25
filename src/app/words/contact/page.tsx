@@ -22,6 +22,17 @@ export default function ContactPage() {
         }
       } else {
         setUserId(data.session.user.id);
+        
+        // Fetch nickname and auto-fill
+        const { data: stats } = await supabase
+          .from("user_stats")
+          .select("nickname")
+          .eq("user_id", data.session.user.id)
+          .maybeSingle();
+        
+        if (stats?.nickname) {
+          setFormData((prev) => ({ ...prev, name: stats.nickname }));
+        }
       }
     })();
   }, [router]);
@@ -63,7 +74,7 @@ export default function ContactPage() {
 
   if (!userId) {
     return (
-      <div className="flex items-center justify-center min-h-[50vh] text-red-600 text-lg">
+      <div className="flex items-center justify-center min-h-[50vh] text-red-500 text-lg">
         ログインしてください
       </div>
     );
@@ -74,60 +85,61 @@ export default function ContactPage() {
       initial={{ opacity: 0, y: 15 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="max-w-xl mx-auto p-6 mt-10 bg-white shadow-xl rounded-2xl border border-gray-100"
+      className="max-w-xl mx-auto p-6 md:p-8 mt-10 bg-[var(--card)] shadow-lg rounded-2xl border border-[var(--border)]"
     >
-      <h1 className="text-3xl font-bold mb-6 text-center text-blue-700">
+      <h1 className="text-2xl font-bold mb-6 text-center text-[var(--foreground)]">
         お問い合わせ
       </h1>
 
       <form onSubmit={handleSubmit} className="space-y-5">
         {/* 名前 */}
         <div>
-          <label className="block mb-1 font-semibold text-gray-700">名前（ニックネーム可）</label>
-          <div className="flex items-center border rounded-lg px-3 py-2 focus-within:ring-2 focus-within:ring-blue-500">
-            <User className="w-5 h-5 text-gray-500 mr-2" />
+          <label className="block mb-1.5 font-semibold text-[13px] text-[var(--muted-foreground)]">名前（ニックネーム可）</label>
+          <div className="flex items-center border border-[var(--border)] bg-[var(--secondary)] rounded-lg px-3 py-2.5 focus-within:ring-2 focus-within:ring-[var(--accent)]/40 transition">
+            <User className="w-5 h-5 text-[var(--muted-foreground)] mr-2" />
             <input
               type="text"
               name="name"
               value={formData.name}
               onChange={handleChange}
               required
-              className="w-full outline-none"
+              className="w-full outline-none bg-transparent text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] text-sm"
               placeholder="例：Tanaka"
+              disabled={true} 
             />
           </div>
         </div>
 
         {/* メール */}
         <div>
-          <label className="block mb-1 font-semibold text-gray-700">
+          <label className="block mb-1.5 font-semibold text-[13px] text-[var(--muted-foreground)]">
             メールアドレス（返信が必要な場合のみ）
           </label>
-          <div className="flex items-center border rounded-lg px-3 py-2 focus-within:ring-2 focus-within:ring-blue-500">
-            <Mail className="w-5 h-5 text-gray-500 mr-2" />
+          <div className="flex items-center border border-[var(--border)] bg-[var(--secondary)] rounded-lg px-3 py-2.5 focus-within:ring-2 focus-within:ring-[var(--accent)]/40 transition">
+            <Mail className="w-5 h-5 text-[var(--muted-foreground)] mr-2" />
             <input
               type="email"
               name="email"
               value={formData.email}
               onChange={handleChange}
               placeholder="任意"
-              className="w-full outline-none"
+              className="w-full outline-none bg-transparent text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] text-sm"
             />
           </div>
         </div>
 
         {/* メッセージ */}
         <div>
-          <label className="block mb-1 font-semibold text-gray-700">メッセージ</label>
-          <div className="flex items-start border rounded-lg px-3 py-2 focus-within:ring-2 focus-within:ring-blue-500">
-            <MessageSquare className="w-5 h-5 text-gray-500 mt-1 mr-2" />
+          <label className="block mb-1.5 font-semibold text-[13px] text-[var(--muted-foreground)]">メッセージ</label>
+          <div className="flex items-start border border-[var(--border)] bg-[var(--secondary)] rounded-lg px-3 py-2.5 focus-within:ring-2 focus-within:ring-[var(--accent)]/40 transition">
+            <MessageSquare className="w-5 h-5 text-[var(--muted-foreground)] mt-1 mr-2" />
             <textarea
               name="message"
               value={formData.message}
               onChange={handleChange}
               required
               rows={5}
-              className="w-full outline-none resize-none"
+              className="w-full outline-none resize-none bg-transparent text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] text-sm"
               placeholder="ご意見・ご要望などご自由にお書きください。"
             />
           </div>
@@ -137,10 +149,10 @@ export default function ContactPage() {
         <button
           type="submit"
           disabled={loading}
-          className={`w-full flex justify-center items-center gap-2 py-2 rounded-lg text-white font-semibold transition-all ${
+          className={`w-full flex justify-center items-center gap-2 py-2.5 rounded-lg text-[var(--primary-foreground)] font-semibold text-sm transition-all ${
             loading
-              ? "bg-blue-400 cursor-not-allowed"
-              : "bg-blue-600 hover:bg-blue-700"
+              ? "bg-[var(--primary)]/50 cursor-not-allowed"
+              : "bg-[var(--primary)] hover:opacity-90"
           }`}
         >
           {loading ? (
@@ -158,12 +170,12 @@ export default function ContactPage() {
         <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className={`mt-5 text-center ${
+          className={`mt-6 text-center text-sm font-medium ${
             status.startsWith("✅")
-              ? "text-green-600"
+              ? "text-emerald-500"
               : status.startsWith("⚠️") || status.startsWith("❌")
-              ? "text-red-600"
-              : "text-gray-600"
+              ? "text-red-500"
+              : "text-[var(--foreground)]"
           }`}
         >
           {status}

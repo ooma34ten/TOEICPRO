@@ -96,7 +96,7 @@ const ProgressRing = ({
           r={radius}
           strokeWidth={strokeWidth}
           fill="none"
-          className="stroke-slate-200 dark:stroke-slate-700"
+          className="stroke-[var(--border)]"
         />
         <motion.circle
           cx={size / 2}
@@ -105,7 +105,7 @@ const ProgressRing = ({
           strokeWidth={strokeWidth}
           fill="none"
           strokeLinecap="round"
-          className="stroke-indigo-500"
+          className="stroke-[var(--accent)]"
           initial={{ strokeDashoffset: circumference }}
           animate={{ strokeDashoffset: offset }}
           transition={{ duration: 0.8, ease: "easeOut" }}
@@ -132,7 +132,7 @@ const XpPopup = ({ xp, visible }: { xp: number; visible: boolean }) => (
         transition={{ duration: 0.8 }}
         className="absolute top-0 right-4 z-30 pointer-events-none"
       >
-        <div className="flex items-center gap-1 bg-yellow-400 text-yellow-900 px-3 py-1.5 rounded-full text-sm font-bold shadow-lg">
+        <div className="flex items-center gap-1 bg-[var(--accent)] text-[var(--accent-foreground)] px-2.5 py-1 rounded-md text-[12px] font-bold">
           <Zap className="w-4 h-4" />
           +{xp} XP
         </div>
@@ -807,7 +807,7 @@ export default function ReviewPage() {
     : 0;
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-20 relative">
+    <div className="min-h-screen bg-[var(--background)] pb-20 relative">
       {confettiTrigger && typeof window !== "undefined" && (
         <Confetti width={window.innerWidth} height={window.innerHeight} />
       )}
@@ -819,7 +819,7 @@ export default function ReviewPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
             onClick={() => setShowPhaseModal(null)}
           >
             <motion.div
@@ -827,36 +827,36 @@ export default function ReviewPage() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.8, y: 20 }}
               transition={{ type: "spring", damping: 15 }}
-              className="bg-white dark:bg-slate-900 rounded-3xl p-8 shadow-2xl text-center max-w-sm mx-4 border border-slate-200 dark:border-slate-800"
+              className="bg-[var(--card)] rounded-xl p-8 text-center max-w-sm mx-4 border border-[var(--border)]"
               onClick={(e) => e.stopPropagation()}
             >
               <motion.div
                 initial={{ scale: 0, rotate: -180 }}
                 animate={{ scale: 1, rotate: 0 }}
                 transition={{ delay: 0.2, type: "spring" }}
-                className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg ${showPhaseModal === "phase2"
-                  ? "bg-gradient-to-br from-emerald-400 to-teal-500 shadow-emerald-200 dark:shadow-emerald-900/30"
-                  : "bg-gradient-to-br from-violet-500 to-purple-600 shadow-violet-200 dark:shadow-violet-900/30"
+                className={`w-16 h-16 rounded-xl flex items-center justify-center mx-auto mb-5 ${showPhaseModal === "phase2"
+                  ? "bg-emerald-500/10"
+                  : "bg-[var(--accent)]/10"
                   }`}
               >
                 {showPhaseModal === "phase2" ? (
-                  <Target className="w-10 h-10 text-white" />
+                  <Target className="w-7 h-7 text-emerald-500" />
                 ) : (
-                  <Trophy className="w-10 h-10 text-white" />
+                  <Trophy className="w-7 h-7 text-[var(--accent)]" />
                 )}
               </motion.div>
 
-              <h2 className="text-2xl font-extrabold text-slate-900 dark:text-white mb-2">
+              <h2 className="text-xl font-bold text-[var(--foreground)] mb-1">
                 {showPhaseModal === "phase2" ? "第一目標達成！" : "第二目標達成！ 🎉"}
               </h2>
-              <p className="text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">
+              <p className="text-[var(--muted-foreground)] text-sm mb-5 leading-relaxed">
                 {showPhaseModal === "phase2"
                   ? "今日の目標をクリアしました！\nさらに上を目指しましょう！"
                   : "今日の復習をすべてクリア！\n素晴らしい成果です！"}
               </p>
               <button
                 onClick={() => setShowPhaseModal(null)}
-                className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold py-3 px-6 rounded-xl shadow-lg shadow-indigo-200 dark:shadow-indigo-900/30 hover:opacity-90 transition"
+                className="w-full bg-[var(--primary)] text-[var(--primary-foreground)] font-semibold py-2.5 px-6 rounded-lg hover:opacity-90 transition text-sm"
               >
                 続ける
               </button>
@@ -867,25 +867,25 @@ export default function ReviewPage() {
 
       <div className="max-w-xl mx-auto px-4 pt-6">
         {isGuestMode && (
-          <div className="mb-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded" role="alert">
-            <p className="font-bold">ゲストモード（体験版）</p>
-            <p>これは体験版です。最重要単語からランダムで10問が出題されます。全ての機能を利用するには、アカウント登録を行ってください。</p>
+          <div className="mb-4 bg-amber-500/8 border border-amber-500/20 text-amber-700 dark:text-amber-300 p-3.5 rounded-xl" role="alert">
+            <p className="font-bold text-[13px]">ゲストモード（体験版）</p>
+            <p className="text-[12px] mt-0.5">最重要単語からランダムで10問が出題されます。全ての機能を利用するにはアカウント登録を行ってください。</p>
           </div>
         )}
         {/* ヘッダー */}
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex items-center justify-between mb-6"
+          className="flex items-center justify-between mb-5"
         >
           <button
             onClick={() => router.push("/")}
-            className="text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white text-sm font-medium transition"
+            className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] text-sm font-medium transition"
           >
             ← 戻る
           </button>
-          <h1 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-indigo-500" />
+          <h1 className="text-lg font-bold text-[var(--foreground)] flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-[var(--accent)]" />
             復習テスト
           </h1>
           <div className="w-12" /> {/* spacer */}
@@ -896,15 +896,15 @@ export default function ReviewPage() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="flex items-center gap-4 mb-6"
+          className="flex items-center gap-4 mb-5"
         >
           {/* プログレスリング */}
           <ProgressRing progress={totalProgress} size={72} strokeWidth={6}>
             <div className="text-center">
-              <div className="text-sm font-bold text-slate-900 dark:text-white">
+              <div className="text-sm font-bold text-[var(--foreground)]">
                 {currentIndex + 1}
               </div>
-              <div className="text-[10px] text-slate-400">/{words.length}</div>
+              <div className="text-[10px] text-[var(--muted-foreground)]">/{words.length}</div>
             </div>
           </ProgressRing>
 
@@ -912,9 +912,9 @@ export default function ReviewPage() {
           <div className="flex-1 space-y-2">
             {/* ストリーク */}
             <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1 bg-orange-50 dark:bg-orange-900/20 px-2.5 py-1 rounded-full">
-                <Flame className={`w-4 h-4 ${streak >= 3 ? "text-orange-500 fill-orange-500" : "text-orange-300"}`} />
-                <span className="text-xs font-bold text-orange-700 dark:text-orange-300">
+              <div className="flex items-center gap-1 bg-orange-500/10 px-2 py-1 rounded-md border border-orange-500/20">
+                <Flame className={`w-3.5 h-3.5 ${streak >= 3 ? "text-orange-500 fill-orange-500" : "text-orange-300"}`} />
+                <span className="text-[11px] font-bold text-orange-600 dark:text-orange-400">
                   {streak > 0 ? `${streak} 連続！` : "0"}
                 </span>
               </div>
@@ -922,7 +922,7 @@ export default function ReviewPage() {
                 <motion.span
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
-                  className="text-xs font-bold text-orange-500"
+                  className="text-[11px] font-bold text-orange-500"
                 >
                   🔥 すごい！
                 </motion.span>
@@ -933,22 +933,22 @@ export default function ReviewPage() {
             {stats && (
               <div>
                 <div className="flex justify-between items-center mb-1">
-                  <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500">
+                  <span className="text-[10px] font-medium text-[var(--muted-foreground)]">
                     {stats.phase === "phase1" && "第一目標"}
                     {stats.phase === "phase2" && "第二目標"}
                     {stats.phase === "finished" && "目標達成！"}
                   </span>
-                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                  <span className="text-[10px] font-bold text-[var(--muted-foreground)]">
                     {stats.today} / {stats.phase === "phase1" ? stats.firstTarget : stats.secondTarget}
                   </span>
                 </div>
-                <div className="h-1.5 w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                <div className="h-1.5 w-full bg-[var(--secondary)] rounded-full overflow-hidden">
                   <motion.div
                     className={`h-full rounded-full ${stats.phase === "finished"
-                      ? "bg-gradient-to-r from-emerald-400 to-teal-400"
+                      ? "bg-emerald-500"
                       : stats.phase === "phase2"
-                        ? "bg-gradient-to-r from-emerald-400 to-emerald-500"
-                        : "bg-gradient-to-r from-indigo-400 to-indigo-500"
+                        ? "bg-emerald-500"
+                        : "bg-[var(--accent)]"
                       }`}
                     initial={{ width: 0 }}
                     animate={{ width: `${Math.min(targetProgress * 100, 100)}%` }}
@@ -960,12 +960,12 @@ export default function ReviewPage() {
           </div>
 
           {/* セッションXP */}
-          <div className="text-center bg-yellow-50 dark:bg-yellow-900/20 px-3 py-2 rounded-xl">
+          <div className="text-center bg-[var(--accent)]/8 px-3 py-2 rounded-lg border border-[var(--accent)]/20">
             <div className="flex items-center gap-1">
-              <Zap className="w-3.5 h-3.5 text-yellow-500" />
-              <span className="text-sm font-bold text-yellow-700 dark:text-yellow-300">{sessionXp}</span>
+              <Zap className="w-3.5 h-3.5 text-[var(--accent)]" />
+              <span className="text-sm font-bold text-[var(--accent)]">{sessionXp}</span>
             </div>
-            <div className="text-[10px] text-slate-400">XP</div>
+            <div className="text-[10px] text-[var(--muted-foreground)]">XP</div>
           </div>
         </motion.div>
 
@@ -980,19 +980,19 @@ export default function ReviewPage() {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -slideDirection * 50 }}
               transition={{ duration: 0.3 }}
-              className={`bg-white dark:bg-slate-900 shadow-xl dark:shadow-2xl rounded-3xl p-6 md:p-8 border ${isWeakWord(current.total ?? 0, current.successRate ?? 1) ? "border-red-300 dark:border-red-800 ring-1 ring-red-200 dark:ring-red-900/50" : "border-slate-200 dark:border-slate-800"}`}
+              className={`bg-[var(--card)] rounded-xl p-5 md:p-6 border ${isWeakWord(current.total ?? 0, current.successRate ?? 1) ? "border-red-500/30 ring-1 ring-red-500/10" : "border-[var(--border)]"}`}
             >
               {/* 単語ヘッダー */}
-              <div className="flex items-center justify-between mb-5">
-                <div className="flex items-center gap-3">
-                  <h2 className="text-2xl md:text-3xl font-extrabold text-indigo-600 dark:text-indigo-400">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2.5">
+                  <h2 className="text-xl md:text-2xl font-bold text-[var(--accent)]">
                     {m.word}
                   </h2>
                   <button
                     onClick={() => speakText(m.word)}
-                    className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 text-indigo-500 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition"
+                    className="p-1.5 rounded-lg bg-[var(--accent)]/10 text-[var(--accent)] hover:bg-[var(--accent)]/20 transition"
                   >
-                    <Volume2 className="w-5 h-5" />
+                    <Volume2 className="w-4 h-4" />
                   </button>
                 </div>
                 <div className="flex items-center gap-2">
@@ -1000,7 +1000,7 @@ export default function ReviewPage() {
                     {importanceToStars(m.importance)}
                   </span>
                   {isWeakWord(current.total ?? 0, current.successRate ?? 1) && (
-                    <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 animate-pulse">
+                    <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20">
                       🔴 苦手
                     </span>
                   )}
@@ -1008,15 +1008,15 @@ export default function ReviewPage() {
               </div>
 
               {/* 例文 */}
-              <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl mb-5">
-                <p className="text-sm md:text-base text-slate-700 dark:text-slate-300 leading-relaxed flex-1">
+              <div className="flex items-center justify-between bg-[var(--secondary)] p-3.5 rounded-lg mb-4">
+                <p className="text-[13px] text-[var(--foreground)] leading-relaxed flex-1">
                   {m.example_sentence}
                 </p>
                 <button
                   onClick={() => speakText(m.example_sentence)}
-                  className="ml-3 p-2 rounded-xl bg-white dark:bg-slate-700 text-blue-500 hover:bg-blue-50 dark:hover:bg-slate-600 transition shadow-sm"
+                  className="ml-3 p-1.5 rounded-lg bg-[var(--card)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition border border-[var(--border)]"
                 >
-                  <Volume2 className="w-4 h-4" />
+                  <Volume2 className="w-3.5 h-3.5" />
                 </button>
               </div>
 
@@ -1030,7 +1030,7 @@ export default function ReviewPage() {
                     exit={{ opacity: 0, y: -10 }}
                     className="space-y-3"
                   >
-                    <p className="text-center text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                    <p className="text-center text-sm font-bold text-[var(--foreground)] mb-2">
                       この単語の品詞は？
                     </p>
                     <div className="grid grid-cols-2 gap-2">
@@ -1040,30 +1040,30 @@ export default function ReviewPage() {
                           whileTap={{ scale: 0.95 }}
                           onClick={() => handlePosSelect(pos)}
                           disabled={selectedPos !== null}
-                          className={`py-3 px-4 rounded-xl font-bold text-sm transition shadow-md flex items-center justify-center gap-2 ${selectedPos === pos
+                          className={`py-2.5 px-4 rounded-lg font-bold text-sm transition flex items-center justify-center gap-2 ${selectedPos === pos
                             ? pos === m.part_of_speech
-                              ? "bg-emerald-500 text-white shadow-emerald-200"
-                              : "bg-red-500 text-white shadow-red-200"
+                              ? "bg-emerald-500 text-white"
+                              : "bg-red-500 text-white"
                             : selectedPos !== null
                               ? pos === m.part_of_speech
-                                ? "bg-emerald-100 text-emerald-700 border-2 border-emerald-400"
-                                : "bg-gray-100 text-gray-400"
-                              : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700"
+                                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
+                                : "bg-[var(--secondary)] text-[var(--muted-foreground)] border border-[var(--border)]"
+                              : "bg-[var(--card)] text-[var(--foreground)] hover:bg-[var(--secondary)] border border-[var(--border)]"
                             }`}
                         >
-                          <span className="text-xs text-slate-400 dark:text-slate-500 font-mono w-4">{idx + 1}</span>
+                          <span className="text-[11px] text-[var(--muted-foreground)] font-mono w-4">{idx + 1}</span>
                           {pos}
                         </motion.button>
                       ))}
                     </div>
                     <button
                       onClick={handleSkip}
-                      className="w-full py-2.5 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 text-sm font-medium transition flex items-center justify-center gap-2"
+                      className="w-full py-2 text-[var(--muted-foreground)] hover:text-[var(--foreground)] text-sm font-medium transition flex items-center justify-center gap-2"
                     >
                       <SkipForward className="w-4 h-4" />
                       あとで復習する
                     </button>
-                    <p className="text-center text-[10px] text-slate-300 dark:text-slate-600">
+                    <p className="text-center text-[10px] text-[var(--muted-foreground)] opacity-50">
                       1〜4 で選択 • S でスキップ
                     </p>
                   </motion.div>
@@ -1080,9 +1080,9 @@ export default function ReviewPage() {
                     <motion.div
                       initial={{ scale: 0.9 }}
                       animate={{ scale: 1 }}
-                      className={`p-3 rounded-xl text-center font-bold text-sm ${posCorrect
-                        ? "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
-                        : "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800"
+                      className={`p-3 rounded-lg text-center font-bold text-sm border ${posCorrect
+                        ? "bg-emerald-500/8 text-emerald-700 dark:text-emerald-300 border-emerald-500/20"
+                        : "bg-red-500/8 text-red-700 dark:text-red-300 border-red-500/20"
                         }`}
                     >
                       {posCorrect ? (
@@ -1093,11 +1093,11 @@ export default function ReviewPage() {
                     </motion.div>
 
                     {/* 回答詳細 */}
-                    <div className="bg-gradient-to-br from-slate-50 to-indigo-50/50 dark:from-slate-800/50 dark:to-indigo-950/30 p-5 rounded-2xl space-y-3 border border-slate-100 dark:border-slate-700">
-                      <p className="text-lg font-bold text-slate-900 dark:text-white">
+                    <div className="bg-[var(--secondary)] p-4 rounded-lg space-y-2.5 border border-[var(--border)]">
+                      <p className="text-base font-bold text-[var(--foreground)]">
                         {m.meaning}
                       </p>
-                      <p className="text-sm text-slate-600 dark:text-slate-400">
+                      <p className="text-[13px] text-[var(--muted-foreground)]">
                         訳: {m.translation}
                       </p>
                       <div className="flex flex-wrap gap-2">
@@ -1106,16 +1106,16 @@ export default function ReviewPage() {
                         </span>
                       </div>
                       {m.synonyms && (
-                        <div className="flex items-center gap-2 flex-wrap mt-1">
-                          <span className="text-xs font-semibold text-purple-600">類義語:</span>
+                        <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                          <span className="text-[11px] font-semibold text-[var(--accent)]">類義語:</span>
                           {m.synonyms.split(",").map((s: string, i: number) => (
-                            <span key={i} className="text-xs bg-purple-50 text-purple-700 px-2 py-0.5 rounded-full border border-purple-200">
+                            <span key={i} className="text-[11px] bg-[var(--accent)]/10 text-[var(--accent)] px-2 py-0.5 rounded border border-[var(--accent)]/20">
                               {s.trim()}
                             </span>
                           ))}
                         </div>
                       )}
-                      <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-200 dark:border-slate-700">
+                      <div className="flex items-center gap-4 text-[11px] text-[var(--muted-foreground)] pt-2 border-t border-[var(--border)]">
                         <span>
                           正解: <strong className="text-emerald-600 dark:text-emerald-400">{current.correct ?? 0}</strong> 回
                         </span>
@@ -1129,7 +1129,7 @@ export default function ReviewPage() {
                               (current.successRate ?? 0) >= 0.8
                                 ? "text-emerald-600 dark:text-emerald-400"
                                 : (current.successRate ?? 0) >= 0.5
-                                  ? "text-yellow-600"
+                                  ? "text-[var(--accent)]"
                                   : "text-red-500"
                             }
                           >
@@ -1138,8 +1138,8 @@ export default function ReviewPage() {
                         </span>
                       </div>
                       {isWeakWord(current.total ?? 0, current.successRate ?? 1) && (
-                        <div className="mt-2 p-2 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
-                          <p className="text-xs font-bold text-red-600 dark:text-red-400 flex items-center gap-1">
+                        <div className="mt-2 p-2 rounded-lg bg-red-500/8 border border-red-500/20">
+                          <p className="text-[11px] font-bold text-red-600 dark:text-red-400 flex items-center gap-1">
                             ⚠️ 苦手な単語です。繰り返し取り組みましょう！
                           </p>
                         </div>
@@ -1157,13 +1157,13 @@ export default function ReviewPage() {
                         whileTap={{ scale: posCorrect ? 0.95 : 1 }}
                         onClick={() => { if (posCorrect) handleAnswer(true); }}
                         disabled={isAnswering || !posCorrect}
-                        className={`flex-1 font-bold py-3.5 rounded-xl transition shadow-lg flex items-center justify-center gap-2 ${!posCorrect
-                          ? "bg-slate-200 text-slate-400 dark:bg-slate-800 dark:text-slate-600 cursor-not-allowed shadow-none"
+                        className={`flex-1 font-bold py-3 rounded-lg transition flex items-center justify-center gap-2 text-sm ${!posCorrect
+                          ? "bg-[var(--secondary)] text-[var(--muted-foreground)] cursor-not-allowed"
                           : isAnswering && lastAnswer === true
-                            ? "bg-emerald-700 text-white scale-95 shadow-emerald-400 dark:shadow-emerald-800/40"
+                            ? "bg-emerald-600 text-white scale-95"
                             : isAnswering
-                              ? "bg-gray-300 text-gray-500 cursor-not-allowed shadow-none"
-                              : "bg-emerald-500 hover:bg-emerald-600 text-white shadow-emerald-200 dark:shadow-emerald-900/20"
+                              ? "bg-[var(--secondary)] text-[var(--muted-foreground)] cursor-not-allowed"
+                              : "bg-emerald-500 hover:bg-emerald-600 text-white"
                           }`}
                       >
                         <Check className="w-5 h-5" />
@@ -1173,11 +1173,11 @@ export default function ReviewPage() {
                         whileTap={{ scale: 0.95 }}
                         onClick={() => handleAnswer(false)}
                         disabled={isAnswering}
-                        className={`flex-1 font-bold py-3.5 rounded-xl transition shadow-lg flex items-center justify-center gap-2 ${isAnswering && lastAnswer === false
-                          ? "bg-red-700 text-white scale-95 shadow-red-400 dark:shadow-red-800/40"
+                        className={`flex-1 font-bold py-3 rounded-lg transition flex items-center justify-center gap-2 text-sm ${isAnswering && lastAnswer === false
+                          ? "bg-red-600 text-white scale-95"
                           : isAnswering
-                            ? "bg-gray-300 text-gray-500 cursor-not-allowed shadow-none"
-                            : "bg-red-500 hover:bg-red-600 text-white shadow-red-200 dark:shadow-red-900/20"
+                            ? "bg-[var(--secondary)] text-[var(--muted-foreground)] cursor-not-allowed"
+                            : "bg-red-500 hover:bg-red-600 text-white"
                           }`}
                       >
                         <X className="w-5 h-5" />
@@ -1185,7 +1185,7 @@ export default function ReviewPage() {
                       </motion.button>
                     </div>
 
-                    <p className="text-center text-[10px] text-slate-300 dark:text-slate-600">
+                    <p className="text-center text-[10px] text-[var(--muted-foreground)] opacity-50">
                       {posCorrect ? "→ わかった • ← わからない" : "← わからない"}
                     </p>
                   </motion.div>
@@ -1201,23 +1201,23 @@ export default function ReviewPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            className="mt-6 bg-white dark:bg-slate-900 rounded-2xl p-5 shadow-sm border border-slate-200 dark:border-slate-800"
+            className="mt-5 bg-[var(--card)] rounded-xl p-4 border border-[var(--border)]"
           >
-            <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-3">
+            <h3 className="text-[10px] font-bold text-[var(--muted-foreground)] uppercase tracking-wider mb-3">
               今日の学習状況
             </h3>
             <div className="grid grid-cols-3 gap-3">
               <div className="text-center">
-                <div className="text-lg font-bold text-slate-900 dark:text-white">{stats.today}</div>
-                <div className="text-[10px] text-slate-400">今日の正解</div>
+                <div className="text-lg font-bold text-[var(--foreground)]">{stats.today}</div>
+                <div className="text-[10px] text-[var(--muted-foreground)]">今日の正解</div>
               </div>
               <div className="text-center">
-                <div className="text-lg font-bold text-slate-900 dark:text-white">{stats.yesterday}</div>
-                <div className="text-[10px] text-slate-400">前回の正解</div>
+                <div className="text-lg font-bold text-[var(--foreground)]">{stats.yesterday}</div>
+                <div className="text-[10px] text-[var(--muted-foreground)]">前回の正解</div>
               </div>
               <div className="text-center">
-                <div className="text-lg font-bold text-slate-900 dark:text-white">{stats.avg30.toFixed(1)}</div>
-                <div className="text-[10px] text-slate-400">30日平均</div>
+                <div className="text-lg font-bold text-[var(--foreground)]">{stats.avg30.toFixed(1)}</div>
+                <div className="text-[10px] text-[var(--muted-foreground)]">30日平均</div>
               </div>
             </div>
           </motion.div>

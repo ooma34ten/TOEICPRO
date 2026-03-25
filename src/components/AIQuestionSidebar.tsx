@@ -57,23 +57,23 @@ export default function UnifiedSidebar() {
   const sidebars: { type: SidebarType; icon: ReactNode; title: string; content: ReactNode }[] = [
     {
       type: "aiQuestion",
-      icon: isOpen["aiQuestion"] ? <X size={22} className="text-white" /> : <Bot size={22} className="animate-pulse text-white" />,
+      icon: isOpen["aiQuestion"] ? <X size={22} className="opacity-80" /> : <Bot size={22} className="animate-pulse" />,
       title: "TOEIC AI アシスタント",
       content: <TOEICAIPage />,
     },
     {
       type: "aiDictionary",
-      icon: isOpen["aiDictionary"] ? <X size={22} className="text-white" /> : <BookOpen size={22} className="text-white" />,
+      icon: isOpen["aiDictionary"] ? <X size={22} className="opacity-80" /> : <BookOpen size={22} />,
       title: "単語登録",
       content: (
         <div className="space-y-6">
-          <div className="bg-white/70 rounded-xl border p-4 shadow-inner">
+          <div className="bg-[var(--secondary)] rounded-xl border border-[var(--border)] p-4 shadow-inner">
             <WordForm onAdd={handleAdd} />
           </div>
           {rows.length > 0 && (
             <div>
-              <h3 className="text-md font-semibold text-gray-700 mb-3 border-b pb-1 flex items-center gap-2">
-                <Library className="text-blue-600" size={18} />
+              <h3 className="text-md font-semibold text-[var(--foreground)] mb-3 border-b border-[var(--border)] pb-1 flex items-center gap-2">
+                <Library className="text-[var(--accent)]" size={18} />
                 最近追加した単語
               </h3>
               <ul className="space-y-3">
@@ -83,23 +83,23 @@ export default function UnifiedSidebar() {
                   .map((row, idx) => (
                     <li
                       key={idx}
-                      className="bg-white/90 border rounded-lg p-3 shadow-sm hover:shadow-md transition flex justify-between items-start"
+                      className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-3 shadow-sm hover:shadow-md transition flex justify-between items-start"
                     >
-                      <div className="text-sm space-y-0.5">
+                      <div className="text-sm space-y-0.5 text-[var(--foreground)]">
                         <p>
-                          <span className="font-semibold text-blue-600">{row.word}</span>
+                          <span className="font-semibold text-[var(--accent)]">{row.word}</span>
                         </p>
                         <p><strong>品詞:</strong> {row.part_of_speech}</p>
                         <p><strong>意味:</strong> {row.meaning}</p>
-                        <p className="italic text-gray-600">&quot;{row.example}&quot;</p>
-                        <p className="text-gray-500 text-xs">{row.translation}</p>
-                        <p className="text-xs text-yellow-600">
+                        <p className="italic text-[var(--muted-foreground)]">&quot;{row.example}&quot;</p>
+                        <p className="text-[var(--muted-foreground)] text-xs">{row.translation}</p>
+                        <p className="text-xs text-yellow-500">
                           <strong>重要度:</strong> {row.importance}
                         </p>
                       </div>
                       <button
                         onClick={() => speakText(row.example)}
-                        className="p-2 bg-blue-100 text-blue-600 rounded-full hover:bg-blue-200 transition"
+                        className="p-2 bg-[var(--secondary)] text-[var(--accent)] rounded-full hover:bg-[var(--accent)]/10 transition"
                         title="例文を再生"
                       >
                         <Volume2 size={16} />
@@ -122,11 +122,11 @@ export default function UnifiedSidebar() {
           key={sb.type}
           onClick={() => toggleSidebar(sb.type)}
           style={{ bottom: `${20 + idx * 70}px` }} // Tailwindの動的クラスではなく style
-          className={`fixed right-6 z-[70] flex items-center gap-2 px-4 py-3 rounded-full shadow-lg backdrop-blur-md
-            transition-all duration-300 ${
+          className={`fixed right-6 z-[70] flex items-center gap-2 px-4 py-3 rounded-full shadow-lg backdrop-blur-md border border-[var(--border)]
+            transition-all duration-300 font-bold ${
               isOpen[sb.type]
-                ? "bg-indigo-700 text-white"
-                : "bg-indigo-600/90 hover:bg-indigo-700 text-white"
+                ? "bg-[var(--secondary)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] scale-95"
+                : "bg-[var(--accent)] text-[var(--accent-foreground)] shadow-[var(--accent)]/20 hover:scale-105"
             }`}
         >
           {sb.icon}
@@ -140,19 +140,19 @@ export default function UnifiedSidebar() {
       {sidebars.map((sb) => (
         <div
           key={sb.type}
-          className={`fixed top-0 right-0 h-full backdrop-blur-lg bg-white/80 border-l shadow-2xl transform transition-transform duration-300 z-40
+          className={`fixed top-0 right-0 h-full backdrop-blur-lg bg-[var(--background)]/95 border-l border-[var(--border)] shadow-2xl transform transition-transform duration-300 z-40
             ${isOpen[sb.type] ? "translate-x-0" : "translate-x-full"}`}
           style={{ width: width[sb.type] ?? 400, zIndex: 60 }}
         >
           {/* ヘッダー */}
-          <div className="sticky top-0 z-10 flex justify-between items-center border-b bg-white/60 px-4 py-3 shadow-sm backdrop-blur-md">
-            <div className="flex items-center gap-2">
+          <div className="sticky top-0 z-10 flex justify-between items-center border-b border-[var(--border)] bg-[var(--background)]/80 px-4 py-3 shadow-sm backdrop-blur-md">
+            <div className="flex items-center gap-2 text-[var(--foreground)]">
               {sb.icon}
-              <h2 className="text-lg font-semibold text-gray-700">{sb.title}</h2>
+              <h2 className="text-lg font-semibold">{sb.title}</h2>
             </div>
             <button
               onClick={() => toggleSidebar(sb.type)}
-              className="p-1 text-gray-500 hover:text-gray-700 transition"
+              className="p-1 text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition bg-[var(--card)] border border-[var(--border)] rounded-md hover:bg-[var(--secondary)]"
               aria-label="閉じる"
             >
               <X size={20} />
@@ -165,7 +165,7 @@ export default function UnifiedSidebar() {
           {/* リサイズバー */}
           <div
             onMouseDown={() => handleMouseDown(sb.type)}
-            className="absolute left-0 top-0 h-full w-2 cursor-col-resize bg-gradient-to-r from-gray-200/60 to-gray-300/60 hover:from-blue-200/60 hover:to-blue-300/60 transition"
+            className="absolute left-0 top-0 h-full w-2 cursor-col-resize bg-[var(--border)] hover:bg-[var(--accent)]/50 transition"
           />
         </div>
       ))}

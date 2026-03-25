@@ -204,25 +204,25 @@ export default function WordListPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-950">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[var(--background)]">
         <motion.div
           animate={{ rotate: 360 }}
           transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
-          className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full mb-4"
+          className="w-8 h-8 border-2 border-[var(--accent)] border-t-transparent rounded-full mb-4"
         />
-        <p className="text-slate-500 dark:text-slate-400 font-medium">読み込み中...</p>
+        <p className="text-[var(--muted-foreground)] text-sm font-medium">読み込み中...</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 p-4">
-        <div className="bg-white dark:bg-slate-900 rounded-2xl p-8 shadow-xl text-center max-w-md border border-red-200 dark:border-red-800">
-          <p className="text-red-600 dark:text-red-400 font-medium">{error}</p>
+      <div className="min-h-screen flex items-center justify-center bg-[var(--background)] p-4">
+        <div className="bg-[var(--card)] rounded-xl p-8 text-center max-w-md border border-red-500/20">
+          <p className="text-red-600 dark:text-red-400 text-sm font-medium">{error}</p>
           <button
             onClick={() => window.location.reload()}
-            className="mt-4 px-6 py-2 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition"
+            className="mt-4 px-6 py-2 bg-[var(--primary)] text-[var(--primary-foreground)] rounded-lg font-semibold text-sm hover:opacity-90 transition"
           >
             再読み込み
           </button>
@@ -249,26 +249,26 @@ export default function WordListPage() {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-2xl w-80 text-center border border-slate-200 dark:border-slate-800"
+              className="bg-[var(--card)] p-5 rounded-xl w-80 text-center border border-[var(--border)]"
             >
-              <div className="w-14 h-14 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
-                <AlertTriangle className="w-7 h-7 text-red-500" />
+              <div className="w-12 h-12 bg-red-500/10 rounded-xl flex items-center justify-center mx-auto mb-3">
+                <AlertTriangle className="w-6 h-6 text-red-500" />
               </div>
-              <h2 className="text-lg font-bold mb-2 text-slate-900 dark:text-white">削除の確認</h2>
-              <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">
+              <h2 className="text-base font-bold mb-1.5 text-[var(--foreground)]">削除の確認</h2>
+              <p className="text-[13px] text-[var(--muted-foreground)] mb-5">
                 {selectedIds.length} 件の単語を削除しますか？<br />
                 この操作は取り消せません。
               </p>
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowModal(false)}
-                  className="flex-1 px-4 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl font-medium hover:bg-slate-200 dark:hover:bg-slate-700 transition"
+                  className="flex-1 px-4 py-2 bg-[var(--secondary)] text-[var(--foreground)] rounded-lg font-medium text-sm hover:bg-[var(--muted)] transition"
                 >
                   キャンセル
                 </button>
                 <button
                   onClick={handleBulkDelete}
-                  className="flex-1 px-4 py-2.5 bg-red-500 text-white rounded-xl font-medium hover:bg-red-600 transition"
+                  className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg font-medium text-sm hover:bg-red-600 transition"
                 >
                   削除する
                 </button>
@@ -285,12 +285,12 @@ export default function WordListPage() {
         className="mb-6"
       >
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
-            <Library className="w-6 h-6 text-indigo-500" />
+          <h1 className="text-xl font-bold text-[var(--foreground)] flex items-center gap-2">
+            <Library className="w-5 h-5 text-[var(--accent)]" />
             My単語帳
           </h1>
           <div className="flex items-center gap-2">
-            <span className="bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 px-3 py-1 rounded-full text-sm font-bold">
+            <span className="bg-[var(--accent)]/10 text-[var(--accent)] px-2.5 py-0.5 rounded-md text-[12px] font-bold border border-[var(--accent)]/20">
               {words.length} 語
             </span>
           </div>
@@ -302,29 +302,29 @@ export default function WordListPage() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.05 }}
-        className="bg-white dark:bg-slate-900 p-4 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 mb-4"
+        className="bg-[var(--card)] p-4 rounded-xl border border-[var(--border)] mb-4"
       >
         <div className="flex flex-col md:flex-row gap-3">
           {/* 検索 */}
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted-foreground)]" />
             <input
               type="text"
               placeholder="単語または意味で検索"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition text-sm placeholder:text-slate-400 dark:placeholder:text-slate-500"
+              className="w-full pl-10 pr-4 py-2.5 border border-[var(--border)] bg-[var(--secondary)] text-[var(--foreground)] rounded-lg focus:ring-2 focus:ring-[var(--accent)]/40 focus:border-[var(--accent)] outline-none transition text-sm placeholder:text-[var(--muted-foreground)]"
             />
           </div>
 
           {/* フィルター */}
           <div className="flex gap-2 flex-wrap">
             <div className="relative">
-              <Filter className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+              <Filter className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--muted-foreground)] pointer-events-none" />
               <select
                 value={selectedPart}
                 onChange={(e) => setSelectedPart(e.target.value)}
-                className="pl-8 pr-3 py-2.5 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none appearance-none cursor-pointer"
+                className="pl-8 pr-3 py-2.5 border border-[var(--border)] bg-[var(--secondary)] text-[var(--foreground)] rounded-lg text-sm focus:ring-2 focus:ring-[var(--accent)]/40 outline-none appearance-none cursor-pointer"
               >
                 <option value="">品詞すべて</option>
                 {partOptions.map((p) => <option key={p} value={p}>{p}</option>)}
@@ -333,7 +333,7 @@ export default function WordListPage() {
             <select
               value={selectedImportance}
               onChange={(e) => setSelectedImportance(e.target.value)}
-              className="px-3 py-2.5 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none appearance-none cursor-pointer"
+              className="px-3 py-2.5 border border-[var(--border)] bg-[var(--secondary)] text-[var(--foreground)] rounded-lg text-sm focus:ring-2 focus:ring-[var(--accent)]/40 outline-none appearance-none cursor-pointer"
             >
               <option value="">重要度すべて</option>
               {importanceOptions.map((i) => <option key={i} value={i}>{"★".repeat(i)}</option>)}
@@ -341,7 +341,7 @@ export default function WordListPage() {
             <select
               value={sortOption}
               onChange={(e) => setSortOption(e.target.value as typeof sortOption)}
-              className="px-3 py-2.5 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none appearance-none cursor-pointer"
+              className="px-3 py-2.5 border border-[var(--border)] bg-[var(--secondary)] text-[var(--foreground)] rounded-lg text-sm focus:ring-2 focus:ring-[var(--accent)]/40 outline-none appearance-none cursor-pointer"
             >
               <option value="newest">新しい順</option>
               <option value="oldest">古い順</option>
@@ -356,10 +356,10 @@ export default function WordListPage() {
         </div>
 
         {/* 選択操作 */}
-        <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+        <div className="flex items-center justify-between mt-3 pt-3 border-t border-[var(--border)]">
           <button
             onClick={toggleSelectAll}
-            className="flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition font-medium"
+            className="flex items-center gap-1.5 text-sm text-[var(--muted-foreground)] hover:text-[var(--accent)] transition font-medium"
           >
             {selectedIds.length === filteredWords.length && filteredWords.length > 0 ? (
               <CheckSquare className="w-4 h-4" />
@@ -371,10 +371,10 @@ export default function WordListPage() {
           <button
             onClick={() => selectedIds.length > 0 && setShowModal(true)}
             disabled={selectedIds.length === 0}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition ${
               selectedIds.length === 0
-                ? "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed"
-                : "bg-red-500 text-white hover:bg-red-600 shadow-sm"
+                ? "bg-[var(--secondary)] text-[var(--muted-foreground)] cursor-not-allowed"
+                : "bg-red-500 text-white hover:bg-red-600"
             }`}
           >
             <Trash2 className="w-3.5 h-3.5" />
@@ -391,14 +391,14 @@ export default function WordListPage() {
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: Math.min(idx * 0.03, 0.5) }}
-            className={`bg-white dark:bg-slate-900 shadow-sm rounded-2xl p-5 flex flex-col justify-between hover:shadow-md transition-all border ${
+            className={`bg-[var(--card)] rounded-xl p-4 flex flex-col justify-between hover:shadow-md transition-all border ${
               selectedIds.includes(w.id)
-                ? "ring-2 ring-red-400 border-red-200 dark:border-red-800"
+                ? "ring-2 ring-red-400 border-red-500/30"
                 : w.correct_count >= 6 && w.successRate >= 0.9
-                ? "border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-900/10"
+                ? "border-emerald-500/30 bg-emerald-500/5"
                 : isWeakWord(w.total, w.successRate)
-                ? "border-red-200 dark:border-red-800 border-l-4 !border-l-red-400"
-                : "border-slate-200 dark:border-slate-800"
+                ? "border-red-500/30 border-l-4 !border-l-red-400"
+                : "border-[var(--border)]"
             }`}
           >
             <div className="flex justify-between items-center mb-3">
@@ -408,13 +408,13 @@ export default function WordListPage() {
                 onChange={() => toggleSelect(w.id)}
                 className="w-4 h-4 accent-red-500 rounded"
               />
-              <span className="text-xs text-slate-400 dark:text-slate-500">
+              <span className="text-[11px] text-[var(--muted-foreground)]">
                 {new Date(w.registered_at).toLocaleDateString("ja-JP")}
               </span>
             </div>
 
             <div className="flex items-center justify-between mb-3">
-              <span className="text-lg font-bold text-slate-900 dark:text-white truncate">{w.word}</span>
+              <span className="text-base font-bold text-[var(--foreground)] truncate">{w.word}</span>
               <div className="flex gap-1.5 shrink-0 ml-2">
                 {w.part_of_speech && (
                   <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${getPartOfSpeechClasses(w.part_of_speech)}`}>
@@ -427,7 +427,7 @@ export default function WordListPage() {
                   </span>
                 )}
                 {isWeakWord(w.total, w.successRate) && (
-                  <span className="px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400">
+                  <span className="px-2 py-0.5 rounded text-[11px] font-bold whitespace-nowrap bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20">
                     🔴 苦手
                   </span>
                 )}
@@ -437,35 +437,35 @@ export default function WordListPage() {
             <div className="space-y-2 text-sm">
               {w.meaning && (
                 <div>
-                  <p className="font-medium text-slate-500 dark:text-slate-400 text-xs mb-0.5">意味</p>
-                  <p className="text-slate-700 dark:text-slate-300 break-words">{w.meaning}</p>
+                  <p className="font-medium text-[var(--muted-foreground)] text-[11px] mb-0.5">意味</p>
+                  <p className="text-[var(--foreground)] break-words text-[13px]">{w.meaning}</p>
                 </div>
               )}
               {w.example_sentence && (
                 <div>
-                  <p className="font-medium text-slate-500 dark:text-slate-400 text-xs mb-0.5 flex items-center gap-1">
+                  <p className="font-medium text-[var(--muted-foreground)] text-[11px] mb-0.5 flex items-center gap-1">
                     例文
                     <button
                       onClick={() => speakText(w.example_sentence)}
-                      className="p-1 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 text-indigo-500 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition"
+                      className="p-1 rounded-md bg-[var(--accent)]/10 text-[var(--accent)] hover:bg-[var(--accent)]/20 transition"
                     >
                       <Volume2 className="w-3 h-3" />
                     </button>
                   </p>
-                  <p className="text-slate-700 dark:text-slate-300 break-words text-xs leading-relaxed">{w.example_sentence}</p>
+                  <p className="text-[var(--foreground)] break-words text-[11px] leading-relaxed">{w.example_sentence}</p>
                 </div>
               )}
               {w.translation && (
                 <div>
-                  <p className="font-medium text-slate-500 dark:text-slate-400 text-xs mb-0.5">訳</p>
-                  <p className="text-slate-700 dark:text-slate-300 break-words text-xs">{w.translation}</p>
+                  <p className="font-medium text-[var(--muted-foreground)] text-[11px] mb-0.5">訳</p>
+                  <p className="text-[var(--foreground)] break-words text-[11px]">{w.translation}</p>
                 </div>
               )}
               {w.synonyms && (
                 <div className="flex items-center gap-1.5 flex-wrap mt-1">
-                  <span className="text-xs font-semibold text-purple-600 dark:text-purple-400">類義語:</span>
+                  <span className="text-[11px] font-semibold text-[var(--accent)]">類義語:</span>
                   {w.synonyms.split(",").map((s: string, i: number) => (
-                    <span key={i} className="text-xs bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 px-2 py-0.5 rounded-full border border-purple-200 dark:border-purple-800">
+                    <span key={i} className="text-[11px] bg-[var(--accent)]/10 text-[var(--accent)] px-2 py-0.5 rounded border border-[var(--accent)]/20">
                       {s.trim()}
                     </span>
                   ))}
@@ -474,9 +474,9 @@ export default function WordListPage() {
             </div>
 
             {/* 正解率 */}
-            <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
-              <div className="flex items-center justify-between text-xs">
-                <div className="flex gap-3 text-slate-500 dark:text-slate-400">
+            <div className="mt-3 pt-3 border-t border-[var(--border)]">
+              <div className="flex items-center justify-between text-[11px]">
+                <div className="flex gap-3 text-[var(--muted-foreground)]">
                   <span>正解 <strong className="text-emerald-600 dark:text-emerald-400">{w.correct_count}</strong></span>
                   <span>誤答 <strong className="text-red-500 dark:text-red-400">{w.wrong}</strong></span>
                 </div>
@@ -485,7 +485,7 @@ export default function WordListPage() {
                     w.successRate >= 0.8
                       ? "text-emerald-600 dark:text-emerald-400"
                       : w.successRate >= 0.5
-                      ? "text-yellow-600 dark:text-yellow-400"
+                      ? "text-[var(--accent)]"
                       : "text-red-600 dark:text-red-400"
                   }`}
                 >
@@ -499,7 +499,7 @@ export default function WordListPage() {
               <div className="flex gap-1.5">
                 <button
                   onClick={() => speakText(w.word)}
-                  className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 text-indigo-500 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition"
+                  className="p-1.5 rounded-lg bg-[var(--accent)]/10 text-[var(--accent)] hover:bg-[var(--accent)]/20 transition"
                 >
                   <Volume2 className="w-4 h-4" />
                 </button>
@@ -517,8 +517,8 @@ export default function WordListPage() {
           animate={{ opacity: 1 }}
           className="text-center py-20"
         >
-          <Library className="w-16 h-16 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
-          <p className="text-slate-500 dark:text-slate-400 font-medium text-lg">
+          <Library className="w-12 h-12 text-[var(--muted-foreground)] opacity-20 mx-auto mb-4" />
+          <p className="text-[var(--muted-foreground)] font-medium text-base">
             {search || selectedPart || selectedImportance
               ? "条件に一致する単語がありません"
               : "まだ単語が登録されていません"
@@ -527,7 +527,7 @@ export default function WordListPage() {
           {!search && !selectedPart && !selectedImportance && (
             <button
               onClick={() => router.push("/words/register")}
-              className="mt-4 px-6 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-xl font-bold hover:opacity-90 transition shadow-lg shadow-indigo-200 dark:shadow-indigo-900/30"
+              className="mt-4 px-5 py-2.5 bg-[var(--primary)] text-[var(--primary-foreground)] rounded-lg font-semibold text-sm hover:opacity-90 transition"
             >
               単語を登録する
             </button>

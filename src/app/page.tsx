@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import {
   Trophy,
   Flame,
@@ -15,7 +15,6 @@ import {
   Activity,
   Sparkles,
   TrendingUp,
-  Quote,
   LogIn,
   AlertTriangle,
 } from "lucide-react";
@@ -40,57 +39,29 @@ interface UserStats {
 // =============================
 // 時間帯別グリーティング
 // =============================
-function getGreeting(): { text: string; emoji: string; subText: string } {
+function getGreeting(): { text: string; subText: string } {
   const hour = new Date().getHours();
   if (hour >= 5 && hour < 12) {
     return {
       text: "おはようございます",
-      emoji: "☀️",
-      subText: "朝の学習は記憶に残りやすいです。今日も一歩前進しましょう！",
+      subText: "朝の学習は記憶に残りやすいです",
     };
   } else if (hour >= 12 && hour < 17) {
     return {
       text: "こんにちは",
-      emoji: "💪",
-      subText: "午後も集中して、目標に向かって進みましょう！",
+      subText: "午後も集中して進めましょう",
     };
   } else if (hour >= 17 && hour < 21) {
     return {
       text: "おつかれさまです",
-      emoji: "🌆",
-      subText: "今日の復習を忘れずに。努力は必ず実を結びます！",
+      subText: "今日の復習を忘れずに",
     };
   } else {
     return {
       text: "おつかれさまです",
-      emoji: "🌙",
-      subText: "夜の静かな時間に、じっくり学びましょう。",
+      subText: "夜の静かな時間にじっくり学びましょう",
     };
   }
-}
-
-// =============================
-// モチベーション名言
-// =============================
-const MOTIVATIONAL_QUOTES = [
-  { text: "千里の道も一歩から", author: "老子" },
-  { text: "継続は力なり", author: "ことわざ" },
-  { text: "努力は裏切らない", author: "ことわざ" },
-  { text: "失敗は成功のもと", author: "ことわざ" },
-  { text: "今日の一歩が、未来の大きな飛躍になる", author: "" },
-  { text: "小さな進歩が、大きな成果を生む", author: "" },
-  { text: "昨日の自分を超えよう", author: "" },
-  { text: "学びに遅すぎることはない", author: "" },
-  { text: "毎日の積み重ねが、あなたの実力になる", author: "" },
-  { text: "目標を見失うな。一問一答が力になる", author: "" },
-];
-
-function getDailyQuote() {
-  const today = new Date();
-  const dayOfYear = Math.floor(
-    (today.getTime() - new Date(today.getFullYear(), 0, 0).getTime()) / 86400000
-  );
-  return MOTIVATIONAL_QUOTES[dayOfYear % MOTIVATIONAL_QUOTES.length];
 }
 
 // =============================
@@ -100,8 +71,8 @@ const ProgressRing = ({
   progress,
   size = 120,
   strokeWidth = 8,
-  color = "stroke-indigo-500",
-  bgColor = "stroke-slate-200 dark:stroke-slate-700",
+  color = "stroke-[var(--accent)]",
+  bgColor = "stroke-[var(--border)]",
   children,
 }: {
   progress: number;
@@ -136,7 +107,7 @@ const ProgressRing = ({
           className={color}
           initial={{ strokeDashoffset: circumference }}
           animate={{ strokeDashoffset: offset }}
-          transition={{ duration: 1.2, ease: "easeOut" }}
+          transition={{ duration: 1, ease: "easeOut" }}
           style={{ strokeDasharray: circumference }}
         />
       </svg>
@@ -148,116 +119,115 @@ const ProgressRing = ({
 };
 
 // =============================
-// Components
+// StatCard
 // =============================
-
 const StatCard = ({
   title,
   value,
   icon: Icon,
-  color,
-  delay = 0,
   subtitle,
+  accentColor = "text-[var(--accent)]",
+  delay = 0,
 }: {
   title: string;
   value: string | number;
   icon: any;
-  color: string;
-  delay?: number;
   subtitle?: string;
+  accentColor?: string;
+  delay?: number;
 }) => (
   <motion.div
-    initial={{ opacity: 0, y: 20 }}
+    initial={{ opacity: 0, y: 12 }}
     animate={{ opacity: 1, y: 0 }}
-    transition={{ duration: 0.5, delay }}
-    className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-lg border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm hover:shadow-md transition-all"
+    transition={{ duration: 0.3, delay }}
+    className="bg-[var(--card)] border border-[var(--border)] p-4 rounded-xl"
   >
-    <div className="flex items-center justify-between mb-4">
-      <div className={cn("p-3 rounded-xl bg-opacity-10", color)}>
-        <Icon className={cn("w-6 h-6", color.replace("bg-", "text-"))} />
-      </div>
-      <span className="text-xs font-medium text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-full">
+    <div className="flex items-center justify-between mb-3">
+      <Icon className={cn("w-4 h-4", accentColor)} />
+      <span className="text-[11px] font-medium text-[var(--muted-foreground)]">
         {title}
       </span>
     </div>
-    <div className="text-3xl font-bold text-slate-900 dark:text-white mb-1">
+    <div className="text-2xl font-bold text-[var(--foreground)]">
       {value}
     </div>
-    <div className="text-sm text-slate-500 dark:text-slate-400">
-      {subtitle || "たった今更新"}
-    </div>
+    {subtitle && (
+      <div className="text-[11px] text-[var(--muted-foreground)] mt-0.5">
+        {subtitle}
+      </div>
+    )}
   </motion.div>
 );
 
+// =============================
+// ActionCard
+// =============================
 const ActionCard = ({
   title,
   desc,
   icon: Icon,
-  gradient,
   onClick,
   delay = 0,
   disabled = false,
+  accentColor = "var(--accent)",
 }: {
   title: string;
   desc: string;
   icon: any;
-  gradient: string;
   onClick: () => void;
   delay?: number;
   disabled?: boolean;
+  accentColor?: string;
 }) => (
   <motion.button
-    initial={{ opacity: 0, x: -20 }}
-    animate={{ opacity: 1, x: 0 }}
-    transition={{ duration: 0.5, delay }}
+    initial={{ opacity: 0, y: 12 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.3, delay }}
     onClick={(e: React.MouseEvent) => {
       if (disabled) {
         e.preventDefault();
         toast(`「${title}」は現在開発中です！\nリリースまで楽しみにお待ちください🚀`, {
           icon: '🛠️',
-          style: {
-            borderRadius: '10px',
-            background: '#333',
-            color: '#fff',
-          },
+          style: { borderRadius: '8px', background: 'var(--card)', color: 'var(--foreground)', border: '1px solid var(--border)' },
         });
         return;
       }
       onClick();
     }}
     className={cn(
-      "group relative overflow-hidden text-left p-6 rounded-3xl transition-all duration-300 w-full",
-      gradient,
-      disabled ? "grayscale opacity-60 cursor-not-allowed" : "transform hover:scale-[1.02] hover:shadow-xl"
+      "group text-left p-5 rounded-xl transition-all w-full border bg-[var(--card)]",
+      disabled
+        ? "opacity-40 cursor-not-allowed border-[var(--border)]"
+        : "border-[var(--border)] hover:border-[var(--accent)]/30 hover:shadow-md"
     )}
   >
-    <div className="absolute inset-0 bg-white/10 dark:bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity" />
-    <div className="relative z-10 flex items-start justify-between">
-      <div>
-        <div className="bg-white/20 p-3 rounded-2xl inline-block mb-4 backdrop-blur-md">
-          <Icon className="w-8 h-8 text-white" />
+    <div className="flex items-start justify-between">
+      <div className="flex-1">
+        <div
+          className="w-9 h-9 rounded-lg flex items-center justify-center mb-3"
+          style={{ backgroundColor: `color-mix(in srgb, ${accentColor} 12%, transparent)` }}
+        >
+          <Icon className="w-[18px] h-[18px]" style={{ color: accentColor }} />
         </div>
-        <h3 className="text-2xl font-bold text-white mb-2">{title}</h3>
-        <p className="text-white/80 text-sm font-medium leading-relaxed max-w-[90%]">
+        <h3 className="text-base font-bold text-[var(--foreground)] mb-1">{title}</h3>
+        <p className="text-[12px] text-[var(--muted-foreground)] leading-relaxed">
           {desc}
         </p>
       </div>
-      <div className="bg-white/20 p-2 rounded-full backdrop-blur-md transform group-hover:translate-x-1 transition-transform">
-        <ChevronRight className="w-6 h-6 text-white" />
-      </div>
+      <ChevronRight className="w-4 h-4 text-[var(--muted-foreground)] mt-1 group-hover:translate-x-0.5 transition-transform shrink-0 ml-3" />
     </div>
   </motion.button>
 );
 
 // =============================
-// ストリークの色
+// ストリークスタイル
 // =============================
-function getStreakStyle(streak: number) {
-  if (streak >= 30) return { color: "text-violet-500", bgColor: "bg-violet-50 dark:bg-violet-900/30", borderColor: "border-violet-100 dark:border-violet-800", label: "🌈 伝説的！" };
-  if (streak >= 14) return { color: "text-red-500", bgColor: "bg-red-50 dark:bg-red-900/30", borderColor: "border-red-100 dark:border-red-800", label: "🔥 すごい！" };
-  if (streak >= 7) return { color: "text-orange-500", bgColor: "bg-orange-50 dark:bg-orange-900/30", borderColor: "border-orange-100 dark:border-orange-800", label: "💪 いい感じ！" };
-  if (streak >= 3) return { color: "text-yellow-500", bgColor: "bg-yellow-50 dark:bg-yellow-900/30", borderColor: "border-yellow-100 dark:border-yellow-800", label: "✨ 調子いい！" };
-  return { color: "text-slate-400", bgColor: "bg-slate-50 dark:bg-slate-800", borderColor: "border-slate-100 dark:border-slate-700", label: "" };
+function getStreakLabel(streak: number) {
+  if (streak >= 30) return "🌈 伝説的！";
+  if (streak >= 14) return "🔥 すごい！";
+  if (streak >= 7) return "💪 いい感じ！";
+  if (streak >= 3) return "✨ 調子いい！";
+  return "";
 }
 
 export default function Dashboard() {
@@ -271,7 +241,6 @@ export default function Dashboard() {
   const [showOnboarding, setShowOnboarding] = useState(false);
 
   const greeting = getGreeting();
-  const dailyQuote = getDailyQuote();
 
   useEffect(() => {
     const fetchUserParams = async () => {
@@ -280,7 +249,6 @@ export default function Dashboard() {
       } = await supabase.auth.getSession();
 
       if (!session) {
-        // ゲストモード判定
         const guestFlag = localStorage.getItem("guestMode");
         if (guestFlag === "true") {
           setIsGuest(true);
@@ -300,17 +268,14 @@ export default function Dashboard() {
         return;
       }
 
-      // ログイン済みの場合はゲストフラグを解除
       localStorage.removeItem("guestMode");
       setIsGuest(false);
 
-      // 初回オンボーディング判定
       const onboardingDone = localStorage.getItem("onboarding_done");
       if (!onboardingDone) {
         setShowOnboarding(true);
       }
 
-      // Fetch real stats
       let { data, error } = await supabase
         .from("user_stats")
         .select("*")
@@ -318,7 +283,6 @@ export default function Dashboard() {
         .maybeSingle();
 
       if (!data) {
-        // Initialize stats if they don't exist
         const { data: newData, error: insertError } = await supabase
           .from("user_stats")
           .upsert({
@@ -343,7 +307,6 @@ export default function Dashboard() {
 
       if (data) {
         setStats(data);
-        // ニックネームがあればそれを使用、なければメールアドレスの@前
         setUserName(data.nickname || session.user.email?.split("@")[0] || "ユーザー");
       } else {
         setUserName(session.user.email?.split("@")[0] || "ユーザー");
@@ -371,7 +334,6 @@ export default function Dashboard() {
         .gte("activity_date", startDate)
         .order("activity_date", { ascending: true });
 
-      // アクティビティデータをMapに変換
       const dataMap = new Map<string, number>();
       (activityData ?? []).forEach((log: any) => {
         const key = log.activity_date;
@@ -379,7 +341,6 @@ export default function Dashboard() {
       });
 
       if (chartPeriod === "year") {
-        // 年間表示: 過去12ヶ月を0埋め
         const now = new Date();
         const monthlyData: { name: string; xp: number }[] = [];
         const monthlyMap = new Map<string, number>();
@@ -396,7 +357,6 @@ export default function Dashboard() {
         }
         setChartData(monthlyData);
       } else if (chartPeriod === "month") {
-        // 月間表示: 過去30日を0埋め
         const result: { name: string; xp: number }[] = [];
         for (let i = 29; i >= 0; i--) {
           const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
@@ -406,7 +366,6 @@ export default function Dashboard() {
         }
         setChartData(result);
       } else {
-        // 週間表示: 過去7日を0埋め
         const result: { name: string; xp: number }[] = [];
         for (let i = 6; i >= 0; i--) {
           const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
@@ -426,19 +385,17 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-[var(--accent)] border-t-transparent"></div>
       </div>
     );
   }
 
-  // XP Progress
   const currentXp = stats?.total_xp || 0;
   const xpForCurrentLevel = ((stats?.level || 1) - 1) * 1000;
   const xpForNextLevel = (stats?.level || 1) * 1000;
   const xpProgress = (currentXp - xpForCurrentLevel) / (xpForNextLevel - xpForCurrentLevel);
 
-  // Daily Goal Progress
   const goalProgress = stats
     ? stats.daily_goal_target > 0
       ? stats.daily_goal_current / stats.daily_goal_target
@@ -446,30 +403,22 @@ export default function Dashboard() {
     : 0;
   const goalComplete = goalProgress >= 1;
 
-  // Streak Style
-  const streakStyle = getStreakStyle(stats?.streak_current || 0);
+  const streakLabel = getStreakLabel(stats?.streak_current || 0);
 
   return (
-    <div className="min-h-screen pb-20">
-      {/* オンボーディングポップアップ */}
+    <div className="pb-20">
       <OnboardingPopup isOpen={showOnboarding} onClose={() => setShowOnboarding(false)} />
 
       {/* ゲストモードバナー */}
       {isGuest && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-6 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-4 flex items-center gap-3"
-        >
-          <div className="p-2 bg-amber-100 dark:bg-amber-900/40 rounded-xl shrink-0">
-            <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400" />
-          </div>
-          <div className="flex-1">
-            <p className="text-sm font-bold text-amber-800 dark:text-amber-200">
+        <div className="mb-5 bg-amber-500/8 border border-amber-500/20 rounded-xl p-3.5 flex items-center gap-3">
+          <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-[13px] font-semibold text-amber-700 dark:text-amber-300">
               ゲストモードで利用中
             </p>
-            <p className="text-xs text-amber-600 dark:text-amber-400">
-              データの保存・記録はできません。ログインすると全機能をご利用いただけます。
+            <p className="text-[11px] text-amber-600/80 dark:text-amber-400/80">
+              データの保存・記録はできません
             </p>
           </div>
           <button
@@ -477,77 +426,67 @@ export default function Dashboard() {
               localStorage.removeItem("guestMode");
               router.push("/auth/login");
             }}
-            className="flex items-center gap-1.5 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-bold rounded-xl transition shrink-0"
+            className="flex items-center gap-1 px-3 py-1.5 bg-amber-500 text-white text-[12px] font-semibold rounded-lg hover:bg-amber-600 transition shrink-0"
           >
-            <LogIn className="w-4 h-4" />
+            <LogIn className="w-3.5 h-3.5" />
             ログイン
           </button>
-        </motion.div>
+        </div>
       )}
 
-      {/* Header Section */}
-      <header className="mb-8">
+      {/* ヘッダー */}
+      <header className="mb-6">
         <motion.div
-          initial={{ opacity: 0, y: -20 }}
+          initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex items-center justify-between"
+          transition={{ duration: 0.3 }}
         >
-          <div>
-            <h1 className="text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight mb-2">
-              {greeting.text}、<span className="text-indigo-600 dark:text-indigo-400">{userName}</span> さん {greeting.emoji}
-            </h1>
-            <p className="text-slate-600 dark:text-slate-400 text-lg">
-              {greeting.subText}
-            </p>
-          </div>
-          <div className="hidden sm:block">
-            <div className={cn(
-              "flex items-center space-x-2 px-4 py-2 rounded-full border transition-all",
-              streakStyle.bgColor, streakStyle.borderColor,
-              (stats?.streak_current || 0) >= 3 && "animate-pulse-glow"
-            )}>
-              <Flame className={cn(
-                "w-5 h-5 fill-current",
-                streakStyle.color,
-                (stats?.streak_current || 0) >= 7 && "animate-streak-fire"
-              )} />
-              <span className="font-bold text-slate-900 dark:text-slate-100">
-                {stats?.streak_current || 0} 日連続
-              </span>
-              {streakStyle.label && (
-                <span className="text-xs font-medium">{streakStyle.label}</span>
-              )}
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-[13px] text-[var(--muted-foreground)] mb-0.5">{greeting.subText}</p>
+              <h1 className="text-2xl font-bold text-[var(--foreground)] tracking-tight">
+                {greeting.text}、<span className="text-[var(--accent)]">{userName}</span> さん
+              </h1>
             </div>
+            {(stats?.streak_current || 0) > 0 && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-orange-500/10 border border-orange-500/20">
+                <Flame className="w-3.5 h-3.5 text-orange-500 fill-orange-500" />
+                <span className="text-[12px] font-bold text-[var(--foreground)]">
+                  {stats?.streak_current}日連続
+                </span>
+                {streakLabel && (
+                  <span className="text-[11px]">{streakLabel}</span>
+                )}
+              </div>
+            )}
           </div>
         </motion.div>
       </header>
 
-      {/* Daily Goal Ring + XP Progress Row */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8"
-      >
-        {/* 今日の目標リング */}
-        <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-lg border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm flex items-center gap-6">
+      {/* 目標 + XP */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        {/* 今日の目標 */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+          className="bg-[var(--card)] border border-[var(--border)] p-5 rounded-xl flex items-center gap-5"
+        >
           <ProgressRing
             progress={goalProgress}
-            size={100}
-            strokeWidth={8}
-            color={goalComplete ? "stroke-emerald-500" : "stroke-indigo-500"}
+            size={80}
+            strokeWidth={6}
+            color={goalComplete ? "stroke-emerald-500" : "stroke-[var(--accent)]"}
           >
             <div className="text-center">
               {goalComplete ? (
-                <div className="animate-float">
-                  <Trophy className="w-8 h-8 text-emerald-500 mx-auto" />
-                </div>
+                <Trophy className="w-6 h-6 text-emerald-500 mx-auto" />
               ) : (
                 <>
-                  <div className="text-xl font-extrabold text-slate-900 dark:text-white">
+                  <div className="text-lg font-bold text-[var(--foreground)]">
                     {stats?.daily_goal_current || 0}
                   </div>
-                  <div className="text-[10px] text-slate-400">
+                  <div className="text-[9px] text-[var(--muted-foreground)]">
                     / {stats?.daily_goal_target || 10}
                   </div>
                 </>
@@ -555,205 +494,192 @@ export default function Dashboard() {
             </div>
           </ProgressRing>
           <div className="flex-1">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">
-              今日の目標
-            </h3>
+            <h3 className="text-sm font-bold text-[var(--foreground)] mb-1">今日の目標</h3>
             {goalComplete ? (
-              <p className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
-                <Sparkles className="w-4 h-4" />
-                達成おめでとう！素晴らしい！🎉
+              <p className="text-emerald-600 dark:text-emerald-400 text-[13px] font-semibold flex items-center gap-1">
+                <Sparkles className="w-3.5 h-3.5" />
+                達成おめでとう！🎉
               </p>
             ) : (
-              <p className="text-slate-500 dark:text-slate-400 text-sm">
-                あと <span className="font-bold text-indigo-600 dark:text-indigo-400">{Math.max(0, (stats?.daily_goal_target || 10) - (stats?.daily_goal_current || 0))}</span> 問で目標達成！
+              <p className="text-[13px] text-[var(--muted-foreground)]">
+                あと <span className="font-bold text-[var(--accent)]">{Math.max(0, (stats?.daily_goal_target || 10) - (stats?.daily_goal_current || 0))}</span> 問で目標達成
               </p>
             )}
           </div>
-        </div>
+        </motion.div>
 
-        {/* XPレベルアッププログレス */}
-        <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-lg border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm">
+        {/* XPレベル */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="bg-[var(--card)] border border-[var(--border)] p-5 rounded-xl"
+        >
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <div className="p-2 rounded-xl bg-gradient-to-br from-yellow-400 to-orange-500 shadow-lg shadow-yellow-200 dark:shadow-yellow-900/30">
-                <Star className="w-5 h-5 text-white fill-white" />
+              <div className="w-7 h-7 rounded-lg bg-[var(--accent)]/10 flex items-center justify-center">
+                <Star className="w-3.5 h-3.5 text-[var(--accent)]" />
               </div>
-              <div>
-                <span className="text-2xl font-extrabold text-slate-900 dark:text-white">
-                  Lv. {stats?.level || 1}
-                </span>
-              </div>
+              <span className="text-lg font-bold text-[var(--foreground)]">
+                Lv. {stats?.level || 1}
+              </span>
             </div>
-            <div className="flex items-center gap-1 bg-yellow-50 dark:bg-yellow-900/20 px-3 py-1.5 rounded-full">
-              <Zap className="w-4 h-4 text-yellow-500" />
-              <span className="text-sm font-bold text-yellow-700 dark:text-yellow-300">
+            <div className="flex items-center gap-1 bg-[var(--accent)]/8 px-2 py-1 rounded-md">
+              <Zap className="w-3 h-3 text-[var(--accent)]" />
+              <span className="text-[12px] font-bold text-[var(--accent)]">
                 {stats?.total_xp || 0} XP
               </span>
             </div>
           </div>
-          <div className="mb-2">
-            <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400 mb-1">
+          <div className="mb-1.5">
+            <div className="flex justify-between text-[11px] text-[var(--muted-foreground)] mb-1">
               <span>次のレベルまで</span>
-              <span className="font-bold">{xpForNextLevel - currentXp} XP</span>
+              <span className="font-semibold">{xpForNextLevel - currentXp} XP</span>
             </div>
-            <div className="h-3 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+            <div className="h-2 bg-[var(--secondary)] rounded-full overflow-hidden">
               <motion.div
-                className="h-full rounded-full bg-gradient-to-r from-yellow-400 via-orange-400 to-pink-500 animate-shimmer"
-                style={{
-                  backgroundImage: "linear-gradient(90deg, #facc15, #fb923c, #ec4899, #facc15)",
-                }}
+                className="h-full rounded-full bg-[var(--accent)]"
                 initial={{ width: 0 }}
                 animate={{ width: `${Math.min(xpProgress * 100, 100)}%` }}
-                transition={{ duration: 1, ease: "easeOut" }}
+                transition={{ duration: 0.8, ease: "easeOut" }}
               />
             </div>
           </div>
-          <p className="text-xs text-slate-400 dark:text-slate-500">
+          <p className="text-[11px] text-[var(--muted-foreground)]">
             {currentXp - xpForCurrentLevel} / {xpForNextLevel - xpForCurrentLevel} XP
           </p>
-        </div>
-      </motion.div>
+        </motion.div>
+      </div>
 
-      {/* 名言カード */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-        className="mb-8"
-      >
-        <div className="bg-gradient-to-r from-indigo-500/10 via-violet-500/10 to-purple-500/10 dark:from-indigo-900/30 dark:via-violet-900/30 dark:to-purple-900/30 border border-indigo-100 dark:border-indigo-900/50 rounded-2xl p-5 flex items-start gap-4">
-          <div className="p-2.5 rounded-xl bg-indigo-100 dark:bg-indigo-900/40 shrink-0">
-            <Quote className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-          </div>
-          <div>
-            <p className="text-lg font-bold text-slate-900 dark:text-white mb-1 italic">
-              「{dailyQuote.text}」
-            </p>
-            {dailyQuote.author && (
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                — {dailyQuote.author}
-              </p>
-            )}
-          </div>
-        </div>
-      </motion.div>
-
-      {/* Quick Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+      {/* 統計カード */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         <StatCard
-          title="現在のストリーク"
+          title="ストリーク"
           value={`${stats?.streak_current || 0} 日`}
           icon={Flame}
-          color="bg-orange-500 text-orange-500"
-          delay={0.3}
-          subtitle={stats?.streak_max ? `最高記録: ${stats.streak_max} 日` : ""}
+          accentColor="text-orange-500"
+          delay={0.15}
+          subtitle={stats?.streak_max ? `最高: ${stats.streak_max} 日` : undefined}
         />
         <StatCard
           title="今日の目標"
           value={`${stats?.daily_goal_current || 0} / ${stats?.daily_goal_target || 10}`}
           icon={Target}
-          color="bg-emerald-500 text-emerald-500"
-          delay={0.4}
-          subtitle={goalComplete ? "🎉 達成済み！" : `残り ${Math.max(0, (stats?.daily_goal_target || 10) - (stats?.daily_goal_current || 0))} 問`}
+          accentColor="text-emerald-500"
+          delay={0.2}
+          subtitle={goalComplete ? "🎉 達成済み" : `残り ${Math.max(0, (stats?.daily_goal_target || 10) - (stats?.daily_goal_current || 0))} 問`}
         />
         <StatCard
           title="合計 XP"
           value={stats?.total_xp || 0}
           icon={Zap}
-          color="bg-yellow-500 text-yellow-500"
-          delay={0.5}
+          accentColor="text-[var(--accent)]"
+          delay={0.25}
           subtitle={`Lv. ${stats?.level || 1}`}
         />
         <StatCard
-          title="現在のレベル"
+          title="レベル"
           value={`Lv. ${stats?.level || 1}`}
           icon={Trophy}
-          color="bg-indigo-500 text-indigo-500"
-          delay={0.6}
-          subtitle={`次のレベルまで ${xpForNextLevel - currentXp} XP`}
+          accentColor="text-violet-500"
+          delay={0.3}
+          subtitle={`次まで ${xpForNextLevel - currentXp} XP`}
         />
       </div>
 
-      {/* Main Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+      {/* アクションカード */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
         <ActionCard
-          title="Part5強化モード"
-          desc="AIがパート5形式で問題を出題します。文法・語彙力を鍛えましょう。"
+          title="Part5 強化モード"
+          desc="AIがパート5形式で問題を出題。文法・語彙力を鍛えましょう。"
           icon={BookOpen}
-          gradient="bg-gradient-to-br from-indigo-600 to-violet-600"
+          accentColor="var(--accent)"
           onClick={() => router.push("/words/ai_teacher")}
-          delay={0.7}
+          delay={0.35}
           disabled={false}
         />
         <ActionCard
           title="単語復習モード"
-          desc="苦手な単語を重点的に復習。忘却曲線に基づいた効率的な学習が可能です。"
+          desc="苦手な単語を重点的に復習。忘却曲線に基づいた効率的な学習。"
           icon={Activity}
-          gradient="bg-gradient-to-br from-emerald-500 to-teal-600"
+          accentColor="#22c55e"
           onClick={() => router.push("/words/review")}
-          delay={0.8}
+          delay={0.4}
           disabled={false}
         />
       </div>
 
-      {/* Progress Section */}
+      {/* チャート */}
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.9 }}
-        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 shadow-sm"
+        transition={{ delay: 0.45 }}
+        className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-5"
       >
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <TrendingUp className="w-6 h-6 text-indigo-500" />
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-base font-bold text-[var(--foreground)] flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 text-[var(--accent)]" />
             {chartPeriod === "week" ? "週間" : chartPeriod === "month" ? "月間" : "年間"}学習進捗
           </h2>
-          <select
-            value={chartPeriod}
-            onChange={(e) => setChartPeriod(e.target.value as "week" | "month" | "year")}
-            className="bg-slate-100 dark:bg-slate-800 border-none text-slate-600 dark:text-slate-400 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 cursor-pointer"
-          >
-            <option value="week">今週</option>
-            <option value="month">今月</option>
-            <option value="year">今年</option>
-          </select>
+          <div className="flex gap-1">
+            {(["week", "month", "year"] as const).map((period) => (
+              <button
+                key={period}
+                onClick={() => setChartPeriod(period)}
+                className={`px-3 py-1 rounded-md text-[12px] font-medium transition-colors ${
+                  chartPeriod === period
+                    ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
+                    : "text-[var(--muted-foreground)] hover:bg-[var(--secondary)]"
+                }`}
+              >
+                {period === "week" ? "週" : period === "month" ? "月" : "年"}
+              </button>
+            ))}
+          </div>
         </div>
         {chartData.length > 0 ? (
-          <div className="h-64 w-full">
+          <div className="h-56 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 data={chartData}
-                margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                margin={{ top: 5, right: 5, left: -25, bottom: 0 }}
               >
                 <XAxis
                   dataKey="name"
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fill: '#94a3b8', fontSize: 12 }}
+                  tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }}
                 />
                 <YAxis
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fill: '#94a3b8', fontSize: 12 }}
+                  tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }}
                 />
                 <Tooltip
-                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                  contentStyle={{
+                    borderRadius: '8px',
+                    border: '1px solid var(--border)',
+                    background: 'var(--card)',
+                    color: 'var(--foreground)',
+                    boxShadow: '0 4px 12px rgb(0 0 0 / 0.1)',
+                    fontSize: '12px',
+                  }}
                   cursor={{ fill: 'transparent' }}
                 />
                 <Bar
                   dataKey="xp"
-                  fill="#4f46e5"
-                  radius={[6, 6, 6, 6]}
-                  barSize={20}
+                  fill="var(--accent)"
+                  radius={[4, 4, 4, 4]}
+                  barSize={16}
                 />
               </BarChart>
             </ResponsiveContainer>
           </div>
         ) : (
-          <div className="h-64 flex flex-col items-center justify-center text-slate-400 dark:text-slate-500">
-            <Activity className="w-12 h-12 mb-3 opacity-30" />
-            <p className="font-medium">まだデータがありません</p>
-            <p className="text-sm">学習を始めると、ここに進捗が表示されます！</p>
+          <div className="h-56 flex flex-col items-center justify-center text-[var(--muted-foreground)]">
+            <Activity className="w-10 h-10 mb-2 opacity-20" />
+            <p className="text-sm font-medium">まだデータがありません</p>
+            <p className="text-[12px]">学習を始めると、ここに進捗が表示されます</p>
           </div>
         )}
       </motion.div>

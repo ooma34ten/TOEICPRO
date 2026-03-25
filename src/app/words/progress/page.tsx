@@ -42,16 +42,16 @@ type AggregatedData = {
 function CustomTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-xl p-3 shadow-xl border border-slate-200 dark:border-slate-700 text-sm">
-      <p className="font-bold text-slate-700 dark:text-slate-200 mb-1">{label}</p>
+    <div className="bg-[var(--card)] rounded-xl p-3 shadow-lg border border-[var(--border)] text-sm">
+      <p className="font-bold text-[var(--foreground)] mb-1">{label}</p>
       {payload.map((entry: any, idx: number) => (
         <div key={idx} className="flex items-center gap-2">
           <span
             className="w-2.5 h-2.5 rounded-full"
             style={{ backgroundColor: entry.color }}
           />
-          <span className="text-slate-500 dark:text-slate-400">{entry.name}:</span>
-          <span className="font-bold text-slate-900 dark:text-white">{entry.value}</span>
+          <span className="text-[var(--muted-foreground)]">{entry.name}:</span>
+          <span className="font-bold text-[var(--foreground)]">{entry.value}</span>
         </div>
       ))}
     </div>
@@ -198,25 +198,25 @@ export default function ProgressPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-950">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[var(--background)]">
         <motion.div
           animate={{ rotate: 360 }}
           transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
-          className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full mb-4"
+          className="w-8 h-8 border-2 border-[var(--accent)] border-t-transparent rounded-full mb-4"
         />
-        <p className="text-slate-500 dark:text-slate-400 font-medium">読み込み中...</p>
+        <p className="text-[var(--muted-foreground)] text-sm font-medium">読み込み中...</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50 dark:bg-slate-950">
-        <div className="bg-white dark:bg-slate-900 rounded-2xl p-8 shadow-xl text-center max-w-md border border-red-200 dark:border-red-800">
-          <p className="text-red-600 dark:text-red-400 font-medium">{error}</p>
+      <div className="min-h-screen flex items-center justify-center p-4 bg-[var(--background)]">
+        <div className="bg-[var(--card)] rounded-xl p-8 text-center max-w-md border border-red-500/20">
+          <p className="text-red-600 dark:text-red-400 text-sm font-medium">{error}</p>
           <button
             onClick={() => window.location.reload()}
-            className="mt-4 px-6 py-2 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition"
+            className="mt-4 px-6 py-2 bg-[var(--primary)] text-[var(--primary-foreground)] rounded-lg font-semibold text-sm hover:opacity-90 transition"
           >
             再読み込み
           </button>
@@ -226,26 +226,26 @@ export default function ProgressPage() {
   }
 
   const statCards = [
-    { label: "登録語数", value: count, icon: BookOpen, gradient: "from-indigo-500 to-blue-500", bgLight: "bg-indigo-50 dark:bg-indigo-900/20" },
-    { label: "完全記憶", value: mastered, icon: Award, gradient: "from-emerald-500 to-teal-500", bgLight: "bg-emerald-50 dark:bg-emerald-900/20" },
-    { label: "正答率", value: `${accuracy}%`, icon: TrendingUp, gradient: "from-amber-500 to-orange-500", bgLight: "bg-amber-50 dark:bg-amber-900/20" },
-    { label: "マスター率", value: count > 0 ? `${Math.round((mastered / count) * 100)}%` : "0%", icon: CheckCircle, gradient: "from-violet-500 to-purple-500", bgLight: "bg-violet-50 dark:bg-violet-900/20" },
+    { label: "登録語数", value: count, icon: BookOpen, gradient: "from-[var(--accent)] to-blue-500", bgLight: "bg-[var(--accent)]/10" },
+    { label: "完全記憶", value: mastered, icon: Award, gradient: "from-emerald-500 to-teal-500", bgLight: "bg-emerald-500/10" },
+    { label: "正答率", value: `${accuracy}%`, icon: TrendingUp, gradient: "from-amber-500 to-orange-500", bgLight: "bg-amber-500/10" },
+    { label: "マスター率", value: count > 0 ? `${Math.round((mastered / count) * 100)}%` : "0%", icon: CheckCircle, gradient: "from-violet-500 to-purple-500", bgLight: "bg-violet-500/10" },
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 p-4 md:p-6 pb-20">
+    <div className="min-h-screen bg-[var(--background)] p-4 md:p-6 pb-20">
       {/* ヘッダー */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         className="text-center mb-6"
       >
-        <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight mb-2">
+        <h1 className="text-2xl font-bold text-[var(--foreground)] mb-3">
           📊 学習進捗
         </h1>
-        <div className="inline-flex items-center gap-2 bg-white dark:bg-slate-900 px-4 py-2 rounded-full shadow-sm border border-slate-200 dark:border-slate-800">
+        <div className="inline-flex items-center gap-2 bg-[var(--card)] px-4 py-2 rounded-full border border-[var(--border)]">
           <span className="text-lg">{motivationMessage.emoji}</span>
-          <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
+          <p className="text-sm font-medium text-[var(--muted-foreground)]">
             {motivationMessage.text}
           </p>
         </div>
@@ -259,15 +259,15 @@ export default function ProgressPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: idx * 0.1 }}
-            className="bg-white dark:bg-slate-900 rounded-2xl p-4 shadow-sm border border-slate-200 dark:border-slate-800 hover:shadow-md transition-all"
+            className="bg-[var(--card)] rounded-xl p-4 border border-[var(--border)] hover:border-[var(--accent)]/30 transition-all"
           >
             <div className={`${card.bgLight} p-2 rounded-xl inline-flex mb-2`}>
               <card.icon className={`w-5 h-5 bg-gradient-to-r ${card.gradient} bg-clip-text`} style={{ color: `var(--tw-gradient-from)` }} />
             </div>
-            <div className={`text-2xl md:text-3xl font-extrabold bg-gradient-to-r ${card.gradient} bg-clip-text text-transparent`}>
+            <div className={`text-2xl font-bold bg-gradient-to-r ${card.gradient} bg-clip-text text-transparent`}>
               {card.value}
             </div>
-            <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-1">{card.label}</p>
+            <p className="text-xs font-medium text-[var(--muted-foreground)] mt-1">{card.label}</p>
           </motion.div>
         ))}
       </div>
@@ -279,8 +279,8 @@ export default function ProgressPage() {
             key={unit}
             onClick={() => setTimeUnit(unit)}
             className={`px-5 py-2 rounded-full font-bold text-sm transition-all ${timeUnit === unit
-                ? "bg-indigo-600 text-white shadow-lg shadow-indigo-200 dark:shadow-indigo-900/30 scale-105"
-                : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700"
+                ? "bg-[var(--accent)] text-white shadow-lg shadow-[var(--accent)]/20"
+                : "bg-[var(--card)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] border border-[var(--border)]"
               }`}
           >
             {unit === "day" ? "日別" : unit === "month" ? "月別" : "年別"}
@@ -300,15 +300,15 @@ export default function ProgressPage() {
                   <stop offset="100%" stopColor="#6366f1" stopOpacity={0.02} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
               <XAxis
                 dataKey="date"
                 axisLine={false}
                 tickLine={false}
-                tick={{ fill: "#94a3b8", fontSize: 11 }}
+                tick={{ fill: "var(--muted-foreground)", fontSize: 11 }}
               />
-              <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 11 }} />
-              <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 11 }} />
+              <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} />
+              <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} />
               <Tooltip content={<CustomTooltip />} />
               <Area
                 yAxisId="left"
@@ -342,15 +342,15 @@ export default function ProgressPage() {
                   <stop offset="100%" stopColor="#10b981" stopOpacity={0.02} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
               <XAxis
                 dataKey="date"
                 axisLine={false}
                 tickLine={false}
-                tick={{ fill: "#94a3b8", fontSize: 11 }}
+                tick={{ fill: "var(--muted-foreground)", fontSize: 11 }}
               />
-              <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 11 }} />
-              <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 11 }} />
+              <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} />
+              <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} />
               <Tooltip content={<CustomTooltip />} />
               <Area
                 yAxisId="right"
@@ -384,14 +384,14 @@ export default function ProgressPage() {
                   <stop offset="100%" stopColor="#f59e0b" stopOpacity={0.02} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
               <XAxis
                 dataKey="date"
                 axisLine={false}
                 tickLine={false}
-                tick={{ fill: "#94a3b8", fontSize: 11 }}
+                tick={{ fill: "var(--muted-foreground)", fontSize: 11 }}
               />
-              <YAxis axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 11 }} />
+              <YAxis axisLine={false} tickLine={false} tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} />
               <Tooltip content={<CustomTooltip />} />
               <Area
                 type="monotone"
@@ -427,11 +427,11 @@ function ChartBox({
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white dark:bg-slate-900 p-4 md:p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 hover:shadow-md transition-all"
+      className="bg-[var(--card)] p-4 md:p-6 rounded-xl border border-[var(--border)] shadow-sm"
     >
       <div className="mb-4">
-        <h2 className="text-lg font-bold text-slate-900 dark:text-white">{title}</h2>
-        <p className="text-xs text-slate-500 dark:text-slate-400">{subtitle}</p>
+        <h2 className="text-base font-bold text-[var(--foreground)]">{title}</h2>
+        <p className="text-[11px] text-[var(--muted-foreground)] mt-0.5">{subtitle}</p>
       </div>
       <div className="overflow-x-auto">
         <div className="min-w-[500px] h-[280px] md:h-[350px]">

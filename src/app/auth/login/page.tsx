@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import Link from "next/link";
-import { Loader2, UserCircle } from "lucide-react";
+import { Loader2, UserCircle, Mail, Lock } from "lucide-react";
 import { FcGoogle } from "react-icons/fc";
 
 export default function LoginPage() {
@@ -12,26 +12,19 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [msg, setMsg] = useState("");
-
-  // ローディング状態
   const [loading, setLoading] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
-
-  // モーダル制御
   const [showModal, setShowModal] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
   const [resetMsg, setResetMsg] = useState("");
-
   const passwordRef = useRef<HTMLInputElement | null>(null);
 
-  // 既にログイン中ならリダイレクト
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) router.replace("/");
     });
   }, [router]);
 
-  // Email/Password ログイン
   const handleLogin = async (e?: React.FormEvent) => {
     e?.preventDefault();
     setMsg("");
@@ -60,7 +53,6 @@ export default function LoginPage() {
     router.replace("/");
   };
 
-  // Googleログイン
   const handleGoogleLogin = async () => {
     setLoading(true);
     const { error } = await supabase.auth.signInWithOAuth({
@@ -71,7 +63,6 @@ export default function LoginPage() {
     if (error) setMsg("Googleログインに失敗しました: " + error.message);
   };
 
-  // パスワード再設定
   const handleResetPassword = async () => {
     setResetMsg("");
     if (!resetEmail) return setResetMsg("メールアドレスを入力してください。");
@@ -90,111 +81,143 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="w-full max-w-sm bg-white rounded-xl shadow p-6 relative">
-        <h1 className="text-2xl font-bold mb-4 text-center">ログイン</h1>
-
-        <form onSubmit={handleLogin}>
-          <input
-            className="w-full border rounded px-3 py-2 mb-3"
-            placeholder="メールアドレス"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                passwordRef.current?.focus();
-              }
-            }}
-          />
-          <input
-            ref={passwordRef}
-            type="password"
-            className="w-full border rounded px-3 py-2 mb-4"
-            placeholder="パスワード"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-          <button
-            type="submit"
-            disabled={loading}
-            className={`w-full py-2 rounded mb-2 flex items-center justify-center gap-2 ${
-              loading ? "bg-blue-400" : "bg-blue-600 hover:bg-blue-700"
-            } text-white transition`}
-          >
-            {loading && <Loader2 className="animate-spin" size={18} />}
-            ログイン
-          </button>
-        </form>
-
-        {/* Googleログイン */}
-        <button
-          type="button"
-          onClick={handleGoogleLogin}
-          disabled={loading}
-          className="w-full py-2 rounded mb-2 flex items-center justify-center gap-2 bg-red-500 hover:bg-red-600 text-white"
-        >
-          <FcGoogle size={20} />
-          Googleでログイン
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setShowModal(true)}
-          className="w-full text-center text-blue-500 mt-2 text-sm"
-        >
-          パスワードを忘れた場合
-        </button>
-
-        <p className="text-sm text-center text-gray-500 mt-3">
-          新規登録（無料）は{" "}
-          <Link href="/auth/register" className="text-blue-500">
-            こちら
-          </Link>
-        </p>
-
-        {/* ゲストモードボタン */}
-        <div className="mt-4 pt-4 border-t border-gray-200">
-          <button
-            type="button"
-            onClick={() => {
-              localStorage.setItem("guestMode", "true");
-              router.replace("/");
-            }}
-            className="w-full py-2.5 rounded-lg flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium transition border border-gray-300"
-          >
-            <UserCircle size={20} />
-            ゲストとして利用する
-          </button>
-          <p className="text-xs text-center text-gray-400 mt-2">
-            ※ゲストモードではデータの保存ができません
+    <div className="min-h-screen flex items-center justify-center bg-[var(--background)] px-4">
+      <div className="w-full max-w-[400px]">
+        {/* ブランディング */}
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-black tracking-tight mb-1">
+            TOEIC<span className="text-[var(--accent)]">PRO</span>
+          </h1>
+          <p className="text-[13px] text-[var(--muted-foreground)]">
+            AIと共にスコアアップを目指す
           </p>
         </div>
 
-        {msg && <p className="text-red-500 mt-3 text-center">{msg}</p>}
+        {/* カード */}
+        <div className="bg-[var(--card)] rounded-xl border border-[var(--border)] p-6 shadow-sm">
+          <h2 className="text-lg font-bold text-[var(--foreground)] mb-5">ログイン</h2>
+
+          <form onSubmit={handleLogin} className="space-y-3">
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted-foreground)]" />
+              <input
+                className="w-full pl-10 pr-4 py-2.5 bg-[var(--secondary)] border border-[var(--border)] rounded-lg text-[var(--foreground)] text-sm placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40 focus:border-[var(--accent)] transition"
+                placeholder="メールアドレス"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    passwordRef.current?.focus();
+                  }
+                }}
+              />
+            </div>
+            <div className="relative">
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted-foreground)]" />
+              <input
+                ref={passwordRef}
+                type="password"
+                className="w-full pl-10 pr-4 py-2.5 bg-[var(--secondary)] border border-[var(--border)] rounded-lg text-[var(--foreground)] text-sm placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40 focus:border-[var(--accent)] transition"
+                placeholder="パスワード"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-2.5 rounded-lg font-semibold text-sm bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90 disabled:opacity-50 transition flex items-center justify-center gap-2"
+            >
+              {loading && <Loader2 className="animate-spin" size={16} />}
+              ログイン
+            </button>
+          </form>
+
+          <div className="relative my-4">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-[var(--border)]" />
+            </div>
+            <div className="relative flex justify-center text-[11px]">
+              <span className="bg-[var(--card)] px-3 text-[var(--muted-foreground)]">または</span>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleGoogleLogin}
+            disabled={loading}
+            className="w-full py-2.5 rounded-lg flex items-center justify-center gap-2 bg-[var(--secondary)] border border-[var(--border)] text-[var(--foreground)] text-sm font-medium hover:bg-[var(--muted)] transition"
+          >
+            <FcGoogle size={18} />
+            Googleでログイン
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowModal(true)}
+            className="w-full text-center text-[var(--muted-foreground)] hover:text-[var(--foreground)] mt-4 text-[12px] transition-colors"
+          >
+            パスワードを忘れた場合
+          </button>
+
+          {msg && (
+            <div className="mt-3 p-3 rounded-lg bg-red-500/10 border border-red-500/20">
+              <p className="text-red-600 dark:text-red-400 text-[13px] text-center">{msg}</p>
+            </div>
+          )}
+        </div>
+
+        {/* 下部リンク */}
+        <div className="mt-4 space-y-3">
+          <p className="text-[13px] text-center text-[var(--muted-foreground)]">
+            アカウントをお持ちでない方は{" "}
+            <Link href="/auth/register" className="text-[var(--accent)] font-semibold hover:opacity-80 transition-opacity">
+              新規登録（無料）
+            </Link>
+          </p>
+
+          <div className="bg-[var(--card)] rounded-xl border border-[var(--border)] p-4">
+            <button
+              type="button"
+              onClick={() => {
+                localStorage.setItem("guestMode", "true");
+                router.replace("/");
+              }}
+              className="w-full py-2.5 rounded-lg flex items-center justify-center gap-2 bg-[var(--secondary)] hover:bg-[var(--muted)] text-[var(--foreground)] text-sm font-medium transition border border-[var(--border)]"
+            >
+              <UserCircle size={18} />
+              ゲストとして利用する
+            </button>
+            <p className="text-[11px] text-center text-[var(--muted-foreground)] mt-2">
+              ※ゲストモードではデータの保存ができません
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* パスワード再設定モーダル */}
       {showModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
-          <div className="bg-white rounded-xl shadow-lg w-full max-w-sm p-6 relative">
-            <h2 className="text-xl font-semibold mb-4">パスワード再設定</h2>
-            <input
-              type="email"
-              placeholder="メールアドレス"
-              className="w-full border rounded px-3 py-2 mb-4"
-              value={resetEmail}
-              onChange={(e) => setResetEmail(e.target.value)}
-            />
-            <div className="flex justify-between items-center">
+        <div className="fixed inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm z-50 p-4">
+          <div className="bg-[var(--card)] rounded-xl border border-[var(--border)] shadow-xl w-full max-w-sm p-6">
+            <h2 className="text-lg font-bold text-[var(--foreground)] mb-4">パスワード再設定</h2>
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted-foreground)]" />
+              <input
+                type="email"
+                placeholder="メールアドレス"
+                className="w-full pl-10 pr-4 py-2.5 bg-[var(--secondary)] border border-[var(--border)] rounded-lg text-[var(--foreground)] text-sm placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40 focus:border-[var(--accent)] transition mb-4"
+                value={resetEmail}
+                onChange={(e) => setResetEmail(e.target.value)}
+              />
+            </div>
+            <div className="flex gap-2">
               <button
                 onClick={handleResetPassword}
                 disabled={resetLoading}
-                className={`px-4 py-2 rounded text-white flex items-center justify-center gap-2 transition ${
-                  resetLoading ? "bg-blue-400" : "bg-blue-600 hover:bg-blue-700"
-                }`}
+                className="flex-1 py-2.5 rounded-lg font-semibold text-sm bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90 disabled:opacity-50 transition flex items-center justify-center gap-2"
               >
-                {resetLoading && <Loader2 className="animate-spin" size={18} />}
+                {resetLoading && <Loader2 className="animate-spin" size={16} />}
                 送信
               </button>
               <button
@@ -202,12 +225,12 @@ export default function LoginPage() {
                   setShowModal(false);
                   setResetMsg("");
                 }}
-                className="text-gray-500 hover:text-gray-700"
+                className="px-4 py-2.5 rounded-lg text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] bg-[var(--secondary)] hover:bg-[var(--muted)] transition"
               >
                 閉じる
               </button>
             </div>
-            {resetMsg && <p className="mt-3 text-sm text-gray-700">{resetMsg}</p>}
+            {resetMsg && <p className="mt-3 text-[13px] text-[var(--foreground)]">{resetMsg}</p>}
           </div>
         </div>
       )}

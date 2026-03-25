@@ -112,13 +112,14 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto p-6 space-y-8">
-      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-md p-6 border border-slate-200 dark:border-slate-800">
-        <h1 className="text-2xl font-bold mb-4 text-slate-900 dark:text-white">TOEIC単語登録</h1>
+    <div className="max-w-5xl mx-auto p-6 md:p-8 space-y-8">
+      <div className="bg-[var(--card)] rounded-2xl shadow-lg p-6 md:p-8 border border-[var(--border)]">
+        <h1 className="text-2xl font-bold mb-6 text-[var(--foreground)]">TOEIC単語登録</h1>
         <WordForm onAdd={handleAdd} />
       </div>
 
-      <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl shadow-md border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300">
+      <div className="bg-[var(--card)] p-5 rounded-2xl shadow-md border border-[var(--border)] text-[var(--muted-foreground)] flex items-center gap-3">
+        <div className="w-2 h-8 bg-[var(--accent)] rounded-full"></div>
         <p>
           登録語数: <b>{words.length}</b>
         </p>
@@ -127,60 +128,62 @@ export default function RegisterPage() {
       {errorMessage && <p className="text-red-500">{errorMessage}</p>}
 
       {rows.length > 0 && (
-        <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-md border border-slate-200 dark:border-slate-800">
-          <h2 className="text-xl font-semibold mb-4 text-slate-900 dark:text-white">生成履歴</h2>
-          <ul className="space-y-3">
+        <div className="bg-[var(--card)] p-6 md:p-8 rounded-2xl shadow-lg border border-[var(--border)]">
+          <h2 className="text-xl font-bold mb-6 text-[var(--foreground)] border-b border-[var(--border)] pb-3">生成履歴</h2>
+          <ul className="space-y-4">
             {rows
               .slice()
               .reverse()
               .map((row, idx) => (
                 <li
                   key={idx}
-                  className="border border-slate-200 dark:border-slate-700 p-4 rounded-xl bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition"
+                  className="border border-[var(--border)] p-5 rounded-xl bg-[var(--secondary)]/50 hover:bg-[var(--secondary)] transition shadow-sm"
                 >
-                  <p>
-                    <strong>単語:</strong> {row.word}
+                  <p className="text-[var(--foreground)] mb-1">
+                    <strong className="text-[var(--muted-foreground)] font-medium text-sm mr-2">単語:</strong>
+                    <span className="font-bold text-lg text-[var(--accent)]">{row.word}</span>
                   </p>
-                  <p>
-                    <strong>品詞:</strong> {row.part_of_speech}
+                  <p className="text-[var(--foreground)] mb-1">
+                    <strong className="text-[var(--muted-foreground)] font-medium text-sm mr-2">品詞:</strong>
+                    <span className="bg-[var(--primary)] text-[var(--primary-foreground)] px-2 py-0.5 rounded text-xs">{row.part_of_speech}</span>
                   </p>
-                  <p>
-                    <strong>意味:</strong> {row.meaning}
+                  <p className="text-[var(--foreground)] mb-1">
+                    <strong className="text-[var(--muted-foreground)] font-medium text-sm mr-2">意味:</strong> {row.meaning}
                   </p>
-                  <p>
-                    <strong>例文:</strong> {row.example}
+                  <p className="text-[var(--foreground)] mb-1">
+                    <strong className="text-[var(--muted-foreground)] font-medium text-sm mr-2">例文:</strong> <span className="italic">"{row.example}"</span>
                   </p>
-                  <p>
-                    <strong>翻訳:</strong> {row.translation}
+                  <p className="text-[var(--muted-foreground)] mb-1 text-sm">
+                    <strong className="font-medium mr-2">翻訳:</strong> {row.translation}
                   </p>
-                  <p>
-                    <strong>重要度:</strong> {row.importance}
+                  <p className="text-[var(--muted-foreground)] mb-3 text-sm">
+                    <strong className="font-medium mr-2">重要度:</strong> <span className="text-yellow-500">{row.importance}</span>
                   </p>
                   {row.synonyms && (
-                    <div className="flex items-center gap-2 flex-wrap mt-1">
-                      <span className="text-xs font-semibold text-purple-600">類義語:</span>
+                    <div className="flex items-center gap-2 flex-wrap mb-3">
+                      <span className="text-xs font-semibold text-[var(--muted-foreground)]">類義語:</span>
                       {row.synonyms.split(",").map((s: string, i: number) => (
-                        <span key={i} className="text-xs bg-purple-50 text-purple-700 px-2 py-0.5 rounded-full border border-purple-200">
+                        <span key={i} className="text-xs bg-[var(--primary)]/10 text-[var(--accent)] px-2 py-0.5 rounded-full border border-[var(--primary)]/20">
                           {s.trim()}
                         </span>
                       ))}
                     </div>
                   )}
                   {row.isAlreadyRegistered && (
-                    <span className="inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-700 border border-green-300">
+                    <span className="inline-block mb-3 px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
                       ✅ 登録済み
                     </span>
                   )}
-                  <div className="flex gap-2 mt-2">
+                  <div className="flex gap-2 mt-4 pt-4 border-t border-[var(--border)]">
                     <button
                       onClick={() => speakText(row.word)}
-                      className="flex items-center gap-1 bg-indigo-500 text-white px-3 py-1 rounded hover:bg-indigo-600 text-sm"
+                      className="flex items-center gap-1.5 bg-[var(--primary)] text-[var(--primary-foreground)] px-3 py-1.5 rounded-lg hover:opacity-90 text-sm shadow-sm transition"
                     >
                       <Volume2 size={14} /> 単語
                     </button>
                     <button
                       onClick={() => speakText(row.example)}
-                      className="flex items-center gap-1 bg-indigo-500 text-white px-3 py-1 rounded hover:bg-indigo-600 text-sm"
+                      className="flex items-center gap-1.5 bg-[var(--secondary)] text-[var(--foreground)] border border-[var(--border)] px-3 py-1.5 rounded-lg hover:bg-[var(--accent)]/10 hover:text-[var(--accent)] hover:border-[var(--accent)]/30 text-sm shadow-sm transition"
                     >
                       <Volume2 size={14} /> 例文
                     </button>

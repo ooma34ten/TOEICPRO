@@ -5,13 +5,13 @@ import LegalLayout from "../layout";
 export default function PrivacyPage() {
   return (
     <LegalLayout>
-      <h1 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6 text-center text-gray-800">
+      <h1 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6 text-center text-[var(--foreground)]">
         プライバシーポリシー
       </h1>
 
-      <div className="space-y-6 sm:space-y-8 text-gray-800 leading-relaxed text-sm sm:text-base">
+      <div className="space-y-6 sm:space-y-8 text-[var(--foreground)] leading-relaxed text-sm sm:text-base">
         <section>
-          <h2 className="text-lg sm:text-xl font-semibold text-blue-700 mb-2 border-l-4 border-blue-500 pl-3">
+          <h2 className="text-lg sm:text-xl font-semibold text-[var(--accent)] mb-2 border-l-4 border-[var(--accent)] pl-3">
             1. 収集する情報
           </h2>
           <ul className="list-disc pl-5 space-y-1">
@@ -24,7 +24,7 @@ export default function PrivacyPage() {
         </section>
 
         <section>
-          <h2 className="text-lg sm:text-xl font-semibold text-blue-700 mb-2 border-l-4 border-blue-500 pl-3">
+          <h2 className="text-lg sm:text-xl font-semibold text-[var(--accent)] mb-2 border-l-4 border-[var(--accent)] pl-3">
             2. 利用目的
           </h2>
           <ul className="list-disc pl-5 space-y-1">
@@ -36,7 +36,7 @@ export default function PrivacyPage() {
         </section>
 
         <section>
-          <h2 className="text-lg sm:text-xl font-semibold text-blue-700 mb-2 border-l-4 border-blue-500 pl-3">
+          <h2 className="text-lg sm:text-xl font-semibold text-[var(--accent)] mb-2 border-l-4 border-[var(--accent)] pl-3">
             3. 第三者提供・外部サービス連携
           </h2>
           <ul className="list-disc pl-5 space-y-1">
@@ -47,7 +47,7 @@ export default function PrivacyPage() {
         </section>
 
         <section>
-          <h2 className="text-lg sm:text-xl font-semibold text-blue-700 mb-2 border-l-4 border-blue-500 pl-3">
+          <h2 className="text-lg sm:text-xl font-semibold text-[var(--accent)] mb-2 border-l-4 border-[var(--accent)] pl-3">
             4. データの保管とセキュリティ
           </h2>
           <ul className="list-disc pl-5 space-y-1">
@@ -57,7 +57,7 @@ export default function PrivacyPage() {
         </section>
 
         <section>
-          <h2 className="text-lg sm:text-xl font-semibold text-blue-700 mb-2 border-l-4 border-blue-500 pl-3">
+          <h2 className="text-lg sm:text-xl font-semibold text-[var(--accent)] mb-2 border-l-4 border-[var(--accent)] pl-3">
             5. Cookieおよびアクセスログ
           </h2>
           <ul className="list-disc pl-5 space-y-1">
@@ -67,7 +67,7 @@ export default function PrivacyPage() {
         </section>
 
         <section>
-          <h2 className="text-lg sm:text-xl font-semibold text-blue-700 mb-2 border-l-4 border-blue-500 pl-3">
+          <h2 className="text-lg sm:text-xl font-semibold text-[var(--accent)] mb-2 border-l-4 border-[var(--accent)] pl-3">
             6. プライバシーポリシーの変更
           </h2>
           <ul className="list-disc pl-5 space-y-1">
@@ -77,11 +77,11 @@ export default function PrivacyPage() {
         </section>
 
         <section>
-          <h2 className="text-lg sm:text-xl font-semibold text-blue-700 mb-2 border-l-4 border-blue-500 pl-3">
+          <h2 className="text-lg sm:text-xl font-semibold text-[var(--accent)] mb-2 border-l-4 border-[var(--accent)] pl-3">
             お問い合わせ
           </h2>
-          <p className="text-gray-600">
-            プライバシーに関するお問い合わせは<span className="font-medium text-blue-600"> お問い合わせフォーム </span>よりご連絡ください。
+          <p className="text-[var(--muted-foreground)] text-sm">
+            プライバシーに関するお問い合わせは<span className="font-medium text-[var(--accent)]"> お問い合わせフォーム </span>よりご連絡ください。
           </p>
         </section>
       </div>
