@@ -60,7 +60,7 @@ export default function ContactPage() {
 
       if (res.ok) {
         setStatus("✅ 送信完了しました。ありがとうございます！");
-        setFormData({ name: "", email: "", message: "" });
+        setFormData(prev => ({ ...prev, email: "", message: "" }));
       } else {
         const data = await res.json();
         setStatus("❌ 送信失敗: " + (data.error || "不明なエラー"));
@@ -94,19 +94,12 @@ export default function ContactPage() {
       <form onSubmit={handleSubmit} className="space-y-5">
         {/* 名前 */}
         <div>
-          <label className="block mb-1.5 font-semibold text-[13px] text-[var(--muted-foreground)]">名前（ニックネーム可）</label>
-          <div className="flex items-center border border-[var(--border)] bg-[var(--secondary)] rounded-lg px-3 py-2.5 focus-within:ring-2 focus-within:ring-[var(--accent)]/40 transition">
+          <label className="block mb-1.5 font-semibold text-[13px] text-[var(--muted-foreground)]">ニックネーム</label>
+          <div className="flex items-center border border-[var(--border)] bg-[var(--secondary)] rounded-lg px-3 py-2.5">
             <User className="w-5 h-5 text-[var(--muted-foreground)] mr-2" />
-            <input
-              type="text"
-              name="name"
-              value={formData.name}
-              onChange={handleChange}
-              required
-              className="w-full outline-none bg-transparent text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] text-sm"
-              placeholder="例：Tanaka"
-              disabled={true} 
-            />
+            <div className="w-full text-[var(--foreground)] text-sm select-none">
+              {formData.name || "（未設定）"}
+            </div>
           </div>
         </div>
 

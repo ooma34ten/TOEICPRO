@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { initVoices, speakText } from "@/lib/speech";
 import { getImportanceClasses, getPartOfSpeechClasses, getJSTDateString, getJSTYesterday, parseImportance, importanceToStars, isWeakWord } from "@/lib/utils";
@@ -165,13 +165,73 @@ export default function ReviewPage() {
   const [isAnswering, setIsAnswering] = useState(false);
   const [lastAnswer, setLastAnswer] = useState<boolean | null>(null);
 
-  // Quiz states
   const [quizPhase, setQuizPhase] = useState<"quiz" | "result">("quiz");
   const [posChoices, setPosChoices] = useState<string[]>([]);
   const [selectedPos, setSelectedPos] = useState<string | null>(null);
   const [posCorrect, setPosCorrect] = useState<boolean | null>(null);
 
   const [isGuestMode, setIsGuestMode] = useState(false);
+  const [autoPlay, setAutoPlay] = useState(true);
+  const [examAutoPlay, setExamAutoPlay] = useState(false);
+
+  useEffect(() => {
+    const savedAutoPlay = localStorage.getItem("wordAutoPlay");
+    if (savedAutoPlay !== null) setAutoPlay(savedAutoPlay === "true");
+    
+    const savedExamAutoPlay = localStorage.getItem("examAutoPlay");
+    if (savedExamAutoPlay !== null) setExamAutoPlay(savedExamAutoPlay === "true");
+  }, []);
+
+  const toggleAutoPlay = () => {
+    setAutoPlay(prev => {
+      const next = !prev;
+      localStorage.setItem("wordAutoPlay", String(next));
+      return next;
+    });
+  };
+
+  const toggleExamAutoPlay = () => {
+    setExamAutoPlay(prev => {
+      const next = !prev;
+      localStorage.setItem("examAutoPlay", String(next));
+      return next;
+    });
+  };
+
+  const autoPlayRef = useRef(autoPlay);
+  const examAutoPlayRef = useRef(examAutoPlay);
+  
+  useEffect(() => { autoPlayRef.current = autoPlay; }, [autoPlay]);
+  useEffect(() => { examAutoPlayRef.current = examAutoPlay; }, [examAutoPlay]);
+
+  useEffect(() => {
+    // 問題が表示された時に自動再生
+    if (words.length > 0 && words[currentIndex] && quizPhase === "quiz") {
+      // わずかな遅延を入れて読み上げ（画面切り替え時のかぶり防止）
+      const timer = setTimeout(() => {
+        const textToSpeech = [];
+        if (autoPlayRef.current) textToSpeech.push(words[currentIndex].words_master.word);
+        if (examAutoPlayRef.current) textToSpeech.push(words[currentIndex].words_master.example_sentence);
+        
+        if (textToSpeech.length > 0) {
+          speakText(textToSpeech.join(". "));
+        }
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentIndex, quizPhase, words]);
+
+  const getWordStatus = (total: number, correct: number, successRate: number) => {
+    if (total === 0) return null;
+    if (total >= 5 && successRate <= 0.4) {
+      return { label: "🔴 苦手", classes: "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20" };
+    }
+    if (correct >= 5 && successRate >= 0.8) {
+      return { label: "✨ ほぼ覚えた", classes: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20" };
+    }
+    return { label: "🌱 覚えかけ", classes: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20" };
+  };
 
 
 
@@ -274,7 +334,7 @@ export default function ReviewPage() {
           setWords([]);
           return;
         }
-        
+
         const guestWords: UserWord[] = shuffleArray(data).slice(0, 10).map((item: WordMaster) => ({
           id: `guest-${item.id}`,
           user_id: "guest",
@@ -287,7 +347,7 @@ export default function ReviewPage() {
           successRate: 0,
           lastAnswered: new Date().toISOString(),
         }));
-        
+
         setWords(guestWords);
       } catch (err) {
         console.error(err);
@@ -447,7 +507,7 @@ export default function ReviewPage() {
         }
         return;
       }
-      
+
       // --- Registered User Logic ---
       if (!userId) return;
 
@@ -806,6 +866,8 @@ export default function ReviewPage() {
         : 1
     : 0;
 
+  const currentWordStatus = current ? getWordStatus(current.total ?? 0, current.correct ?? 0, current.successRate ?? 0) : null;
+
   return (
     <div className="min-h-screen bg-[var(--background)] pb-20 relative">
       {confettiTrigger && typeof window !== "undefined" && (
@@ -985,23 +1047,33 @@ export default function ReviewPage() {
               {/* 単語ヘッダー */}
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2.5">
-                  <h2 className="text-xl md:text-2xl font-bold text-[var(--accent)]">
+                  <h2 className="text-xl md:text-2xl font-bold text-blue-600 dark:text-blue-400">
                     {m.word}
                   </h2>
-                  <button
-                    onClick={() => speakText(m.word)}
-                    className="p-1.5 rounded-lg bg-[var(--accent)]/10 text-[var(--accent)] hover:bg-[var(--accent)]/20 transition"
-                  >
-                    <Volume2 className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => speakText(m.word)}
+                      className="p-1.5 rounded-lg bg-[var(--accent)]/10 text-[var(--accent)] hover:bg-[var(--accent)]/20 transition"
+                      title="音声を再生"
+                    >
+                      <Volume2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={toggleAutoPlay}
+                      className={`p-1.5 rounded-lg transition text-[10px] font-bold border ${autoPlay ? 'bg-[var(--accent)]/10 text-[var(--accent)] border-[var(--accent)]/30' : 'bg-[var(--secondary)] text-[var(--muted-foreground)] border-[var(--border)]'}`}
+                      title="自動再生切り替え"
+                    >
+                      {autoPlay ? "自動再生: ON" : "自動再生: OFF"}
+                    </button>
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${getImportanceClasses(m.importance)}`}>
                     {importanceToStars(m.importance)}
                   </span>
-                  {isWeakWord(current.total ?? 0, current.successRate ?? 1) && (
-                    <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20">
-                      🔴 苦手
+                  {currentWordStatus && (
+                    <span className={`px-2 py-0.5 rounded text-[11px] font-bold border ${currentWordStatus.classes}`}>
+                      {currentWordStatus.label}
                     </span>
                   )}
                 </div>
@@ -1009,15 +1081,25 @@ export default function ReviewPage() {
 
               {/* 例文 */}
               <div className="flex items-center justify-between bg-[var(--secondary)] p-3.5 rounded-lg mb-4">
-                <p className="text-[13px] text-[var(--foreground)] leading-relaxed flex-1">
+                <p className="text-[16px] text-[var(--foreground)] leading-relaxed flex-1">
                   {m.example_sentence}
                 </p>
-                <button
-                  onClick={() => speakText(m.example_sentence)}
-                  className="ml-3 p-1.5 rounded-lg bg-[var(--card)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition border border-[var(--border)]"
-                >
-                  <Volume2 className="w-3.5 h-3.5" />
-                </button>
+                <div className="flex items-center gap-1 ml-3">
+                  <button
+                    onClick={() => speakText(m.example_sentence)}
+                    className="p-1.5 rounded-lg bg-[var(--card)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition border border-[var(--border)]"
+                    title="音声を再生"
+                  >
+                    <Volume2 className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={toggleExamAutoPlay}
+                    className={`p-1.5 rounded-lg transition text-[10px] font-bold border ${examAutoPlay ? 'bg-[var(--accent)]/10 text-[var(--accent)] border-[var(--accent)]/30' : 'bg-[var(--secondary)] text-[var(--muted-foreground)] border-[var(--border)]'}`}
+                    title="例文の自動再生切り替え"
+                  >
+                    {examAutoPlay ? "自動再生: ON" : "自動再生: OFF"}
+                  </button>
+                </div>
               </div>
 
               {/* 品詞クイズ or 結果表示 */}

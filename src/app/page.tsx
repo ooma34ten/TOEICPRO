@@ -17,11 +17,13 @@ import {
   TrendingUp,
   LogIn,
   AlertTriangle,
+  CheckCircle2,
 } from "lucide-react";
 import { cn, getJSTDateString } from "@/lib/utils";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import toast from "react-hot-toast";
 import OnboardingPopup from "@/components/OnboardingPopup";
+import { getDailyTasksCount } from "@/app/actions/getDailyTasks";
 
 // =============================
 // 型定義
@@ -170,6 +172,8 @@ const ActionCard = ({
   delay = 0,
   disabled = false,
   accentColor = "var(--accent)",
+  current,
+  target,
 }: {
   title: string;
   desc: string;
@@ -178,46 +182,90 @@ const ActionCard = ({
   delay?: number;
   disabled?: boolean;
   accentColor?: string;
-}) => (
-  <motion.button
-    initial={{ opacity: 0, y: 12 }}
-    animate={{ opacity: 1, y: 0 }}
-    transition={{ duration: 0.3, delay }}
-    onClick={(e: React.MouseEvent) => {
-      if (disabled) {
-        e.preventDefault();
-        toast(`「${title}」は現在開発中です！\nリリースまで楽しみにお待ちください🚀`, {
-          icon: '🛠️',
-          style: { borderRadius: '8px', background: 'var(--card)', color: 'var(--foreground)', border: '1px solid var(--border)' },
-        });
-        return;
-      }
-      onClick();
-    }}
-    className={cn(
-      "group text-left p-5 rounded-xl transition-all w-full border bg-[var(--card)]",
-      disabled
-        ? "opacity-40 cursor-not-allowed border-[var(--border)]"
-        : "border-[var(--border)] hover:border-[var(--accent)]/30 hover:shadow-md"
-    )}
-  >
-    <div className="flex items-start justify-between">
-      <div className="flex-1">
+  current?: number;
+  target?: number;
+}) => {
+  const isTask = current !== undefined && target !== undefined;
+  const isCompleted = isTask && current >= target;
+  const progressPercent = isTask ? Math.min((current / target) * 100, 100) : 0;
+
+  return (
+    <motion.button
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, delay }}
+      onClick={(e: React.MouseEvent) => {
+        if (disabled) {
+          e.preventDefault();
+          toast(`「${title}」は現在開発中です！\nリリースまで楽しみにお待ちください🚀`, {
+            icon: '🛠️',
+            style: { borderRadius: '8px', background: 'var(--card)', color: 'var(--foreground)', border: '1px solid var(--border)' },
+          });
+          return;
+        }
+        onClick();
+      }}
+      className={cn(
+        "group text-left p-5 flex flex-col justify-between rounded-2xl transition-all w-full border bg-[var(--card)] relative overflow-hidden",
+        disabled
+          ? "opacity-40 cursor-not-allowed border-[var(--border)]"
+          : isCompleted
+            ? "border-emerald-500/30 hover:border-emerald-500/50 hover:shadow-[0_4px_12px_rgba(16,185,129,0.08)] bg-gradient-to-br from-[var(--card)] to-emerald-500/5"
+            : "border-[var(--border)] hover:border-[var(--accent)]/30 hover:shadow-md hover:-translate-y-0.5"
+      )}
+    >
+      {/* Background completion effect */}
+      {isCompleted && (
+        <div className="absolute top-0 right-0 p-12 -m-8 bg-gradient-to-bl from-emerald-500/10 to-transparent rounded-full pointer-events-none" />
+      )}
+
+      <div className="flex items-start justify-between w-full mb-4 relative z-10">
         <div
-          className="w-9 h-9 rounded-lg flex items-center justify-center mb-3"
+          className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm"
           style={{ backgroundColor: `color-mix(in srgb, ${accentColor} 12%, transparent)` }}
         >
-          <Icon className="w-[18px] h-[18px]" style={{ color: accentColor }} />
+          <Icon className="w-5 h-5" style={{ color: accentColor }} />
         </div>
-        <h3 className="text-base font-bold text-[var(--foreground)] mb-1">{title}</h3>
-        <p className="text-[12px] text-[var(--muted-foreground)] leading-relaxed">
+        
+        {isCompleted ? (
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 shadow-sm">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+            <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">クリア！</span>
+          </div>
+        ) : (
+          <div className="p-1.5 rounded-full bg-[var(--secondary)] text-[var(--muted-foreground)] group-hover:bg-[var(--accent)] group-hover:text-[var(--accent-foreground)] transition-colors shadow-sm shrink-0">
+            <ChevronRight className="w-4 h-4" />
+          </div>
+        )}
+      </div>
+      
+      <div className="flex-1 w-full relative z-10">
+        <h3 className="text-base font-bold text-[var(--foreground)] mb-1.5">{title}</h3>
+        <p className="text-[12.5px] text-[var(--muted-foreground)] leading-relaxed mb-4">
           {desc}
         </p>
       </div>
-      <ChevronRight className="w-4 h-4 text-[var(--muted-foreground)] mt-1 group-hover:translate-x-0.5 transition-transform shrink-0 ml-3" />
-    </div>
-  </motion.button>
-);
+
+      {isTask && (
+        <div className="w-full mt-auto pt-3 border-t border-[var(--border)]/70 relative z-10">
+          <div className="flex justify-between items-end mb-2">
+            <span className="text-[11px] font-medium text-[var(--muted-foreground)]">進捗</span>
+            <span className={cn("text-[13px] font-bold", isCompleted ? "text-emerald-600 dark:text-emerald-400" : "text-[var(--foreground)]")}>
+              {current} <span className="text-[10px] text-[var(--muted-foreground)] font-normal">/ {target}問</span>
+            </span>
+          </div>
+          <div className="h-1.5 w-full bg-[var(--secondary)] rounded-full overflow-hidden">
+            <motion.div
+              className={cn("h-full rounded-full transition-all duration-1000", isCompleted ? "bg-emerald-500" : "bg-[var(--accent)]")}
+              initial={{ width: 0 }}
+              animate={{ width: `${progressPercent}%` }}
+            />
+          </div>
+        </div>
+      )}
+    </motion.button>
+  );
+};
 
 // =============================
 // ストリークスタイル
@@ -235,6 +283,10 @@ export default function Dashboard() {
   const [stats, setStats] = useState<UserStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState("ゲスト");
+  const [wordReviewCount, setWordReviewCount] = useState(0);
+  const [part5Count, setPart5Count] = useState(0);
+  const [wordTarget, setWordTarget] = useState(10);
+  const [part5Target, setPart5Target] = useState(10);
   const [chartData, setChartData] = useState<any[]>([]);
   const [chartPeriod, setChartPeriod] = useState<"week" | "month" | "year">("week");
   const [isGuest, setIsGuest] = useState(false);
@@ -311,6 +363,18 @@ export default function Dashboard() {
       } else {
         setUserName(session.user.email?.split("@")[0] || "ユーザー");
       }
+
+      // 毎日のタスク進捗を取得 (Server ActionでRLSを回避)
+      try {
+        const counts = await getDailyTasksCount(session.user.id);
+        setWordReviewCount(counts.wordReviewCount);
+        setWordTarget(counts.wordReviewTarget);
+        setPart5Count(counts.part5Count);
+        setPart5Target(counts.part5Target);
+      } catch (err) {
+        console.error("Failed to fetch daily tasks via server action", err);
+      }
+
       setLoading(false);
     };
 
@@ -587,26 +651,36 @@ export default function Dashboard() {
         />
       </div>
 
-      {/* アクションカード */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-        <ActionCard
-          title="Part5 強化モード"
-          desc="AIがパート5形式で問題を出題。文法・語彙力を鍛えましょう。"
-          icon={BookOpen}
-          accentColor="var(--accent)"
-          onClick={() => router.push("/words/ai_teacher")}
-          delay={0.35}
-          disabled={false}
-        />
-        <ActionCard
-          title="単語復習モード"
-          desc="苦手な単語を重点的に復習。忘却曲線に基づいた効率的な学習。"
-          icon={Activity}
-          accentColor="#22c55e"
-          onClick={() => router.push("/words/review")}
-          delay={0.4}
-          disabled={false}
-        />
+      {/* 今日のタスク */}
+      <div className="mb-8">
+        <h2 className="text-base font-bold text-[var(--foreground)] flex items-center gap-2 mb-4">
+          <CheckCircle2 className="w-5 h-5 text-[var(--accent)]" />
+          今日のタスク
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <ActionCard
+            title="単語復習"
+            desc="苦手な単語を重点的に復習します。忘却曲線に基づいた出題で効率よく暗記を進めましょう。"
+            icon={Activity}
+            accentColor="#22c55e"
+            onClick={() => router.push("/words/review")}
+            delay={0.35}
+            disabled={false}
+            current={wordReviewCount}
+            target={wordTarget}
+          />
+          <ActionCard
+            title="Part5 問題"
+            desc="AIが自動生成するPart5形式の問題を解き、文法・語彙力を毎日鍛えましょう。"
+            icon={BookOpen}
+            accentColor="var(--accent)"
+            onClick={() => router.push("/words/ai_teacher")}
+            delay={0.4}
+            disabled={false}
+            current={part5Count}
+            target={part5Target}
+          />
+        </div>
       </div>
 
       {/* チャート */}

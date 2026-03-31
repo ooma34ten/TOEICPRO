@@ -55,17 +55,17 @@ export const getImportanceClasses = (importance: string | number | null | undefi
   const level = parseImportance(importance);
   switch (level) {
     case 1:
-      return "bg-gray-100 text-gray-800";
+      return "bg-slate-100 text-slate-800";
     case 2:
-      return "bg-yellow-100 text-yellow-700";
+      return "bg-teal-100 text-teal-800";
     case 3:
-      return "bg-yellow-200 text-yellow-800";
+      return "bg-blue-100 text-blue-800";
     case 4:
-      return "bg-orange-200 text-orange-800";
+      return "bg-indigo-100 text-indigo-800";
     case 5:
-      return "bg-red-300 text-red-900";
+      return "bg-purple-100 text-purple-900";
     default:
-      return "bg-gray-100 text-gray-800";
+      return "bg-slate-100 text-slate-800";
   }
 };
 
@@ -137,7 +137,7 @@ export const getPartOfSpeechClasses = (part: string) => {
     case "副詞":
       return "bg-pink-100 text-pink-700";
     case "接続詞":
-      return "bg-yellow-100 text-yellow-800";
+      return "bg-indigo-100 text-indigo-800";
     case "前置詞":
       return "bg-orange-100 text-orange-800";
     case "熟語・フレーズ":

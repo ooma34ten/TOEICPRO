@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { Menu, X, LogIn, LogOut, Settings, AlertTriangle } from "lucide-react";
+import { Menu, X, LogIn, LogOut, Settings, AlertTriangle, Volume2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import toast from "react-hot-toast";
 
@@ -13,6 +13,8 @@ export default function Header() {
   const [predictedScore, setPredictedScore] = useState<number | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [volumeOpen, setVolumeOpen] = useState(false);
+  const [volume, setVolume] = useState(1);
   const [isGuest, setIsGuest] = useState(false);
   const pathname = usePathname();
 
@@ -23,6 +25,9 @@ export default function Header() {
     };
     checkGuest();
     window.addEventListener("storage", checkGuest);
+
+    import("@/lib/speech").then(m => setVolume(m.getGlobalVolume()));
+
     return () => window.removeEventListener("storage", checkGuest);
   }, []);
 
@@ -190,10 +195,52 @@ export default function Header() {
             );
           })}
 
+          {/* 音量設定 */}
+          <div className="relative ml-2 mr-1">
+            <button
+              onClick={() => {
+                setVolumeOpen(!volumeOpen);
+                setSettingsOpen(false);
+              }}
+              className="flex items-center gap-1 text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors p-1.5 rounded-md hover:bg-[var(--secondary)]"
+            >
+              <Volume2 size={15} />
+            </button>
+            <AnimatePresence>
+              {volumeOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: -4, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -4, scale: 0.95 }}
+                  transition={{ duration: 0.12 }}
+                  className="absolute right-0 mt-1.5 bg-[var(--card)] border border-[var(--border)] rounded-lg shadow-lg overflow-hidden py-2 px-4 w-48 z-50 flex items-center gap-3"
+                >
+                  <Volume2 size={14} className="text-[var(--muted-foreground)] shrink-0" />
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.1"
+                    value={volume}
+                    onChange={(e) => {
+                      const v = parseFloat(e.target.value);
+                      setVolume(v);
+                      import("@/lib/speech").then(m => m.setGlobalVolume(v));
+                    }}
+                    className="w-full h-1.5 bg-[var(--secondary)] rounded-lg appearance-none cursor-pointer accent-[var(--accent)]"
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
           {/* 設定メニュー */}
           <div className="relative">
             <button
-              onClick={() => setSettingsOpen(!settingsOpen)}
+              onClick={() => {
+                setSettingsOpen(!settingsOpen);
+                setVolumeOpen(false);
+              }}
               className="flex items-center gap-1 text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors p-1.5 rounded-md hover:bg-[var(--secondary)]"
             >
               <Settings size={15} />
@@ -205,7 +252,7 @@ export default function Header() {
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -4, scale: 0.95 }}
                   transition={{ duration: 0.12 }}
-                  className="absolute right-0 mt-1.5 w-40 bg-[var(--card)] border border-[var(--border)] rounded-lg shadow-lg overflow-hidden py-1"
+                  className="absolute right-0 mt-1.5 w-40 bg-[var(--card)] border border-[var(--border)] rounded-lg shadow-lg overflow-hidden py-1 z-50"
                 >
                   {settingLinks.map((link) => (
                     <Link

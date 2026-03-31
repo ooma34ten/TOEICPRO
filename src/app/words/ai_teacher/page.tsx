@@ -71,9 +71,39 @@ export default function AITeacherPage() {
   const [weakCategories, setWeakCategories] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [sessionComplete, setSessionComplete] = useState(false);
+  const [autoPlay, setAutoPlay] = useState(true);
 
   const prefetchedRef = useRef<Question[]>([]);
   const answerStartTimeRef = useRef<number>(Date.now());
+
+  useEffect(() => {
+    const savedAutoPlay = localStorage.getItem("aiTeacherAutoPlay");
+    if (savedAutoPlay !== null) setAutoPlay(savedAutoPlay === "true");
+  }, []);
+
+  const toggleAutoPlay = () => {
+    setAutoPlay(prev => {
+      const next = !prev;
+      localStorage.setItem("aiTeacherAutoPlay", String(next));
+      return next;
+    });
+  };
+
+  const autoPlayRef = useRef(autoPlay);
+  useEffect(() => { autoPlayRef.current = autoPlay; }, [autoPlay]);
+
+  useEffect(() => {
+    if (questions.length > 0 && questions[currentIndex] && !showResult) {
+      if (!autoPlayRef.current) return;
+      const currentQuestion = questions[currentIndex];
+      const textToPlay = currentQuestion.question.replace(/_{2,}|＿{2,}|＿|_____|____|__|（　）|（☐）/g, currentQuestion.answer);
+      const timer = setTimeout(() => {
+        speakText(textToPlay);
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentIndex, showResult, questions]);
 
   // =============================
   // 認証チェック
@@ -584,23 +614,37 @@ export default function AITeacherPage() {
                   {"★".repeat(currentQuestion.importance)}
                 </span>
                 {currentQuestion.accuracy !== undefined && currentQuestion.accuracy !== null ? (
-                  <span className="text-[10px] bg-red-500/10 text-red-600 dark:text-red-400 px-2 py-0.5 rounded border border-red-500/20">
-                    正解率: {currentQuestion.accuracy}%
+                  <span className={`text-[10px] px-2 py-0.5 rounded font-bold border ${
+                    currentQuestion.accuracy >= 80 ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20" :
+                    currentQuestion.accuracy >= 50 ? "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20" :
+                    "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20"
+                  }`}>
+                    {currentQuestion.accuracy >= 80 ? "✨ ほぼ習得" : currentQuestion.accuracy >= 50 ? "🌱 習得しかけ" : "🔴 苦手"}
                   </span>
                 ) : (
-                  <span className="text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/20">
+                  <span className="text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded font-bold border border-emerald-500/20">
                     初出題
                   </span>
                 )}
-                <button
-                  onClick={() => {
-                    const textToPlay = currentQuestion.question.replace(/_{2,}|＿{2,}|＿|_____|____|__|（　）|（☐）/g, currentQuestion.answer);
-                    speakText(textToPlay);
-                  }}
-                  className="p-1 rounded-md hover:bg-[var(--muted)] transition text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
-                >
-                  <Volume2 size={15} />
-                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => {
+                      const textToPlay = currentQuestion.question.replace(/_{2,}|＿{2,}|＿|_____|____|__|（　）|（☐）/g, currentQuestion.answer);
+                      speakText(textToPlay);
+                    }}
+                    className="p-1 rounded-md hover:bg-[var(--muted)] transition text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                    title="音声を再生"
+                  >
+                    <Volume2 size={15} />
+                  </button>
+                  <button
+                    onClick={toggleAutoPlay}
+                    className={`p-1 rounded-md transition text-[10px] font-bold border ${autoPlay ? 'bg-[var(--accent)]/10 text-[var(--accent)] border-[var(--accent)]/30' : 'bg-[var(--secondary)] text-[var(--muted-foreground)] border-[var(--border)]'}`}
+                    title="自動再生切り替え"
+                  >
+                    {autoPlay ? "自動再生: ON" : "自動再生: OFF"}
+                  </button>
+                </div>
               </div>
             </div>
           </div>

@@ -4,6 +4,23 @@ let cachedVoices: SpeechSynthesisVoice[] = [];
 let isWarmedUp = false;
 
 /**
+ * グローバル音量設定の取得
+ */
+export const getGlobalVolume = (): number => {
+  if (typeof window === "undefined") return 1;
+  const vol = localStorage.getItem("globalVolume");
+  return vol ? parseFloat(vol) : 1;
+};
+
+/**
+ * グローバル音量設定の保存
+ */
+export const setGlobalVolume = (vol: number): void => {
+  if (typeof window === "undefined") return;
+  localStorage.setItem("globalVolume", vol.toString());
+};
+
+/**
  * 音声リストを確実に初期化
  */
 export const initVoices = (): Promise<void> => {
@@ -81,7 +98,7 @@ export const speakText = async (text: string): Promise<void> => {
   utterance.voice = enVoice;
   utterance.rate = 0.95;
   utterance.pitch = 1.05;
-  utterance.volume = 1;
+  utterance.volume = getGlobalVolume();
 
   utterance.onerror = () => {
     // Web Speech API は理由を返さない

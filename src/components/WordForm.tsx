@@ -245,13 +245,13 @@ export default function WordForm({ onAdd }: WordFormProps) {
           onKeyDown={(e) => e.key === "Enter" && handleGenerate()}
           onFocus={(e) => e.target.select()}  // ← ★これを追加！
           placeholder="単語を入力"
-          className="border border-gray-300 rounded-lg px-4 py-2 flex-1 focus:outline-none focus:ring-2 focus:ring-blue-400"
+          className="border border-[var(--border)] bg-[var(--secondary)] text-[var(--foreground)] placeholder-[var(--muted-foreground)] rounded-lg px-4 py-2.5 flex-1 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40 transition"
         />
 
         <button
           onClick={handleGenerate}
           disabled={loading}
-          className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition disabled:bg-blue-300"
+          className="flex items-center gap-2 bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90 px-4 py-2.5 rounded-lg transition shadow-md disabled:opacity-50"
         >
           {loading ? <Loader2 className="animate-spin" size={18} /> : <Wand2 size={18} />}
           生成
@@ -259,7 +259,7 @@ export default function WordForm({ onAdd }: WordFormProps) {
         {correctedWord && (
           <button
             onClick={() => speakText(correctedWord)}
-            className="bg-indigo-500 text-white px-3 py-1 rounded hover:bg-indigo-600 transition"
+            className="bg-[var(--secondary)] text-[var(--foreground)] border border-[var(--border)] px-3 py-1.5 rounded-lg hover:bg-[var(--accent)]/10 hover:text-[var(--accent)] hover:border-[var(--accent)]/30 transition text-sm shadow-sm"
           >
             <Volume2 size={16} /> 読む
           </button>
@@ -271,15 +271,15 @@ export default function WordForm({ onAdd }: WordFormProps) {
         <button
           onClick={handleSave}
           disabled={loading}
-          className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition disabled:bg-green-300"
+          className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-lg transition shadow-md disabled:opacity-50"
         >
           {loading ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
           保存
         </button>
         {holdWord !== correctedWord && (
-          <p className="text-red-500 text-base">入力文字を修正しました: 【{correctedWord}】</p>
+          <p className="text-red-500 text-sm mt-3 font-medium">入力文字を修正しました: 【{correctedWord}】</p>
         )}
-        <p className="mb-4 text-gray-700">{msg}</p>
+        <p className="mt-3 text-[var(--muted-foreground)] text-sm">{msg}</p>
       </div>
 
       {/* 単語カード */}
@@ -292,8 +292,8 @@ export default function WordForm({ onAdd }: WordFormProps) {
               .map((r, idx) => (
                 <motion.div
                   key={idx}
-                  whileHover={{ scale: 1.02 }}
-                  className={`border rounded-2xl p-4 bg-white shadow-md relative flex flex-col gap-3 ${r.selected ? "ring-2 ring-blue-300" : ""
+                  whileHover={{ scale: 1.01 }}
+                  className={`border rounded-2xl p-5 bg-[var(--card)] shadow-md relative flex flex-col gap-3 transition-colors ${r.selected ? "border-[var(--accent)] ring-1 ring-[var(--accent)]" : "border-[var(--border)]"
                     }`}
                 >
                   <div className="absolute top-3 right-3">
@@ -303,19 +303,19 @@ export default function WordForm({ onAdd }: WordFormProps) {
                       onChange={(e) =>
                         setRows((prev) => prev.map((row) => (row.meaning === r.meaning ? { ...row, selected: e.target.checked } : row)))
                       }
-                      className="w-5 h-5 accent-blue-500"
+                      className="w-5 h-5 accent-[var(--accent)] cursor-pointer"
                     />
                   </div>
 
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xl font-bold text-gray-900">{r.word}</p>
+                      <p className="text-xl font-bold text-[var(--foreground)]">{r.word}</p>
                       <div className="flex items-center gap-2">
                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${getPartOfSpeechClasses(r.part_of_speech)}`}>
                           {r.part_of_speech}
                         </span>
                         {r.isAlreadyRegistered && (
-                          <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-700 border border-green-300">
+                          <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
                             ✅ 登録済み
                           </span>
                         )}
@@ -326,25 +326,25 @@ export default function WordForm({ onAdd }: WordFormProps) {
                     </span>
                   </div>
 
-                  <p className="text-gray-800">{r.meaning}</p>
-                  <div className="bg-gray-50 border-l-4 border-blue-300 pl-3 py-2 italic text-gray-700">{r.example}</div>
-                  <p className="text-gray-600 text-sm">{r.translation}</p>
+                  <p className="text-[var(--foreground)] leading-relaxed">{r.meaning}</p>
+                  <div className="bg-[var(--secondary)] rounded-lg px-4 py-3 italic text-[var(--muted-foreground)] border-l-4 border-[var(--accent)] shadow-inner text-sm">{r.example}</div>
+                  <p className="text-[var(--muted-foreground)] text-sm">{r.translation}</p>
 
                   {r.synonyms && (
-                    <div className="flex items-center gap-2 flex-wrap mt-1">
-                      <span className="text-xs font-semibold text-purple-600">類義語:</span>
+                    <div className="flex items-center gap-2 flex-wrap mt-2">
+                      <span className="text-xs font-semibold text-[var(--muted-foreground)]">類義語:</span>
                       {r.synonyms.split(",").map((s, i) => (
-                        <span key={i} className="text-xs bg-purple-50 text-purple-700 px-2 py-0.5 rounded-full border border-purple-200">
+                        <span key={i} className="text-xs bg-[var(--primary)]/10 text-[var(--accent)] px-2 py-0.5 rounded-full border border-[var(--primary)]/20">
                           {s.trim()}
                         </span>
                       ))}
                     </div>
                   )}
 
-                  <div className="mt-2 flex items-center justify-between">
+                  <div className="mt-4 pt-4 border-t border-[var(--border)] flex items-center justify-between">
                     <button
                       onClick={() => speakText(r.example)}
-                      className="self-start flex items-center gap-1 bg-indigo-500 text-white px-3 py-1 rounded hover:bg-indigo-600 transition"
+                      className="flex items-center gap-1.5 bg-[var(--secondary)] text-[var(--foreground)] border border-[var(--border)] px-3 py-1.5 rounded-lg hover:bg-[var(--accent)]/10 hover:text-[var(--accent)] hover:border-[var(--accent)]/30 text-sm shadow-sm transition"
                     >
                       <Volume2 size={16} /> 再生
                     </button>
