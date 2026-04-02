@@ -24,6 +24,9 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recha
 import toast from "react-hot-toast";
 import OnboardingPopup from "@/components/OnboardingPopup";
 import { getDailyTasksCount } from "@/app/actions/getDailyTasks";
+import { getOrCreateWeeklyRace, type RaceData } from "@/app/actions/race";
+import { PixelCharacterMini } from "@/components/PixelCharacter";
+import { getCharacterDef, getStageIndex, type CharacterType } from "@/lib/characters";
 
 // =============================
 // 型定義
@@ -291,6 +294,7 @@ export default function Dashboard() {
   const [chartPeriod, setChartPeriod] = useState<"week" | "month" | "year">("week");
   const [isGuest, setIsGuest] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [raceData, setRaceData] = useState<RaceData | null>(null);
 
   const greeting = getGreeting();
 
@@ -373,6 +377,14 @@ export default function Dashboard() {
         setPart5Target(counts.part5Target);
       } catch (err) {
         console.error("Failed to fetch daily tasks via server action", err);
+      }
+
+      // レースデータ取得
+      try {
+        const race = await getOrCreateWeeklyRace(session.user.id);
+        setRaceData(race);
+      } catch (err) {
+        console.error("Failed to fetch race data", err);
       }
 
       setLoading(false);
@@ -527,52 +539,8 @@ export default function Dashboard() {
         </motion.div>
       </header>
 
-      {/* 目標 + XP */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        {/* 今日の目標 */}
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.05 }}
-          className="bg-[var(--card)] border border-[var(--border)] p-5 rounded-xl flex items-center gap-5"
-        >
-          <ProgressRing
-            progress={goalProgress}
-            size={80}
-            strokeWidth={6}
-            color={goalComplete ? "stroke-emerald-500" : "stroke-[var(--accent)]"}
-          >
-            <div className="text-center">
-              {goalComplete ? (
-                <Trophy className="w-6 h-6 text-emerald-500 mx-auto" />
-              ) : (
-                <>
-                  <div className="text-lg font-bold text-[var(--foreground)]">
-                    {stats?.daily_goal_current || 0}
-                  </div>
-                  <div className="text-[9px] text-[var(--muted-foreground)]">
-                    / {stats?.daily_goal_target || 10}
-                  </div>
-                </>
-              )}
-            </div>
-          </ProgressRing>
-          <div className="flex-1">
-            <h3 className="text-sm font-bold text-[var(--foreground)] mb-1">今日の目標</h3>
-            {goalComplete ? (
-              <p className="text-emerald-600 dark:text-emerald-400 text-[13px] font-semibold flex items-center gap-1">
-                <Sparkles className="w-3.5 h-3.5" />
-                達成おめでとう！🎉
-              </p>
-            ) : (
-              <p className="text-[13px] text-[var(--muted-foreground)]">
-                あと <span className="font-bold text-[var(--accent)]">{Math.max(0, (stats?.daily_goal_target || 10) - (stats?.daily_goal_current || 0))}</span> 問で目標達成
-              </p>
-            )}
-          </div>
-        </motion.div>
-
-        {/* XPレベル */}
+      {/* XPレベル (単独で表示) */}
+      <div className="mb-6">
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
@@ -616,7 +584,7 @@ export default function Dashboard() {
       </div>
 
       {/* 統計カード */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
         <StatCard
           title="ストリーク"
           value={`${stats?.streak_current || 0} 日`}
@@ -624,14 +592,6 @@ export default function Dashboard() {
           accentColor="text-orange-500"
           delay={0.15}
           subtitle={stats?.streak_max ? `最高: ${stats.streak_max} 日` : undefined}
-        />
-        <StatCard
-          title="今日の目標"
-          value={`${stats?.daily_goal_current || 0} / ${stats?.daily_goal_target || 10}`}
-          icon={Target}
-          accentColor="text-emerald-500"
-          delay={0.2}
-          subtitle={goalComplete ? "🎉 達成済み" : `残り ${Math.max(0, (stats?.daily_goal_target || 10) - (stats?.daily_goal_current || 0))} 問`}
         />
         <StatCard
           title="合計 XP"
@@ -682,6 +642,89 @@ export default function Dashboard() {
           />
         </div>
       </div>
+
+      {/* レースウィジェット */}
+      {!isGuest && raceData && raceData.myParticipant && (() => {
+        const myCharType = (raceData.myParticipant.character_type || "cat") as CharacterType;
+        const sorted = [...raceData.participants].sort((a, b) => b.distance - a.distance);
+        const myRank = sorted.findIndex(p => p.user_id === raceData.myParticipant?.user_id) + 1;
+        const userTotalXp = raceData.userTotalXp ?? 0;
+
+        return (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.42 }}
+            className="mb-8"
+          >
+            <button
+              onClick={() => router.push("/words/race")}
+              className="w-full bg-[var(--card)] border border-[var(--border)] rounded-xl p-5 hover:border-[var(--accent)]/30 hover:shadow-md transition-all text-left group"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-base font-bold text-[var(--foreground)] flex items-center gap-2">
+                  🏇 ウィークリーレース
+                </h2>
+                <div className="p-1.5 rounded-full bg-[var(--secondary)] text-[var(--muted-foreground)] group-hover:bg-[var(--accent)] group-hover:text-[var(--accent-foreground)] transition-colors">
+                  <ChevronRight className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="flex items-center gap-4 mb-3">
+                <div className="flex items-center gap-3">
+                  <PixelCharacterMini type={myCharType} totalXp={userTotalXp} />
+                  <div>
+                    <div className="text-[13px] font-bold text-[var(--foreground)]">
+                      {myRank === 1 ? "🥇 1位" : myRank === 2 ? "🥈 2位" : myRank === 3 ? "🥉 3位" : `${myRank}位`}
+                      <span className="text-[var(--muted-foreground)] font-normal"> / {raceData.participants.length}人中</span>
+                    </div>
+                    <div className="text-[11px] text-[var(--muted-foreground)]">
+                      {raceData.myParticipant.distance.toLocaleString()}m / {raceData.raceGoal.toLocaleString()}m
+                    </div>
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <div className="h-3 bg-[var(--secondary)] rounded-full overflow-hidden">
+                    <motion.div
+                      className="h-full rounded-full bg-gradient-to-r from-[var(--accent)] to-amber-400"
+                      initial={{ width: 0 }}
+                      animate={{ width: `${Math.min((raceData.myParticipant.distance / raceData.raceGoal) * 100, 100)}%` }}
+                      transition={{ duration: 1, ease: "easeOut" }}
+                    />
+                  </div>
+                </div>
+              </div>
+              {/* ミニトラックビュー */}
+              <div className="relative h-8 bg-[var(--secondary)]/60 rounded-lg overflow-visible">
+                {[25, 50, 75].map(pct => (
+                  <div key={pct} className="absolute top-0 bottom-0 w-px bg-[var(--border)]/40" style={{ left: `${pct}%` }} />
+                ))}
+                <div className="absolute right-0 top-0 bottom-0 w-0.5 bg-amber-500/30" />
+                {sorted.slice(0, 6).map((p, i) => {
+                  const progress = Math.min((p.distance / raceData.raceGoal) * 100, 100);
+                  const isMe = p.user_id === raceData.myParticipant?.user_id;
+                  const charType = (p.character_type || "cat") as CharacterType;
+                  const cpuXp = p.cpu_total_xp ?? 5000;
+                  return (
+                    <motion.div
+                      key={p.id}
+                      className="absolute z-10"
+                      style={{ top: `${10 + i * 12}%` }}
+                      initial={{ left: 0 }}
+                      animate={{ left: `${Math.min(Math.max(progress, 1), 94)}%` }}
+                      transition={{ duration: 1.2, ease: "easeOut", delay: i * 0.05 }}
+                    >
+                      <div className={`-translate-x-1/2 text-[10px] ${isMe ? "opacity-100 scale-125" : "opacity-60"}`}>
+                        {getCharacterDef(charType).stages[getStageIndex(isMe ? userTotalXp : cpuXp)].emoji}
+                      </div>
+                    </motion.div>
+                  );
+                })}
+                <div className="absolute right-1 top-1/2 -translate-y-1/2 text-[10px] opacity-40">🏁</div>
+              </div>
+            </button>
+          </motion.div>
+        );
+      })()}
 
       {/* チャート */}
       <motion.div

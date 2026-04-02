@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, BookOpen, Zap, Library, BarChart3 } from "lucide-react";
+import { Home, BookOpen, Zap, Library, BarChart3, Trophy } from "lucide-react";
 
 const navItems = [
   { href: "/", label: "ホーム", icon: Home },
   { href: "/words/review", label: "復習", icon: BookOpen },
   { href: "/words/ai_teacher", label: "Part5", icon: Zap },
-  { href: "/words/list", label: "単語帳", icon: Library },
+  { href: "/words/race", label: "レース", icon: Trophy },
   { href: "/words/progress", label: "進捗", icon: BarChart3 },
 ];
 

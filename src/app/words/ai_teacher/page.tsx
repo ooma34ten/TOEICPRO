@@ -96,7 +96,7 @@ export default function AITeacherPage() {
     if (questions.length > 0 && questions[currentIndex] && !showResult) {
       if (!autoPlayRef.current) return;
       const currentQuestion = questions[currentIndex];
-      const textToPlay = currentQuestion.question.replace(/_{2,}|＿{2,}|＿|_____|____|__|（　）|（☐）/g, currentQuestion.answer);
+      const textToPlay = currentQuestion.question.replace(/_{2,}|＿{2,}|＿|_____|____|__|（　）|（☐）/g, "blank");
       const timer = setTimeout(() => {
         speakText(textToPlay);
       }, 300);
@@ -131,6 +131,10 @@ export default function AITeacherPage() {
         const res = await fetch("/api/get-latest-result", {
           headers: { "x-user-id": userId },
         });
+        if (!res.ok) {
+          console.error("get-latest-result returned status:", res.status);
+          return;
+        }
         const json = await res.json();
         if (json.result) {
           setLatestScore(json.result.predicted_score ?? 450);
@@ -163,6 +167,10 @@ export default function AITeacherPage() {
         body: JSON.stringify(payload),
       });
 
+      if (!res.ok) {
+        console.error("ai_teacher API returned status:", res.status);
+        return null;
+      }
       const data: GenerateResponse = await res.json();
 
       if (data.questions) {
@@ -312,6 +320,10 @@ export default function AITeacherPage() {
         }),
       });
 
+      if (!res.ok) {
+        console.error("save_test_result returned status:", res.status);
+        return;
+      }
       const data = await res.json();
       if (data.success && data.newScore) {
         // サーバーから返ってきた最新スコアで更新
@@ -504,16 +516,10 @@ export default function AITeacherPage() {
           <div className="flex gap-3">
             <button
               onClick={handleRestart}
-              className="flex-1 bg-[var(--primary)] text-[var(--primary-foreground)] px-5 py-2.5 rounded-lg font-semibold text-sm hover:opacity-90 transition flex items-center justify-center gap-2"
+              className="w-full bg-[var(--primary)] text-[var(--primary-foreground)] px-5 py-2.5 rounded-lg font-semibold text-sm hover:opacity-90 transition flex items-center justify-center gap-2"
             >
               <RotateCcw size={16} />
               もう一度
-            </button>
-            <button
-              onClick={() => router.push("/words/progress")}
-              className="flex-1 bg-[var(--secondary)] text-[var(--foreground)] px-5 py-2.5 rounded-lg font-semibold text-sm hover:bg-[var(--muted)] transition"
-            >
-              進捗を見る
             </button>
           </div>
         </div>
@@ -602,7 +608,7 @@ export default function AITeacherPage() {
         <div className="bg-[var(--card)] rounded-xl border border-[var(--border)] overflow-hidden">
           {/* 問題ヘッダー */}
           <div className="bg-[var(--secondary)] px-5 py-3 border-b border-[var(--border)]">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between mb-2">
               <span className="text-[12px] font-semibold text-[var(--foreground)]">
                 問題 {sessionStats.total + 1}
               </span>
@@ -626,26 +632,27 @@ export default function AITeacherPage() {
                     初出題
                   </span>
                 )}
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => {
-                      const textToPlay = currentQuestion.question.replace(/_{2,}|＿{2,}|＿|_____|____|__|（　）|（☐）/g, currentQuestion.answer);
-                      speakText(textToPlay);
-                    }}
-                    className="p-1 rounded-md hover:bg-[var(--muted)] transition text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
-                    title="音声を再生"
-                  >
-                    <Volume2 size={15} />
-                  </button>
-                  <button
-                    onClick={toggleAutoPlay}
-                    className={`p-1 rounded-md transition text-[10px] font-bold border ${autoPlay ? 'bg-[var(--accent)]/10 text-[var(--accent)] border-[var(--accent)]/30' : 'bg-[var(--secondary)] text-[var(--muted-foreground)] border-[var(--border)]'}`}
-                    title="自動再生切り替え"
-                  >
-                    {autoPlay ? "自動再生: ON" : "自動再生: OFF"}
-                  </button>
-                </div>
               </div>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => {
+                  const replacement = showResult ? currentQuestion.answer : "blank";
+                  const textToPlay = currentQuestion.question.replace(/_{2,}|＿{2,}|＿|_____|____|__|（　）|（☐）/g, replacement);
+                  speakText(textToPlay);
+                }}
+                className="p-1.5 rounded-md bg-[var(--card)] hover:bg-[var(--muted)] transition text-[var(--muted-foreground)] hover:text-[var(--foreground)] border border-[var(--border)]"
+                title="音声を再生"
+              >
+                <Volume2 size={15} />
+              </button>
+              <button
+                onClick={toggleAutoPlay}
+                className={`px-2 py-1 rounded-md transition text-[10px] font-bold border ${autoPlay ? 'bg-[var(--accent)]/10 text-[var(--accent)] border-[var(--accent)]/30' : 'bg-[var(--card)] text-[var(--muted-foreground)] border-[var(--border)]'}`}
+                title="自動再生切り替え"
+              >
+                {autoPlay ? "自動再生: ON" : "自動再生: OFF"}
+              </button>
             </div>
           </div>
 

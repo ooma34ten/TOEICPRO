@@ -32,6 +32,8 @@ export default function Header() {
   }, []);
 
   useEffect(() => {
+    let currentChannel: any = null;
+
     const getUserData = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       setUserId(user?.id ?? null);
@@ -46,8 +48,12 @@ export default function Header() {
             setPredictedScore(json.result.predicted_score);
           }
 
-          const channel = supabase
-            .channel('header-score-update')
+          if (currentChannel) {
+            supabase.removeChannel(currentChannel);
+          }
+
+          currentChannel = supabase
+            .channel(`header-score-update-${user.id}-${Math.random()}`)
             .on(
               'postgres_changes',
               {
@@ -64,10 +70,6 @@ export default function Header() {
             )
             .subscribe();
 
-          return () => {
-            supabase.removeChannel(channel);
-          };
-
         } catch (e) {
           console.error("Failed to fetch score:", e);
         }
@@ -78,12 +80,21 @@ export default function Header() {
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user?.id !== userId) {
         setUserId(session?.user?.id ?? null);
-        if (!session?.user) setPredictedScore(null);
+        if (!session?.user) {
+          setPredictedScore(null);
+          if (currentChannel) {
+            supabase.removeChannel(currentChannel);
+            currentChannel = null;
+          }
+        }
         else getUserData();
       }
     });
 
     return () => {
+      if (currentChannel) {
+        supabase.removeChannel(currentChannel);
+      }
       listener.subscription.unsubscribe();
     };
   }, []);

@@ -2,6 +2,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { getJSTDateString, getJSTYesterday } from "@/lib/utils";
+import { updateRaceDistance } from "@/app/actions/race";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 // Use Service Role Key to allow updating stats (bypass RLS)
@@ -89,6 +90,14 @@ export async function updateUserStats(userId: string, xpGained: number, question
                 xp_earned: xpGained,
                 questions_answered: questionsAnswered
             });
+    }
+
+    // 5. Update race distance (1 XP = 1m)
+    try {
+        await updateRaceDistance(userId, xpGained);
+    } catch (raceError) {
+        // レース更新のエラーはスキップ（メインの学習を妨げない）
+        console.error("Race distance update failed:", raceError);
     }
 
     return updatedStats;

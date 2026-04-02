@@ -164,6 +164,7 @@ export default function ReviewPage() {
   const [slideDirection, setSlideDirection] = useState(1);
   const [isAnswering, setIsAnswering] = useState(false);
   const [lastAnswer, setLastAnswer] = useState<boolean | null>(null);
+  const [perfectlyMemorizedWord, setPerfectlyMemorizedWord] = useState<string | null>(null);
 
   const [quizPhase, setQuizPhase] = useState<"quiz" | "result">("quiz");
   const [posChoices, setPosChoices] = useState<string[]>([]);
@@ -177,7 +178,7 @@ export default function ReviewPage() {
   useEffect(() => {
     const savedAutoPlay = localStorage.getItem("wordAutoPlay");
     if (savedAutoPlay !== null) setAutoPlay(savedAutoPlay === "true");
-    
+
     const savedExamAutoPlay = localStorage.getItem("examAutoPlay");
     if (savedExamAutoPlay !== null) setExamAutoPlay(savedExamAutoPlay === "true");
   }, []);
@@ -200,7 +201,7 @@ export default function ReviewPage() {
 
   const autoPlayRef = useRef(autoPlay);
   const examAutoPlayRef = useRef(examAutoPlay);
-  
+
   useEffect(() => { autoPlayRef.current = autoPlay; }, [autoPlay]);
   useEffect(() => { examAutoPlayRef.current = examAutoPlay; }, [examAutoPlay]);
 
@@ -212,7 +213,7 @@ export default function ReviewPage() {
         const textToSpeech = [];
         if (autoPlayRef.current) textToSpeech.push(words[currentIndex].words_master.word);
         if (examAutoPlayRef.current) textToSpeech.push(words[currentIndex].words_master.example_sentence);
-        
+
         if (textToSpeech.length > 0) {
           speakText(textToSpeech.join(". "));
         }
@@ -562,32 +563,49 @@ export default function ReviewPage() {
         setStats({ ...stats, today: updatedToday, phase: updatedPhase });
       }
 
-      // 次へ or 完了
-      if (currentIndex + 1 < words.length) {
+      // 「完全記憶」判定
+      const nextCorrect = (words[currentIndex].correct ?? 0) + (isOk ? 1 : 0);
+      const nextTotal = (words[currentIndex].total ?? 0) + 1;
+      const nextSuccessRate = nextTotal > 0 ? nextCorrect / nextTotal : 0;
+      const isNowPerfect = isOk && nextCorrect >= 6 && nextSuccessRate >= 0.9 && !isGuestMode;
+
+      const proceed = () => {
+        if (currentIndex + 1 < words.length) {
+          setTimeout(() => {
+            setSlideDirection(1);
+            setCurrentIndex((prev) => prev + 1);
+            setShowAnswer(false);
+            setIsAnswering(false);
+            setLastAnswer(null);
+            // クイズリセット
+            setQuizPhase("quiz");
+            setSelectedPos(null);
+            setPosCorrect(null);
+          }, 150);
+        } else {
+          // セッション完了
+          setTimeout(() => {
+            setSessionResult({
+              totalAnswered: currentIndex + 1,
+              correctCount: stats ? stats.today + (isOk ? 1 : 0) : 0,
+              wrongCount: 0,
+              maxStreak: isOk ? Math.max(maxStreak, streak + 1) : maxStreak,
+              xpEarned: sessionXp + xpGained,
+            });
+            setIsAnswering(false);
+            setLastAnswer(null);
+          }, 150);
+        }
+      };
+
+      if (isNowPerfect) {
+        setPerfectlyMemorizedWord(words[currentIndex].words_master.word);
         setTimeout(() => {
-          setSlideDirection(1);
-          setCurrentIndex((prev) => prev + 1);
-          setShowAnswer(false);
-          setIsAnswering(false);
-          setLastAnswer(null);
-          // クイズリセット
-          setQuizPhase("quiz");
-          setSelectedPos(null);
-          setPosCorrect(null);
-        }, 150);
+          setPerfectlyMemorizedWord(null);
+          proceed();
+        }, 2200);
       } else {
-        // セッション完了
-        setTimeout(() => {
-          setSessionResult({
-            totalAnswered: currentIndex + 1,
-            correctCount: stats ? stats.today + (isOk ? 1 : 0) : 0,
-            wrongCount: 0,
-            maxStreak: isOk ? Math.max(maxStreak, streak + 1) : maxStreak,
-            xpEarned: sessionXp + xpGained,
-          });
-          setIsAnswering(false);
-          setLastAnswer(null);
-        }, 150);
+        proceed();
       }
     } catch (err) {
       console.error(err);
@@ -834,19 +852,25 @@ export default function ReviewPage() {
           <div className="flex gap-3">
             <button
               onClick={() => window.location.reload()}
-              className="flex-1 px-4 py-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition flex items-center justify-center gap-2"
+              className="flex-1 px-4 py-3 bg-[var(--secondary)] text-[var(--foreground)] rounded-xl font-bold hover:bg-[var(--muted)] transition flex items-center justify-center gap-2 text-sm border border-[var(--border)]"
             >
               <RotateCcw className="w-4 h-4" />
               もう一回
             </button>
             <button
-              onClick={() => router.push("/")}
-              className="flex-1 px-4 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-xl font-bold hover:opacity-90 transition shadow-lg shadow-indigo-200 dark:shadow-indigo-900/30 flex items-center justify-center gap-2"
+              onClick={() => router.push("/words/progress")}
+              className="flex-1 px-4 py-3 bg-[var(--secondary)] text-[var(--foreground)] rounded-xl font-bold hover:bg-[var(--muted)] transition flex items-center justify-center gap-2 text-sm border border-[var(--border)]"
             >
-              ダッシュボード
-              <ArrowRight className="w-4 h-4" />
+              進捗を見る
             </button>
           </div>
+          <button
+            onClick={() => router.push("/")}
+            className="w-full mt-3 px-4 py-3 bg-[var(--primary)] text-[var(--primary-foreground)] rounded-xl font-bold hover:opacity-90 transition shadow-lg shadow-[var(--primary)]/30 flex items-center justify-center gap-2"
+          >
+            ダッシュボード
+            <ArrowRight className="w-4 h-4" />
+          </button>
         </motion.div>
       </div>
     );
@@ -873,6 +897,29 @@ export default function ReviewPage() {
       {confettiTrigger && typeof window !== "undefined" && (
         <Confetti width={window.innerWidth} height={window.innerHeight} />
       )}
+
+      {/* 完全記憶エフェクト */}
+      <AnimatePresence>
+        {perfectlyMemorizedWord && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 1.1 }}
+            className="fixed inset-0 z-[60] flex items-center justify-center pointer-events-none"
+          >
+            <Confetti recycle={false} numberOfPieces={300} />
+            <div className="bg-[var(--card)]/90 backdrop-blur-md px-10 py-8 rounded-3xl shadow-2xl border-4 border-emerald-500/30 text-center">
+              <Sparkles className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
+              <div className="text-4xl font-black text-[var(--foreground)] mb-3">
+                「{perfectlyMemorizedWord}」
+              </div>
+              <div className="text-2xl font-bold text-emerald-500 tracking-widest">
+                完全記憶！
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* フェーズ達成モーダル */}
       <AnimatePresence>
@@ -1045,46 +1092,46 @@ export default function ReviewPage() {
               className={`bg-[var(--card)] rounded-xl p-5 md:p-6 border ${isWeakWord(current.total ?? 0, current.successRate ?? 1) ? "border-red-500/30 ring-1 ring-red-500/10" : "border-[var(--border)]"}`}
             >
               {/* 単語ヘッダー */}
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2.5">
+              <div className="mb-4">
+                <div className="flex items-center justify-between mb-2">
                   <h2 className="text-xl md:text-2xl font-bold text-blue-600 dark:text-blue-400">
                     {m.word}
                   </h2>
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => speakText(m.word)}
-                      className="p-1.5 rounded-lg bg-[var(--accent)]/10 text-[var(--accent)] hover:bg-[var(--accent)]/20 transition"
-                      title="音声を再生"
-                    >
-                      <Volume2 className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={toggleAutoPlay}
-                      className={`p-1.5 rounded-lg transition text-[10px] font-bold border ${autoPlay ? 'bg-[var(--accent)]/10 text-[var(--accent)] border-[var(--accent)]/30' : 'bg-[var(--secondary)] text-[var(--muted-foreground)] border-[var(--border)]'}`}
-                      title="自動再生切り替え"
-                    >
-                      {autoPlay ? "自動再生: ON" : "自動再生: OFF"}
-                    </button>
+                  <div className="flex items-center gap-2">
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${getImportanceClasses(m.importance)}`}>
+                      {importanceToStars(m.importance)}
+                    </span>
+                    {currentWordStatus && (
+                      <span className={`px-2 py-0.5 rounded text-[11px] font-bold border ${currentWordStatus.classes}`}>
+                        {currentWordStatus.label}
+                      </span>
+                    )}
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${getImportanceClasses(m.importance)}`}>
-                    {importanceToStars(m.importance)}
-                  </span>
-                  {currentWordStatus && (
-                    <span className={`px-2 py-0.5 rounded text-[11px] font-bold border ${currentWordStatus.classes}`}>
-                      {currentWordStatus.label}
-                    </span>
-                  )}
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => speakText(m.word)}
+                    className="p-1.5 rounded-lg bg-[var(--accent)]/10 text-[var(--accent)] hover:bg-[var(--accent)]/20 transition"
+                    title="音声を再生"
+                  >
+                    <Volume2 className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={toggleAutoPlay}
+                    className={`px-2 py-1 rounded-lg transition text-[10px] font-bold border ${autoPlay ? 'bg-[var(--accent)]/10 text-[var(--accent)] border-[var(--accent)]/30' : 'bg-[var(--secondary)] text-[var(--muted-foreground)] border-[var(--border)]'}`}
+                    title="自動再生切り替え"
+                  >
+                    {autoPlay ? "単語の自動再生: ON" : "単語の自動再生: OFF"}
+                  </button>
                 </div>
               </div>
 
               {/* 例文 */}
-              <div className="flex items-center justify-between bg-[var(--secondary)] p-3.5 rounded-lg mb-4">
-                <p className="text-[16px] text-[var(--foreground)] leading-relaxed flex-1">
+              <div className="bg-[var(--secondary)] p-3.5 rounded-lg mb-4">
+                <p className="text-[16px] text-[var(--foreground)] leading-relaxed mb-2">
                   {m.example_sentence}
                 </p>
-                <div className="flex items-center gap-1 ml-3">
+                <div className="flex items-center gap-1.5">
                   <button
                     onClick={() => speakText(m.example_sentence)}
                     className="p-1.5 rounded-lg bg-[var(--card)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition border border-[var(--border)]"
@@ -1094,10 +1141,10 @@ export default function ReviewPage() {
                   </button>
                   <button
                     onClick={toggleExamAutoPlay}
-                    className={`p-1.5 rounded-lg transition text-[10px] font-bold border ${examAutoPlay ? 'bg-[var(--accent)]/10 text-[var(--accent)] border-[var(--accent)]/30' : 'bg-[var(--secondary)] text-[var(--muted-foreground)] border-[var(--border)]'}`}
+                    className={`px-2 py-1 rounded-lg transition text-[10px] font-bold border ${examAutoPlay ? 'bg-[var(--accent)]/10 text-[var(--accent)] border-[var(--accent)]/30' : 'bg-[var(--card)] text-[var(--muted-foreground)] border-[var(--border)]'}`}
                     title="例文の自動再生切り替え"
                   >
-                    {examAutoPlay ? "自動再生: ON" : "自動再生: OFF"}
+                    {examAutoPlay ? "例文の自動再生: ON" : "例文の自動再生: OFF"}
                   </button>
                 </div>
               </div>
@@ -1179,7 +1226,7 @@ export default function ReviewPage() {
                       <p className="text-base font-bold text-[var(--foreground)]">
                         {m.meaning}
                       </p>
-                      <p className="text-[13px] text-[var(--muted-foreground)]">
+                      <p className="text-[16px] text-[var(--muted-foreground)]">
                         訳: {m.translation}
                       </p>
                       <div className="flex flex-wrap gap-2">
@@ -1191,7 +1238,7 @@ export default function ReviewPage() {
                         <div className="flex items-center gap-1.5 flex-wrap mt-1">
                           <span className="text-[11px] font-semibold text-[var(--accent)]">類義語:</span>
                           {m.synonyms.split(",").map((s: string, i: number) => (
-                            <span key={i} className="text-[11px] bg-[var(--accent)]/10 text-[var(--accent)] px-2 py-0.5 rounded border border-[var(--accent)]/20">
+                            <span key={i} className="text-[13px] bg-[var(--accent)]/10 text-blue-600 px-2 py-0.5 rounded border border-[var(--accent)]/20">
                               {s.trim()}
                             </span>
                           ))}
