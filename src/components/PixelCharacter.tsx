@@ -45,8 +45,8 @@ export default function PixelCharacter({
       for (let col = 0; col < w; col++) {
         const ch = line[col];
         if (ch === "0") continue; // transparent
-        const idx = parseInt(ch, 10);
-        if (isNaN(idx) || idx < 1 || idx > 9) continue;
+        const idx = parseInt(ch, 16);
+        if (isNaN(idx) || idx < 1 || idx > 10) continue;
         const color = palette[idx - 1]; // palette[0] = color index 1
         if (!color) continue;
         allRects.push({ x: col, y: row, color });
@@ -93,7 +93,7 @@ export default function PixelCharacter({
           position: "relative",
           zIndex: 1,
         }}
-        className={animated ? "transition-transform duration-500" : ""}
+        className={`${animated ? "transition-transform duration-500 hover:scale-110 animate-pulse" : ""}`}
       >
         {/* グロウフィルター (Stage 5) */}
         {isLegendary && (
