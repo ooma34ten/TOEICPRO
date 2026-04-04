@@ -649,6 +649,7 @@ export default function Dashboard() {
         const sorted = [...raceData.participants].sort((a, b) => b.distance - a.distance);
         const myRank = sorted.findIndex(p => p.user_id === raceData.myParticipant?.user_id) + 1;
         const userTotalXp = raceData.userTotalXp ?? 0;
+        const maxDist = sorted[0]?.distance || 1;
 
         return (
           <motion.div
@@ -662,9 +663,20 @@ export default function Dashboard() {
               className="w-full bg-[var(--card)] border border-[var(--border)] rounded-xl p-5 hover:border-[var(--accent)]/30 hover:shadow-md transition-all text-left group"
             >
               <div className="flex items-center justify-between mb-3">
-                <h2 className="text-base font-bold text-[var(--foreground)] flex items-center gap-2">
-                  🏇 ウィークリーレース
-                </h2>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-base font-bold text-[var(--foreground)] flex items-center gap-2">
+                    🏇 ウィークリーレース
+                  </h2>
+                  {raceData.rankInfo && (
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full border" style={{
+                      backgroundColor: `${raceData.rankInfo.color}15`,
+                      borderColor: `${raceData.rankInfo.color}40`,
+                      color: raceData.rankInfo.color,
+                    }}>
+                      {raceData.rankInfo.icon} {raceData.rankInfo.name}
+                    </span>
+                  )}
+                </div>
                 <div className="p-1.5 rounded-full bg-[var(--secondary)] text-[var(--muted-foreground)] group-hover:bg-[var(--accent)] group-hover:text-[var(--accent-foreground)] transition-colors">
                   <ChevronRight className="w-4 h-4" />
                 </div>
@@ -678,18 +690,8 @@ export default function Dashboard() {
                       <span className="text-[var(--muted-foreground)] font-normal"> / {raceData.participants.length}人中</span>
                     </div>
                     <div className="text-[11px] text-[var(--muted-foreground)]">
-                      {raceData.myParticipant.distance.toLocaleString()}m / {raceData.raceGoal.toLocaleString()}m
+                      今週 {raceData.myParticipant.distance.toLocaleString()} XP
                     </div>
-                  </div>
-                </div>
-                <div className="flex-1">
-                  <div className="h-3 bg-[var(--secondary)] rounded-full overflow-hidden">
-                    <motion.div
-                      className="h-full rounded-full bg-gradient-to-r from-[var(--accent)] to-amber-400"
-                      initial={{ width: 0 }}
-                      animate={{ width: `${Math.min((raceData.myParticipant.distance / raceData.raceGoal) * 100, 100)}%` }}
-                      transition={{ duration: 1, ease: "easeOut" }}
-                    />
                   </div>
                 </div>
               </div>
@@ -700,7 +702,7 @@ export default function Dashboard() {
                 ))}
                 <div className="absolute right-0 top-0 bottom-0 w-0.5 bg-amber-500/30" />
                 {sorted.slice(0, 6).map((p, i) => {
-                  const progress = Math.min((p.distance / raceData.raceGoal) * 100, 100);
+                  const progress = maxDist > 0 ? Math.min((p.distance / maxDist) * 90, 90) : 2;
                   const isMe = p.user_id === raceData.myParticipant?.user_id;
                   const charType = (p.character_type || "cat") as CharacterType;
                   const cpuXp = p.cpu_total_xp ?? 5000;
@@ -710,7 +712,7 @@ export default function Dashboard() {
                       className="absolute z-10"
                       style={{ top: `${10 + i * 12}%` }}
                       initial={{ left: 0 }}
-                      animate={{ left: `${Math.min(Math.max(progress, 1), 94)}%` }}
+                      animate={{ left: `${Math.max(progress, 2)}%` }}
                       transition={{ duration: 1.2, ease: "easeOut", delay: i * 0.05 }}
                     >
                       <div className={`-translate-x-1/2 text-[10px] ${isMe ? "opacity-100 scale-125" : "opacity-60"}`}>

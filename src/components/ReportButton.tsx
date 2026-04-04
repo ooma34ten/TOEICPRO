@@ -38,8 +38,12 @@ export default function ReportButton({ wordId, wordText, userId, compact = false
         // userId が渡されていない場合、直接取得
         let uid = userId;
         if (!uid) {
-            const { data } = await supabase.auth.getUser();
-            uid = data.user?.id ?? null;
+            try {
+                const { data } = await supabase.auth.getUser();
+                uid = data.user?.id ?? null;
+            } catch (e) {
+                console.warn("User fetch error:", e);
+            }
         }
         if (!uid) {
             toast.error("ログインが必要です");

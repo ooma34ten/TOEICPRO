@@ -57,13 +57,13 @@ export default function UnifiedSidebar() {
   const sidebars: { type: SidebarType; icon: ReactNode; title: string; content: ReactNode }[] = [
     {
       type: "aiQuestion",
-      icon: isOpen["aiQuestion"] ? <X size={22} className="opacity-80" /> : <Bot size={22} className="animate-pulse" />,
+      icon: <Bot size={22} className="animate-pulse" />,
       title: "TOEIC AI アシスタント",
       content: <TOEICAIPage />,
     },
     {
       type: "aiDictionary",
-      icon: isOpen["aiDictionary"] ? <X size={22} className="opacity-80" /> : <BookOpen size={22} />,
+      icon: <BookOpen size={22} />,
       title: "単語登録",
       content: (
         <div className="space-y-6">
@@ -129,7 +129,7 @@ export default function UnifiedSidebar() {
                 : "bg-[var(--accent)] text-[var(--accent-foreground)] shadow-[var(--accent)]/20 hover:scale-105"
             }`}
         >
-          {sb.icon}
+          {isOpen[sb.type] ? <X size={22} className="opacity-80" /> : sb.icon}
           <span className="hidden sm:inline font-medium">
             {isOpen[sb.type] ? "閉じる" : sb.title}
           </span>
@@ -150,13 +150,6 @@ export default function UnifiedSidebar() {
               {sb.icon}
               <h2 className="text-lg font-semibold">{sb.title}</h2>
             </div>
-            <button
-              onClick={() => toggleSidebar(sb.type)}
-              className="p-1 text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition bg-[var(--card)] border border-[var(--border)] rounded-md hover:bg-[var(--secondary)]"
-              aria-label="閉じる"
-            >
-              <X size={20} />
-            </button>
           </div>
 
           {/* コンテンツ */}

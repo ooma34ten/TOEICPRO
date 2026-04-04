@@ -72,7 +72,13 @@ export default function WordForm({ onAdd }: WordFormProps) {
         .eq("word", finalWord);
 
       // 🔹 ユーザーの登録済み単語をチェック
-      const { data: { user } } = await supabase.auth.getUser();
+      let user = null;
+      try {
+        const res = await supabase.auth.getUser();
+        user = res.data.user;
+      } catch (e) {
+        console.warn("Failed to get user:", e);
+      }
       let registeredMeanings = new Set<string>();
       if (user?.id && existingWords && existingWords.length > 0) {
         const wordIds = existingWords.map((w: { id: string }) => w.id);
@@ -192,9 +198,13 @@ export default function WordForm({ onAdd }: WordFormProps) {
     }
 
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      let user = null;
+      try {
+        const res = await supabase.auth.getUser();
+        user = res.data.user;
+      } catch (e) {
+        console.warn("Failed to get user:", e);
+      }
 
       if (!user?.id) {
         setMsg("保存にはログインが必要です");

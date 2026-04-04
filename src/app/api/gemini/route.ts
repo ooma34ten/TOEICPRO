@@ -17,7 +17,7 @@ export async function POST(req: Request) {
     console.log("🔍 Fetching Gemini API with question:", question);
 
     const res = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash:generateContent",
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
       {
         method: "POST",
         headers: {

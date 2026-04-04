@@ -42,9 +42,13 @@ export default function RegisterPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const fetchWords = useCallback(async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    let user = null;
+    try {
+      const res = await supabase.auth.getUser();
+      user = res.data.user;
+    } catch (e) {
+      console.warn("Failed to get user:", e);
+    }
 
     if (!user) {
       // ゲストモードの場合はエラーメッセージを表示するが、ページは閲覧可能

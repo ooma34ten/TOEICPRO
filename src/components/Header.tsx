@@ -35,7 +35,13 @@ export default function Header() {
     let currentChannel: any = null;
 
     const getUserData = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      let user = null;
+      try {
+        const { data } = await supabase.auth.getUser();
+        user = data.user;
+      } catch (e) {
+        console.warn("Failed to get user session:", e);
+      }
       setUserId(user?.id ?? null);
 
       if (user?.id) {

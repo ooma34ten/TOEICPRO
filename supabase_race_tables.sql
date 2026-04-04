@@ -58,3 +58,7 @@ CREATE POLICY "Allow insert race history"
 
 -- 3. user_stats にキャラクター列を追加
 ALTER TABLE user_stats ADD COLUMN IF NOT EXISTS character_emoji TEXT DEFAULT '🐱';
+
+-- 4. V2 アップデート用追加カラム（ウィークリーレース 日別アニメーション用）
+ALTER TABLE race_participants ADD COLUMN IF NOT EXISTS daily_progress JSONB DEFAULT '{}'::jsonb;
+ALTER TABLE race_participants ADD COLUMN IF NOT EXISTS last_cpu_advance_date DATE;

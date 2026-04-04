@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import { getJSTDateString } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Trophy,
@@ -18,7 +19,7 @@ import {
   X,
   ArrowUp,
   ArrowDown,
-  Minus,
+  TrendingUp,
 } from "lucide-react";
 import {
   getOrCreateWeeklyRace,
@@ -28,40 +29,39 @@ import {
   type RaceParticipant,
   type RaceHistoryItem,
 } from "@/app/actions/race";
+import { getRankInfo, RANK_DEFS, getAllRankDefs, getPreviousDayCumulative, type RankInfo } from "@/lib/raceUtils";
 import PixelCharacter, { PixelCharacterMini } from "@/components/PixelCharacter";
 import CharacterCard, { CharacterSelectGrid } from "@/components/CharacterCard";
 import {
   getCharacterDef,
   getStageIndex,
-  CHARACTER_DEFS,
   type CharacterType,
 } from "@/lib/characters";
+
+// =============================
+// レースアニメーション状態
+// =============================
+type RacePhase = "loading" | "ready" | "countdown" | "racing" | "finished";
 
 // =============================
 // 順位バッジ
 // =============================
 const RankBadge = ({ rank }: { rank: number }) => {
-  if (rank === 1) {
-    return (
-      <div className="flex items-center justify-center w-7 h-7 rounded-full bg-yellow-400/20 border border-yellow-400/40">
-        <Crown className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-      </div>
-    );
-  }
-  if (rank === 2) {
-    return (
-      <div className="flex items-center justify-center w-7 h-7 rounded-full bg-slate-300/20 border border-slate-400/40">
-        <Medal className="w-4 h-4 text-slate-400" />
-      </div>
-    );
-  }
-  if (rank === 3) {
-    return (
-      <div className="flex items-center justify-center w-7 h-7 rounded-full bg-amber-600/20 border border-amber-600/40">
-        <Medal className="w-4 h-4 text-amber-600" />
-      </div>
-    );
-  }
+  if (rank === 1) return (
+    <div className="flex items-center justify-center w-7 h-7 rounded-full bg-yellow-400/20 border border-yellow-400/40">
+      <Crown className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+    </div>
+  );
+  if (rank === 2) return (
+    <div className="flex items-center justify-center w-7 h-7 rounded-full bg-slate-300/20 border border-slate-400/40">
+      <Medal className="w-4 h-4 text-slate-400" />
+    </div>
+  );
+  if (rank === 3) return (
+    <div className="flex items-center justify-center w-7 h-7 rounded-full bg-amber-600/20 border border-amber-600/40">
+      <Medal className="w-4 h-4 text-amber-600" />
+    </div>
+  );
   return (
     <div className="flex items-center justify-center w-7 h-7 rounded-full bg-[var(--secondary)] border border-[var(--border)]">
       <span className="text-[11px] font-bold text-[var(--muted-foreground)]">{rank}</span>
@@ -89,125 +89,273 @@ const CountdownTimer = ({ initialMs }: { initialMs: number }) => {
   return (
     <div className="flex items-center gap-1.5 text-[12px] text-[var(--muted-foreground)]">
       <Clock className="w-3.5 h-3.5" />
-      <span>
-        残り <span className="font-bold text-[var(--foreground)]">{days}日 {hours}時間 {minutes}分</span>
-      </span>
+      <span>残り <span className="font-bold text-[var(--foreground)]">{days}日 {hours}時間 {minutes}分</span></span>
     </div>
   );
 };
 
 // =============================
-// 競馬場トラック — 鳥瞰図ビュー
+// ランクバッジ
 // =============================
-const HorseRaceTrack = ({
+const RankTierBadge = ({ rankInfo }: { rankInfo: RankInfo }) => (
+  <div
+    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold border"
+    style={{
+      backgroundColor: `${rankInfo.color}15`,
+      borderColor: `${rankInfo.color}40`,
+      color: rankInfo.color,
+    }}
+  >
+    <span>{rankInfo.icon}</span>
+    <span>{rankInfo.name}</span>
+  </div>
+);
+
+// =============================
+// ランク詳細表示
+// =============================
+const RankDetailCard = ({ rankInfo, userRank }: { rankInfo: RankInfo; userRank: number }) => {
+  const nextRank = userRank > 1 ? getRankInfo(userRank - 1) : null;
+  const prevRank = userRank < 10 ? getRankInfo(userRank + 1) : null;
+
+  return (
+    <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-4 mb-4">
+      <div className="flex items-center gap-3 mb-3">
+        <div
+          className="w-12 h-12 rounded-full flex items-center justify-center text-2xl"
+          style={{ backgroundColor: `${rankInfo.color}20` }}
+        >
+          {rankInfo.icon}
+        </div>
+        <div>
+          <h3 className="text-lg font-bold text-[var(--foreground)]">
+            {rankInfo.name} (ランク {rankInfo.rank})
+          </h3>
+          <p className="text-[12px] text-[var(--muted-foreground)]">
+            週間目標: {rankInfo.weeklyTarget.toLocaleString()} XP
+          </p>
+        </div>
+      </div>
+
+      {/* ランク進捗 */}
+      <div className="space-y-2">
+        {nextRank && (
+          <div className="text-[12px] text-[var(--muted-foreground)]">
+            <span className="font-medium">次のランクまで:</span>
+            <span className="ml-2 text-[var(--foreground)]">
+              {nextRank.name} ({nextRank.weeklyTarget.toLocaleString()} XP)
+            </span>
+          </div>
+        )}
+        {prevRank && (
+          <div className="text-[12px] text-[var(--muted-foreground)]">
+            <span className="font-medium">前のランク:</span>
+            <span className="ml-2 text-[var(--foreground)]">
+              {prevRank.name} ({prevRank.weeklyTarget.toLocaleString()} XP)
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// =============================
+// 🏇 競馬場レースアニメーション
+// =============================
+const HorseRaceAnimation = ({
   participants,
   myUserId,
-  raceGoal,
+  weeklyTarget,
   userTotalXp,
+  phase,
+  dayOfWeek,
 }: {
   participants: RaceParticipant[];
   myUserId: string | null;
-  raceGoal: number;
+  weeklyTarget: number;
   userTotalXp: number;
+  phase: RacePhase;
+  dayOfWeek: number;
 }) => {
   const sorted = [...participants].sort((a, b) => b.distance - a.distance);
-
-  // トラックのパーセントマーカー
-  const markers = [0, 25, 50, 75, 100];
+  const maxDistance = sorted[0]?.distance || 1;
+  // 表示用のスケール: 1位が90%の位置になるように
+  const displayScale = maxDistance > 0 ? 90 / maxDistance : 1;
 
   return (
-    <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-4 overflow-hidden">
-      {/* マーカーヘッダー */}
-      <div className="relative h-6 mb-1">
-        {markers.map(pct => (
-          <div
-            key={pct}
-            className="absolute top-0 text-[9px] font-bold text-[var(--muted-foreground)]"
-            style={{ left: `${pct}%`, transform: "translateX(-50%)" }}
-          >
-            {pct === 100 ? "🏁" : `${pct}%`}
-          </div>
-        ))}
+    <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl overflow-hidden relative">
+      {/* トラックヘッダー */}
+      <div className="px-4 pt-3 pb-1 flex items-center justify-between">
+        <span className="text-[11px] font-bold text-[var(--muted-foreground)]">START</span>
+        <div className="flex-1 mx-3 border-b border-dashed border-[var(--border)]" />
+        <span className="text-[11px] font-bold text-[var(--muted-foreground)]">🏁</span>
       </div>
 
       {/* レーン */}
-      <div className="space-y-1">
+      <div className="px-2 pb-3 space-y-0.5">
         {sorted.map((p, index) => {
-          const progress = Math.min((p.distance / raceGoal) * 100, 100);
           const isMe = p.user_id === myUserId;
-          const isFinished = p.finished_at !== null;
-          const rank = index + 1;
           const charType = (p.character_type || "cat") as CharacterType;
           const cpuXp = p.cpu_total_xp ?? 5000;
           const xpForChar = isMe ? userTotalXp : cpuXp;
+          const rank = index + 1;
+
+          // アニメーション: phaseに応じて位置を決める
+          const isFinalDay = dayOfWeek === 7;
+          const fullCumulative = p.distance;
+          const previousCumulative = getPreviousDayCumulative(p.daily_progress || {}, dayOfWeek);
+          const todayCumulative = fullCumulative;
+
+          const startPosition = isFinalDay ? 2 : previousCumulative * displayScale;
+          const finalPosition = isFinalDay ? fullCumulative * displayScale : todayCumulative * displayScale;
+
+          // レース中のディレイ: ランダムに若干ずらしてドラマを演出
+          const raceDelay = phase === "racing"
+            ? 0.3 + (Math.random() * 0.8) + (index * 0.1)
+            : 0;
+          const raceDuration = phase === "racing"
+            ? 5.0 + (Math.random() * 2.0) // 5.0〜7秒
+            : 0.3;
 
           return (
             <div
               key={p.id}
-              className={`relative flex items-center gap-2 rounded-lg px-2 py-1 transition-all ${
+              className={`relative flex items-center gap-1.5 rounded-lg px-1.5 py-1 transition-all ${
                 isMe
                   ? "bg-[var(--accent)]/8 border border-[var(--accent)]/20"
-                  : "border border-transparent"
+                  : ""
               }`}
             >
               {/* 順位 */}
-              <span className={`text-[10px] font-bold w-5 text-center shrink-0 ${
+              <span className={`text-[10px] font-bold w-4 text-center shrink-0 ${
                 rank === 1 ? "text-yellow-500" :
                 rank === 2 ? "text-slate-400" :
                 rank === 3 ? "text-amber-600" :
                 "text-[var(--muted-foreground)]"
               }`}>
-                {rank}
+                {phase === "finished" ? rank : ""}
               </span>
 
-              {/* トラック */}
-              <div className="flex-1 relative h-8 bg-[var(--secondary)]/60 rounded overflow-visible">
-                {/* 距離マーカーライン */}
-                {[25, 50, 75].map(pct => (
-                  <div
-                    key={pct}
-                    className="absolute top-0 bottom-0 w-px bg-[var(--border)]/50"
-                    style={{ left: `${pct}%` }}
-                  />
-                ))}
-
-                {/* ゴールライン */}
-                <div className="absolute top-0 bottom-0 right-0 w-0.5 bg-amber-500/40" />
+              {/* トラックレーン */}
+              <div className="flex-1 relative h-9 bg-gradient-to-r from-emerald-900/10 via-emerald-800/5 to-emerald-900/10 rounded border border-[var(--border)]/30">
+                {/* 芝模様 */}
+                <div className="absolute inset-0 opacity-10" style={{
+                  backgroundImage: "repeating-linear-gradient(90deg, transparent, transparent 8px, rgba(34,197,94,0.15) 8px, rgba(34,197,94,0.15) 9px)"
+                }} />
 
                 {/* キャラクター */}
                 <motion.div
                   className="absolute top-1/2 -translate-y-1/2 z-10"
-                  initial={{ left: 0 }}
-                  animate={{ left: `${Math.min(Math.max(progress, 1), 95)}%` }}
-                  transition={{ duration: 1.5, ease: "easeOut", delay: index * 0.08 }}
+                  initial={{ left: `${startPosition}%` }}
+                  animate={{
+                    left: phase === "racing" || phase === "finished"
+                      ? `${Math.min(finalPosition, 92)}%`
+                      : `${startPosition}%`
+                  }}
+                  transition={{
+                    duration: raceDuration,
+                    delay: raceDelay,
+                    ease: [0.25, 0.46, 0.45, 0.94], // カスタムイージング
+                  }}
                 >
                   <div className="relative -translate-x-1/2">
-                    <PixelCharacterMini
-                      type={charType}
-                      totalXp={xpForChar}
-                    />
+                    {/* 走行エフェクト（レース中のみ） */}
+                    {phase === "racing" && (
+                      <motion.div
+                        className="absolute -left-6 top-1/2 -translate-y-1/2 text-[8px] text-[var(--muted-foreground)]/30"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: [0, 0.6, 0] }}
+                        transition={{ duration: 0.3, repeat: 8, delay: raceDelay }}
+                      >
+                        💨
+                      </motion.div>
+                    )}
+                    <PixelCharacterMini type={charType} totalXp={xpForChar} />
                   </div>
                 </motion.div>
 
-                {/* ゴール済みフラグ */}
-                {isFinished && (
-                  <div className="absolute right-1 top-1/2 -translate-y-1/2 text-[10px]">
-                    🏁
-                  </div>
-                )}
+                {/* ゴールライン */}
+                <div className="absolute right-0 top-0 bottom-0 w-px bg-amber-500/30" />
               </div>
 
-              {/* 名前 */}
-              <span className={`text-[9px] font-medium w-16 truncate shrink-0 ${
-                isMe ? "text-[var(--accent)] font-bold" : "text-[var(--muted-foreground)]"
-              }`}>
-                {isMe ? "あなた" : p.display_name.replace("CPU ", "")}
-              </span>
+              {/* 名前＋距離 */}
+              <div className="w-20 shrink-0 text-right">
+                <div className={`text-[9px] font-semibold truncate ${
+                  isMe ? "text-[var(--accent)]" : "text-[var(--muted-foreground)]"
+                }`}>
+                  {isMe ? "あなた" : p.display_name.replace("CPU ", "")}
+                </div>
+                <motion.div
+                  className="text-[9px] text-[var(--muted-foreground)]"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: phase === "finished" ? 1 : 0 }}
+                  transition={{ delay: 4 }}
+                >
+                  {p.distance.toLocaleString()}xp
+                </motion.div>
+              </div>
             </div>
           );
         })}
       </div>
+
+      {/* カウントダウンオーバーレイ */}
+      <AnimatePresence>
+        {phase === "countdown" && (
+          <CountdownOverlay />
+        )}
+      </AnimatePresence>
     </div>
+  );
+};
+
+// =============================
+// カウントダウンオーバーレイ
+// =============================
+const CountdownOverlay = () => {
+  const [count, setCount] = useState(3);
+
+  useEffect(() => {
+    if (count > 0) {
+      const timer = setTimeout(() => setCount(count - 1), 600);
+      return () => clearTimeout(timer);
+    }
+  }, [count]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-20 rounded-2xl"
+    >
+      <AnimatePresence mode="wait">
+        {count > 0 ? (
+          <motion.div
+            key={count}
+            initial={{ scale: 2, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.5, opacity: 0 }}
+            transition={{ duration: 0.4 }}
+            className="text-6xl font-black text-white drop-shadow-lg"
+          >
+            {count}
+          </motion.div>
+        ) : (
+          <motion.div
+            key="go"
+            initial={{ scale: 3, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.5, opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="text-5xl font-black text-[var(--accent)] drop-shadow-lg"
+          >
+            GO! 🏇
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
   );
 };
 
@@ -217,12 +365,10 @@ const HorseRaceTrack = ({
 const RankingTable = ({
   participants,
   myUserId,
-  raceGoal,
   userTotalXp,
 }: {
   participants: RaceParticipant[];
   myUserId: string | null;
-  raceGoal: number;
   userTotalXp: number;
 }) => {
   const sorted = [...participants].sort((a, b) => b.distance - a.distance);
@@ -232,9 +378,7 @@ const RankingTable = ({
     <div className="space-y-2">
       {sorted.map((p, index) => {
         const rank = index + 1;
-        const progress = Math.min((p.distance / raceGoal) * 100, 100);
         const isMe = p.user_id === myUserId;
-        const isFinished = p.finished_at !== null;
         const charType = (p.character_type || "cat") as CharacterType;
         const charDef = getCharacterDef(charType);
         const cpuXp = p.cpu_total_xp ?? 5000;
@@ -256,15 +400,10 @@ const RankingTable = ({
             }`}
           >
             <div className="flex items-center gap-2.5">
-              {/* 順位 */}
               <RankBadge rank={rank} />
-
-              {/* キャラ */}
               <div className="shrink-0">
                 <PixelCharacterMini type={charType} totalXp={xpForChar} />
               </div>
-
-              {/* 名前・情報 */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
                   <span className={`text-[13px] font-bold truncate ${
@@ -277,46 +416,16 @@ const RankingTable = ({
                       CPU
                     </span>
                   )}
-                  {isFinished && (
-                    <span className="text-[8px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-1 py-0.5 rounded border border-emerald-500/20">
-                      🏁 ゴール
-                    </span>
-                  )}
                 </div>
                 <div className="flex items-center gap-2 text-[10px] text-[var(--muted-foreground)]">
                   <span>{stage.name} {charDef.nameJa}</span>
                   <span>•</span>
-                  <span className="font-semibold">{p.distance.toLocaleString()}m</span>
+                  <span className="font-bold text-[var(--foreground)]">{p.distance.toLocaleString()} XP</span>
                   {rank > 1 && distFromLeader > 0 && (
                     <span className="text-red-400">(-{distFromLeader.toLocaleString()})</span>
                   )}
                 </div>
               </div>
-
-              {/* プログレス値 */}
-              <div className="text-right shrink-0">
-                <div className="text-[13px] font-bold text-[var(--foreground)]">
-                  {Math.round(progress)}%
-                </div>
-              </div>
-            </div>
-
-            {/* プログレスバー */}
-            <div className="mt-2 h-1.5 bg-[var(--secondary)] rounded-full overflow-hidden">
-              <motion.div
-                className={`h-full rounded-full ${
-                  isFinished
-                    ? "bg-gradient-to-r from-emerald-500 to-emerald-400"
-                    : isMe
-                      ? "bg-gradient-to-r from-[var(--accent)] to-amber-400"
-                      : rank <= 3
-                        ? "bg-gradient-to-r from-blue-500 to-cyan-400"
-                        : "bg-gradient-to-r from-slate-400 to-slate-300 dark:from-slate-600 dark:to-slate-500"
-                }`}
-                initial={{ width: 0 }}
-                animate={{ width: `${Math.max(progress, 1)}%` }}
-                transition={{ duration: 1, ease: "easeOut", delay: index * 0.08 }}
-              />
             </div>
           </motion.div>
         );
@@ -342,7 +451,6 @@ const CharacterModal = ({
   onSelect: (type: CharacterType) => void;
 }) => {
   if (!isOpen) return null;
-
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -364,15 +472,9 @@ const CharacterModal = ({
             <X className="w-5 h-5 text-[var(--muted-foreground)]" />
           </button>
         </div>
-
-        <CharacterSelectGrid
-          currentType={currentType}
-          totalXp={totalXp}
-          onSelect={onSelect}
-        />
-
+        <CharacterSelectGrid currentType={currentType} totalXp={totalXp} onSelect={onSelect} />
         <p className="text-[11px] text-[var(--muted-foreground)] text-center mt-4">
-          タップしてキャラクターを変更（進化段階はXPで決まります）
+          タップしてキャラクターを変更
         </p>
       </motion.div>
     </motion.div>
@@ -392,14 +494,15 @@ export default function RacePage() {
   const [showHistory, setShowHistory] = useState(false);
   const [activeTab, setActiveTab] = useState<"track" | "ranking">("track");
 
-  // 認証チェック
+  // レースアニメーション状態
+  const [racePhase, setRacePhase] = useState<RacePhase>("loading");
+  const animationTriggered = useRef(false);
+
+  // 認証
   useEffect(() => {
     (async () => {
       const { data } = await supabase.auth.getSession();
-      if (!data.session) {
-        router.replace("/auth/login");
-        return;
-      }
+      if (!data.session) { router.replace("/auth/login"); return; }
       setUserId(data.session.user.id);
     })();
   }, [router]);
@@ -420,11 +523,22 @@ export default function RacePage() {
     }
   }, [userId]);
 
-  useEffect(() => {
-    fetchRaceData();
-  }, [fetchRaceData]);
+  useEffect(() => { fetchRaceData(); }, [fetchRaceData]);
 
-  // キャラクター変更
+  // レースアニメーション自動開始
+  useEffect(() => {
+    if (!raceData || animationTriggered.current) return;
+    animationTriggered.current = true;
+
+    // Phase: ready → countdown → racing → finished
+    setRacePhase("ready");
+    const t1 = setTimeout(() => setRacePhase("countdown"), 500);
+    const t2 = setTimeout(() => setRacePhase("racing"), 2800); // 3カウント+GO後
+    const t3 = setTimeout(() => setRacePhase("finished"), 7500); // レース完了
+
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+  }, [raceData]);
+
   const handleCharacterSelect = async (charType: CharacterType) => {
     if (!userId) return;
     await updateCharacterType(userId, charType);
@@ -432,7 +546,6 @@ export default function RacePage() {
     await fetchRaceData();
   };
 
-  // 自分の順位を計算
   const myRank = raceData
     ? [...raceData.participants]
         .sort((a, b) => b.distance - a.distance)
@@ -470,24 +583,35 @@ export default function RacePage() {
       </AnimatePresence>
 
       <div className="max-w-2xl mx-auto">
-        {/* ヘッダー */}
+        {/* ヘッダー + ランク */}
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex items-center justify-between mb-5"
+          className="flex items-center justify-between mb-4"
         >
-          <h1 className="text-xl font-bold text-[var(--foreground)] flex items-center gap-2">
-            🏇 ウィークリーレース
-          </h1>
+          <div>
+            <h1 className="text-xl font-bold text-[var(--foreground)] flex items-center gap-2 mb-1">
+              🏇 ウィークリーレース
+            </h1>
+            <RankTierBadge rankInfo={raceData.rankInfo} />
+          </div>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowHistory(!showHistory)}
               className="p-2 rounded-lg bg-[var(--secondary)] border border-[var(--border)] hover:bg-[var(--muted)] transition"
-              title="履歴"
             >
               <History className="w-4 h-4 text-[var(--muted-foreground)]" />
             </button>
           </div>
+        </motion.div>
+
+        {/* ランク詳細 */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+        >
+          <RankDetailCard rankInfo={raceData.rankInfo} userRank={raceData.userRank} />
         </motion.div>
 
         {/* ステータスカード */}
@@ -495,9 +619,9 @@ export default function RacePage() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="grid grid-cols-3 gap-3 mb-5"
+          className="grid grid-cols-3 gap-3 mb-4"
         >
-          <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-3.5 text-center">
+          <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-3 text-center">
             <div className="text-2xl font-bold text-[var(--foreground)]">
               {myRank > 0 ? `${myRank}位` : "-"}
             </div>
@@ -506,39 +630,44 @@ export default function RacePage() {
             </div>
           </div>
 
-          <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-3.5 text-center">
+          <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-3 text-center">
             <div className="text-2xl font-bold text-[var(--accent)]">
               {raceData.myParticipant?.distance.toLocaleString() ?? 0}
             </div>
             <div className="text-[10px] text-[var(--muted-foreground)] font-medium mt-0.5 flex items-center justify-center gap-1">
-              <Flame className="w-3 h-3" /> 走行距離 (m)
+              <Flame className="w-3 h-3" /> 今週XP
             </div>
           </div>
 
-          <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-3.5 text-center">
+          <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-3 text-center">
             <div className="text-2xl font-bold text-emerald-500">
               +{raceData.todayXp}
             </div>
             <div className="text-[10px] text-[var(--muted-foreground)] font-medium mt-0.5 flex items-center justify-center gap-1">
-              <Zap className="w-3 h-3" /> 今日の獲得
+              <Zap className="w-3 h-3" /> 今日
             </div>
           </div>
         </motion.div>
 
-        {/* カウントダウン + キャラ変更 */}
+        {/* 目標XP表示 + カウントダウン */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15 }}
-          className="flex items-center justify-between bg-[var(--card)] border border-[var(--border)] rounded-xl px-4 py-3 mb-5"
+          className="flex items-center justify-between bg-[var(--card)] border border-[var(--border)] rounded-xl px-4 py-3 mb-4"
         >
-          <CountdownTimer initialMs={raceData.timeRemainingMs} />
+          <div className="flex items-center gap-3">
+            <CountdownTimer initialMs={raceData.timeRemainingMs} />
+            <span className="text-[11px] text-[var(--muted-foreground)]">
+              目標: <span className="font-bold text-[var(--foreground)]">{raceData.weeklyTarget.toLocaleString()} XP/週</span>
+            </span>
+          </div>
           <button
             onClick={() => setShowCharacterModal(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--secondary)] border border-[var(--border)] rounded-lg hover:bg-[var(--muted)] transition text-[12px] font-medium text-[var(--foreground)]"
           >
             <PixelCharacterMini type={myCharType} totalXp={raceData.userTotalXp} />
-            キャラ変更
+            変更
           </button>
         </motion.div>
 
@@ -547,7 +676,7 @@ export default function RacePage() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.18 }}
-          className="mb-5"
+          className="mb-4"
         >
           <CharacterCard
             type={myCharType}
@@ -556,7 +685,7 @@ export default function RacePage() {
           />
         </motion.div>
 
-        {/* タブ切替: トラック / ランキング */}
+        {/* タブ切替 */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -569,7 +698,7 @@ export default function RacePage() {
               className={`flex-1 py-2 px-3 rounded-lg text-[13px] font-semibold transition-all ${
                 activeTab === "track"
                   ? "bg-[var(--card)] text-[var(--foreground)] shadow-sm"
-                  : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                  : "text-[var(--muted-foreground)]"
               }`}
             >
               🏇 レーストラック
@@ -579,7 +708,7 @@ export default function RacePage() {
               className={`flex-1 py-2 px-3 rounded-lg text-[13px] font-semibold transition-all ${
                 activeTab === "ranking"
                   ? "bg-[var(--card)] text-[var(--foreground)] shadow-sm"
-                  : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                  : "text-[var(--muted-foreground)]"
               }`}
             >
               🏆 ランキング
@@ -587,7 +716,7 @@ export default function RacePage() {
           </div>
         </motion.div>
 
-        {/* レーストラック or ランキング */}
+        {/* メインビュー */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -595,34 +724,24 @@ export default function RacePage() {
           className="mb-6"
         >
           {activeTab === "track" ? (
-            <HorseRaceTrack
+            <HorseRaceAnimation
               participants={raceData.participants}
               myUserId={userId}
-              raceGoal={raceData.raceGoal}
+              weeklyTarget={raceData.weeklyTarget}
               userTotalXp={raceData.userTotalXp}
+              phase={racePhase}
+              dayOfWeek={raceData.dayOfWeek}
             />
           ) : (
-            <>
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-base font-bold text-[var(--foreground)] flex items-center gap-2">
-                  <Trophy className="w-4 h-4 text-[var(--accent)]" />
-                  ランキング
-                </h2>
-                <span className="text-[11px] text-[var(--muted-foreground)]">
-                  ゴール: {raceData.raceGoal.toLocaleString()}m
-                </span>
-              </div>
-              <RankingTable
-                participants={raceData.participants}
-                myUserId={userId}
-                raceGoal={raceData.raceGoal}
-                userTotalXp={raceData.userTotalXp}
-              />
-            </>
+            <RankingTable
+              participants={raceData.participants}
+              myUserId={userId}
+              userTotalXp={raceData.userTotalXp}
+            />
           )}
         </motion.div>
 
-        {/* 学習で進もう！CTA */}
+        {/* 学習CTA */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -634,12 +753,9 @@ export default function RacePage() {
               <Sparkles className="w-5 h-5 text-[var(--accent)]" />
             </div>
             <div className="flex-1">
-              <h3 className="text-sm font-bold text-[var(--foreground)] mb-1">
-                学習して前に進もう！
-              </h3>
+              <h3 className="text-sm font-bold text-[var(--foreground)] mb-1">XPを稼いで1位を目指そう！</h3>
               <p className="text-[12px] text-[var(--muted-foreground)] leading-relaxed mb-3">
-                単語復習やPart5問題を解くとXPが貯まり、レースで前に進めます。
-                キャラクターもXPで進化します！
+                今週一番多くXPを稼いだ人が優勝！1位になるとランクが上がります。
               </p>
               <div className="flex gap-2">
                 <button
@@ -675,24 +791,24 @@ export default function RacePage() {
               {history.length === 0 ? (
                 <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-6 text-center">
                   <p className="text-[var(--muted-foreground)] text-sm">まだ履歴がありません</p>
-                  <p className="text-[var(--muted-foreground)] text-[11px] mt-1">
-                    今週のレースが終わると結果が表示されます
-                  </p>
                 </div>
               ) : (
                 <div className="space-y-2">
                   {history.map((h) => (
-                    <div
-                      key={h.week_start}
-                      className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-3.5 flex items-center justify-between"
-                    >
+                    <div key={h.week_start} className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-3.5 flex items-center justify-between">
                       <div>
-                        <span className="text-[12px] text-[var(--muted-foreground)]">
-                          {h.week_start} 〜
-                        </span>
+                        <span className="text-[12px] text-[var(--muted-foreground)]">{h.week_start} 〜</span>
                         <div className="text-[13px] font-semibold text-[var(--foreground)]">
-                          {h.final_distance.toLocaleString()}m 走行
+                          {h.final_distance.toLocaleString()} XP
                         </div>
+                        {h.rank_before !== undefined && h.rank_after !== undefined && h.rank_before !== h.rank_after && (
+                          <div className={`text-[10px] font-bold flex items-center gap-0.5 ${
+                            h.rank_after < h.rank_before ? "text-emerald-500" : "text-red-400"
+                          }`}>
+                            {h.rank_after < h.rank_before ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
+                            {getRankInfo(h.rank_before).name} → {getRankInfo(h.rank_after).name}
+                          </div>
+                        )}
                       </div>
                       <div className="flex items-center gap-2">
                         <span className={`text-lg font-bold ${
@@ -703,9 +819,7 @@ export default function RacePage() {
                         }`}>
                           {h.final_rank === 1 ? "🥇" : h.final_rank === 2 ? "🥈" : h.final_rank === 3 ? "🥉" : `${h.final_rank}位`}
                         </span>
-                        <span className="text-[11px] text-[var(--muted-foreground)]">
-                          / {h.total_participants}人中
-                        </span>
+                        <span className="text-[11px] text-[var(--muted-foreground)]">/ {h.total_participants}人</span>
                       </div>
                     </div>
                   ))}
@@ -715,36 +829,34 @@ export default function RacePage() {
           )}
         </AnimatePresence>
 
-        {/* ルール説明 */}
+        {/* ルール */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.4 }}
           className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-5"
         >
-          <h3 className="text-sm font-bold text-[var(--foreground)] mb-3 flex items-center gap-2">
-            📖 ルール
-          </h3>
+          <h3 className="text-sm font-bold text-[var(--foreground)] mb-3 flex items-center gap-2">📖 ルール</h3>
           <ul className="space-y-2 text-[12px] text-[var(--muted-foreground)] leading-relaxed">
             <li className="flex gap-2">
               <span className="text-[var(--accent)] font-bold shrink-0">•</span>
-              毎週月曜日にレースがリセットされます
+              月曜〜日曜の1週間で、最も多くXPを稼いだ人が優勝
             </li>
             <li className="flex gap-2">
               <span className="text-[var(--accent)] font-bold shrink-0">•</span>
-              10人のプレイヤーで競争（プレイヤーが足りない場合はCPUが参加）
+              <strong>1位</strong>はランクが1つ上昇、<strong>最下位</strong>はランクが1つ下降
             </li>
             <li className="flex gap-2">
               <span className="text-[var(--accent)] font-bold shrink-0">•</span>
-              単語復習・Part5問題で獲得したXPが距離に変換されます（1XP = 1m）
+              ランクが上がるほど目標XPが高くなり、CPUも強くなります
             </li>
             <li className="flex gap-2">
               <span className="text-[var(--accent)] font-bold shrink-0">•</span>
-              ゴールは{raceData.raceGoal.toLocaleString()}m — 週末までに最も遠くにいた人が優勝！
+              10人のプレイヤーで競争（足りない場合はCPUが参加）
             </li>
             <li className="flex gap-2">
               <span className="text-[var(--accent)] font-bold shrink-0">•</span>
-              キャラクターは累計XPに応じて5段階に進化します
+              レース状況は1日1回更新されます
             </li>
           </ul>
         </motion.div>
