@@ -292,7 +292,7 @@ export default function ProgressPage() {
       <div className="max-w-4xl mx-auto space-y-6">
         {/* 正解数チャート */}
         <ChartBox title="正解数 推移" subtitle="日別正解数と累積正解数">
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
             <ComposedChart data={aggregatedData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
               <defs>
                 <linearGradient id="gradCorrects" x1="0" y1="0" x2="0" y2="1">
@@ -334,7 +334,7 @@ export default function ProgressPage() {
 
         {/* 登録単語チャート */}
         <ChartBox title="登録単語数 推移" subtitle="日別登録数と累積登録数">
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
             <ComposedChart data={aggregatedData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
               <defs>
                 <linearGradient id="gradRegistered" x1="0" y1="0" x2="0" y2="1">
@@ -376,7 +376,7 @@ export default function ProgressPage() {
 
         {/* 完全記憶チャート */}
         <ChartBox title="完全記憶 推移" subtitle="完全記憶の累計推移">
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
             <AreaChart data={aggregatedData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
               <defs>
                 <linearGradient id="gradMastered" x1="0" y1="0" x2="0" y2="1">

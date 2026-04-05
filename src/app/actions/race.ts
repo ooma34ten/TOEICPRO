@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@supabase/supabase-js";
+import { revalidatePath, unstable_noStore as noStore } from "next/cache";
 import { getJSTDateString } from "@/lib/utils";
 import type { CharacterType } from "@/lib/characters";
 import { RANK_DEFS, getRankInfo, getAllRankDefs, type RankInfo } from "@/lib/raceUtils";
@@ -109,6 +110,8 @@ export type RaceData = {
   userRank: number;
   rankInfo: RankInfo;
   dayOfWeek: number;
+  lastRaceViewDate?: string | null;
+  recapParticipants?: RaceParticipant[];
 };
 
 export type RaceHistoryItem = {
@@ -126,20 +129,26 @@ export type RaceHistoryItem = {
 
 /** 今週のレースを取得/作成 */
 export async function getOrCreateWeeklyRace(userId: string): Promise<RaceData> {
+  noStore();
   const weekStart = getWeekStart();
 
   // 前週の結果を保存（まだの場合）
   await finalizeLastWeek(userId);
 
-  // ユーザーの累計XP＆ランクを取得
-  const { data: userStats } = await supabase
+  // ユーザーの累計XP＆ランク＆最終確認日を取得
+  const { data: userStats, error } = await supabase
     .from("user_stats")
-    .select("nickname, character_emoji, character_type, total_xp, race_rank")
+    .select("nickname, character_emoji, character_type, total_xp, race_rank, last_race_view_date")
     .eq("user_id", userId)
     .single();
 
+  console.log("=== [DEBUG] getOrCreateWeeklyRace called ===", new Date().toISOString());
+  console.log("DB value of user_stats.last_race_view_date:", userStats?.last_race_view_date);
+  if (error) console.log("DB Error:", error);
+
   const userTotalXp = userStats?.total_xp ?? 0;
   const userRank = userStats?.race_rank ?? 10;
+  const lastRaceViewDate = userStats?.last_race_view_date ?? null;
   const rankInfo = getRankInfo(userRank);
 
   // ユーザーの参加レコードを取得
@@ -213,7 +222,7 @@ export async function getOrCreateWeeklyRace(userId: string): Promise<RaceData> {
 
   const myParticipant = allParticipants.find(p => p.user_id === userId) ?? null;
 
-  return {
+  const res: RaceData = {
     participants: allParticipants,
     myParticipant,
     weeklyTarget: rankInfo.weeklyTarget,
@@ -224,7 +233,41 @@ export async function getOrCreateWeeklyRace(userId: string): Promise<RaceData> {
     userRank,
     rankInfo,
     dayOfWeek: getDayOfWeek(),
+    lastRaceViewDate,
   };
+
+  // 月曜日かつ最後にレースを見たのが今日以外（先週である）場合、リキャップ用の先週のデータを取得
+  if (getDayOfWeek() === 1 && lastRaceViewDate !== getJSTDateString()) {
+    const lastWeekDate = new Date();
+    lastWeekDate.setDate(lastWeekDate.getDate() - 7);
+    const lastWeekStart = getWeekStart(lastWeekDate);
+    const { data: lastWeekP } = await supabase
+      .from("race_participants")
+      .select("*")
+      .eq("week_start", lastWeekStart)
+      .order("distance", { ascending: false });
+    
+    if (lastWeekP && lastWeekP.length > 0) {
+      const fullLastWeekP = lastWeekP.map((p: any) => ({
+        ...p,
+        distance: Object.values(p.daily_progress || {}).reduce((sum: number, val) => sum + (val as number), 0)
+      })).sort((a: any, b: any) => b.distance - a.distance);
+      res.recapParticipants = fullLastWeekP;
+    }
+  }
+
+  return res;
+}
+
+/** レースを確認済みにする */
+export async function markRaceAsViewed(userId: string) {
+  const todayStr = getJSTDateString();
+  console.log("=== [DEBUG] markRaceAsViewed called ===", new Date().toISOString(), "userId:", userId);
+  await supabase
+    .from("user_stats")
+    .update({ last_race_view_date: todayStr })
+    .eq("user_id", userId);
+  revalidatePath("/");
 }
 
 /** レース距離(=今週獲得XP)を更新 */

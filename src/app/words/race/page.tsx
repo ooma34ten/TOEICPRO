@@ -25,6 +25,7 @@ import {
   getOrCreateWeeklyRace,
   updateCharacterType,
   getRaceHistory,
+  markRaceAsViewed,
   type RaceData,
   type RaceParticipant,
   type RaceHistoryItem,
@@ -178,10 +179,64 @@ const HorseRaceAnimation = ({
   phase: RacePhase;
   dayOfWeek: number;
 }) => {
-  const sorted = [...participants].sort((a, b) => b.distance - a.distance);
-  const maxDistance = sorted[0]?.distance || 1;
-  // 表示用のスケール: 1位が90%の位置になるように
-  const displayScale = maxDistance > 0 ? 90 / maxDistance : 1;
+  // 動的な現在距離を保持する（ソート用）
+  const [liveDistances, setLiveDistances] = useState<Record<string, number>>({});
+  
+  // 各馬のアニメーション設定
+  const animConfigs = useRef<Record<string, { start: number, final: number, delay: number, duration: number }>>({});
+
+  // 1位の最大距離を取得してスケールを計算 (final position用)
+  const maxFinalDistance = Math.max(...participants.map(p => p.distance), 1);
+  const displayScale = maxFinalDistance > 0 ? 90 / maxFinalDistance : 1;
+
+  // 初期化：スタート時の距離とアニメ設定を固定
+  useEffect(() => {
+    const initialSorted = [...participants].sort((a, b) => {
+      const prevA = getPreviousDayCumulative(a.daily_progress || {}, dayOfWeek);
+      const prevB = getPreviousDayCumulative(b.daily_progress || {}, dayOfWeek);
+      if (prevA === prevB) {
+        if (a.user_id === myUserId) return 1;
+        if (b.user_id === myUserId) return -1;
+        return 0;
+      }
+      return prevB - prevA;
+    });
+
+    const newLive: Record<string, number> = {};
+    initialSorted.forEach((p, index) => {
+      const startPos = getPreviousDayCumulative(p.daily_progress || {}, dayOfWeek);
+      
+      // 同点時にプレイヤーが一番下（最下位位置）からスタートするよう微小なマイナスをつける
+      const isMe = p.user_id === myUserId;
+      const tieBreaker = isMe ? -0.1 : (participants.length - index) * 0.001;
+      newLive[p.id] = startPos + tieBreaker;
+
+      animConfigs.current[p.id] = {
+        start: startPos,
+        final: p.distance,
+        delay: 0.3 + (Math.random() * 0.8) + (index * 0.1),
+        duration: 5.0 + (Math.random() * 2.0),
+      };
+    });
+    setLiveDistances(newLive);
+  }, [participants, dayOfWeek, myUserId]);
+
+  // タイミングと順位更新
+  useEffect(() => {
+    // レースが終了した時だけ、最終距離（＝最終順位）に更新してレーンを入れ替える
+    if (phase === "finished") {
+      const finalLive: Record<string, number> = {};
+      participants.forEach(p => { finalLive[p.id] = p.distance; });
+      setLiveDistances(finalLive);
+    }
+  }, [phase, participants]);
+
+  // 枠のソート（liveDistancesの降順）
+  const sortedParticipants = [...participants].sort((a, b) => {
+    const distA = liveDistances[a.id] ?? a.distance;
+    const distB = liveDistances[b.id] ?? b.distance;
+    return distB - distA;
+  });
 
   return (
     <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl overflow-hidden relative">
@@ -193,37 +248,34 @@ const HorseRaceAnimation = ({
       </div>
 
       {/* レーン */}
-      <div className="px-2 pb-3 space-y-0.5">
-        {sorted.map((p, index) => {
+      <div className="px-2 pb-3 space-y-0.5 relative">
+        {sortedParticipants.map((p, index) => {
           const isMe = p.user_id === myUserId;
           const charType = (p.character_type || "cat") as CharacterType;
           const cpuXp = p.cpu_total_xp ?? 5000;
           const xpForChar = isMe ? userTotalXp : cpuXp;
           const rank = index + 1;
 
-          // アニメーション: phaseに応じて位置を決める
-          const isFinalDay = dayOfWeek === 7;
-          const fullCumulative = p.distance;
-          const previousCumulative = getPreviousDayCumulative(p.daily_progress || {}, dayOfWeek);
-          const todayCumulative = fullCumulative;
-
-          const startPosition = isFinalDay ? 2 : previousCumulative * displayScale;
-          const finalPosition = isFinalDay ? fullCumulative * displayScale : todayCumulative * displayScale;
-
-          // レース中のディレイ: ランダムに若干ずらしてドラマを演出
-          const raceDelay = phase === "racing"
-            ? 0.3 + (Math.random() * 0.8) + (index * 0.1)
-            : 0;
-          const raceDuration = phase === "racing"
-            ? 5.0 + (Math.random() * 2.0) // 5.0〜7秒
-            : 0.3;
+          // 初期位置・終了位置は useRef に保存したものを使う
+          const conf = animConfigs.current[p.id] || { start: 0, final: p.distance, delay: 0.3, duration: 5.0 };
+          const startPosition = conf.start * displayScale;
+          const finalPosition = conf.final * displayScale;
+          const raceDelay = phase === "racing" ? conf.delay : 0;
+          const raceDuration = phase === "racing" ? conf.duration : 0.3;
 
           return (
-            <div
+            <motion.div
+              layout
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ 
+                layout: { type: "spring", stiffness: 300, damping: 30 },
+                opacity: { duration: 0.2 } 
+              }}
               key={p.id}
-              className={`relative flex items-center gap-1.5 rounded-lg px-1.5 py-1 transition-all ${
+              className={`relative flex items-center gap-1.5 rounded-lg px-1.5 py-1 z-10 bg-[var(--card)] ${
                 isMe
-                  ? "bg-[var(--accent)]/8 border border-[var(--accent)]/20"
+                  ? "bg-[var(--accent)]/8 border border-[var(--accent)]/20 shadow-sm"
                   : ""
               }`}
             >
@@ -295,7 +347,7 @@ const HorseRaceAnimation = ({
                   {p.distance.toLocaleString()}xp
                 </motion.div>
               </div>
-            </div>
+            </motion.div>
           );
         })}
       </div>
@@ -494,6 +546,9 @@ export default function RacePage() {
   const [showHistory, setShowHistory] = useState(false);
   const [activeTab, setActiveTab] = useState<"track" | "ranking">("track");
 
+  const [viewMode, setViewMode] = useState<"recap" | "current">("current");
+  const hasViewedTodayRef = useRef(false);
+
   // レースアニメーション状態
   const [racePhase, setRacePhase] = useState<RacePhase>("loading");
   const animationTriggered = useRef(false);
@@ -530,14 +585,54 @@ export default function RacePage() {
     if (!raceData || animationTriggered.current) return;
     animationTriggered.current = true;
 
+    const todayStr = getJSTDateString();
+    const hasViewedToday = raceData.lastRaceViewDate === todayStr;
+    hasViewedTodayRef.current = hasViewedToday;
+
+    let initialMode: "recap" | "current" = "current";
+    if (!hasViewedToday && raceData.recapParticipants) {
+      initialMode = "recap";
+    }
+    setViewMode(initialMode);
+
+    if (hasViewedToday && initialMode === "current") {
+      setRacePhase("finished");
+      return;
+    }
+
+    // 進行が current で、まだ閲覧履歴がついていなければ、ロード時に閲覧済みとしてマーク（途中で閉じられるケース対策）
+    if (initialMode === "current" && !hasViewedToday && userId) {
+      markRaceAsViewed(userId).catch(console.error);
+    }
+
     // Phase: ready → countdown → racing → finished
     setRacePhase("ready");
     const t1 = setTimeout(() => setRacePhase("countdown"), 500);
-    const t2 = setTimeout(() => setRacePhase("racing"), 2800); // 3カウント+GO後
-    const t3 = setTimeout(() => setRacePhase("finished"), 7500); // レース完了
+    const t2 = setTimeout(() => setRacePhase("racing"), 2800);
+    const t3 = setTimeout(() => {
+      setRacePhase("finished");
+    }, 9500);
 
     return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
-  }, [raceData]);
+  }, [raceData, userId]);
+
+  // 今週のレースへ切り替え
+  const handleGoToCurrentRace = () => {
+    setViewMode("current");
+    
+    // 切り替えた時点で今週分は閲覧済み扱いにする
+    if (!hasViewedTodayRef.current && userId) {
+      markRaceAsViewed(userId).catch(console.error);
+      hasViewedTodayRef.current = true;
+    }
+
+    setRacePhase("ready");
+    const t1 = setTimeout(() => setRacePhase("countdown"), 500);
+    const t2 = setTimeout(() => setRacePhase("racing"), 2800);
+    const t3 = setTimeout(() => {
+      setRacePhase("finished");
+    }, 9500);
+  };
 
   const handleCharacterSelect = async (charType: CharacterType) => {
     if (!userId) return;
@@ -585,16 +680,16 @@ export default function RacePage() {
       <div className="max-w-2xl mx-auto">
         {/* ヘッダー + ランク */}
         <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex items-center justify-between mb-4"
-        >
-          <div>
-            <h1 className="text-xl font-bold text-[var(--foreground)] flex items-center gap-2 mb-1">
-              🏇 ウィークリーレース
-            </h1>
-            <RankTierBadge rankInfo={raceData.rankInfo} />
-          </div>
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-center justify-between mb-4"
+          >
+            <div>
+              <h1 className="text-xl font-bold text-[var(--foreground)] flex items-center gap-2 mb-1">
+                {viewMode === "recap" ? "🏇 先週の最終結果" : "🏇 ウィークリーレース"}
+              </h1>
+              {viewMode === "current" && <RankTierBadge rankInfo={raceData.rankInfo} />}
+            </div>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowHistory(!showHistory)}

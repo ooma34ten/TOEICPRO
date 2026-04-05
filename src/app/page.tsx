@@ -27,6 +27,7 @@ import { getDailyTasksCount } from "@/app/actions/getDailyTasks";
 import { getOrCreateWeeklyRace, type RaceData } from "@/app/actions/race";
 import { PixelCharacterMini } from "@/components/PixelCharacter";
 import { getCharacterDef, getStageIndex, type CharacterType } from "@/lib/characters";
+import { getPreviousDayCumulative } from "@/lib/raceUtils";
 
 // =============================
 // 型定義
@@ -645,9 +646,39 @@ export default function Dashboard() {
 
       {/* レースウィジェット */}
       {!isGuest && raceData && raceData.myParticipant && (() => {
-        const myCharType = (raceData.myParticipant.character_type || "cat") as CharacterType;
-        const sorted = [...raceData.participants].sort((a, b) => b.distance - a.distance);
+        const todayStr = getJSTDateString();
+        const hasViewedToday = raceData.lastRaceViewDate === todayStr;
+        
+        console.log("=== [DEBUG] Dashboard widget render ===", new Date().toISOString());
+        console.log("  raceData.lastRaceViewDate:", raceData.lastRaceViewDate);
+        console.log("  todayStr:", todayStr);
+        console.log("  hasViewedToday:", hasViewedToday);
+        
+        const isMonday = raceData.dayOfWeek === 1;
+
+        // データソースの決定（閲覧済なら現在、未閲覧なら過去）
+        let targetParticipants = [...raceData.participants];
+        let widgetTitle = "🏇 ウィークリーレース";
+
+        if (!hasViewedToday) {
+          if (isMonday && raceData.recapParticipants) {
+            targetParticipants = [...raceData.recapParticipants];
+            widgetTitle = "🏇 先週の最終結果 (未確認)";
+          } else {
+            // 火〜日の未確認時は「前日の累積スコア」で表示
+            targetParticipants = raceData.participants.map(p => {
+              const prev = getPreviousDayCumulative(p.daily_progress || {}, raceData.dayOfWeek);
+              return { ...p, distance: prev };
+            });
+            widgetTitle = "🏇 昨日の結果 (未確認)";
+          }
+        }
+
+        const sorted = targetParticipants.sort((a, b) => b.distance - a.distance);
         const myRank = sorted.findIndex(p => p.user_id === raceData.myParticipant?.user_id) + 1;
+        const myDisplayDistance = sorted.find(p => p.user_id === raceData.myParticipant?.user_id)?.distance || 0;
+        
+        const myCharType = (raceData.myParticipant.character_type || "cat") as CharacterType;
         const userTotalXp = raceData.userTotalXp ?? 0;
         const maxDist = sorted[0]?.distance || 1;
 
@@ -660,14 +691,23 @@ export default function Dashboard() {
           >
             <button
               onClick={() => router.push("/words/race")}
-              className="w-full bg-[var(--card)] border border-[var(--border)] rounded-xl p-5 hover:border-[var(--accent)]/30 hover:shadow-md transition-all text-left group"
+              className={`w-full border rounded-xl p-5 hover:border-[var(--accent)]/30 hover:shadow-md transition-all text-left group relative overflow-hidden ${
+                hasViewedToday
+                  ? "bg-[var(--card)] border-[var(--border)]"
+                  : "bg-[var(--muted)]/50 border-[var(--border)] opacity-80 mix-blend-luminosity"
+              }`}
             >
+              {!hasViewedToday && (
+                <div className="absolute top-3 right-3 text-[10px] font-bold text-amber-600 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                  NEW
+                </div>
+              )}
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <h2 className="text-base font-bold text-[var(--foreground)] flex items-center gap-2">
-                    🏇 ウィークリーレース
+                    {widgetTitle}
                   </h2>
-                  {raceData.rankInfo && (
+                  {hasViewedToday && raceData.rankInfo && (
                     <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full border" style={{
                       backgroundColor: `${raceData.rankInfo.color}15`,
                       borderColor: `${raceData.rankInfo.color}40`,
@@ -686,17 +726,27 @@ export default function Dashboard() {
                   <PixelCharacterMini type={myCharType} totalXp={userTotalXp} />
                   <div>
                     <div className="text-[13px] font-bold text-[var(--foreground)]">
-                      {myRank === 1 ? "🥇 1位" : myRank === 2 ? "🥈 2位" : myRank === 3 ? "🥉 3位" : `${myRank}位`}
-                      <span className="text-[var(--muted-foreground)] font-normal"> / {raceData.participants.length}人中</span>
+                      {hasViewedToday ? (
+                        <>
+                          {myRank === 1 ? "🥇 1位" : myRank === 2 ? "🥈 2位" : myRank === 3 ? "🥉 3位" : `${myRank}位`}
+                          <span className="text-[var(--muted-foreground)] font-normal"> / {raceData.participants.length}人中</span>
+                        </>
+                      ) : (
+                        <span className="text-amber-600/90 dark:text-amber-400 font-semibold flex items-center gap-1">
+                          👀 タップして順位を確認
+                        </span>
+                      )}
                     </div>
-                    <div className="text-[11px] text-[var(--muted-foreground)]">
-                      今週 {raceData.myParticipant.distance.toLocaleString()} XP
-                    </div>
+                    {hasViewedToday && (
+                      <div className="text-[11px] text-[var(--muted-foreground)] mt-0.5">
+                        今週 {myDisplayDistance.toLocaleString()} XP
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
               {/* ミニトラックビュー */}
-              <div className="relative h-8 bg-[var(--secondary)]/60 rounded-lg overflow-visible">
+              <div className={`relative h-8 bg-[var(--secondary)]/60 rounded-lg overflow-visible transition-all duration-500 ${hasViewedToday ? '' : 'blur-sm opacity-50'}`}>
                 {[25, 50, 75].map(pct => (
                   <div key={pct} className="absolute top-0 bottom-0 w-px bg-[var(--border)]/40" style={{ left: `${pct}%` }} />
                 ))}
@@ -758,7 +808,7 @@ export default function Dashboard() {
         </div>
         {chartData.length > 0 ? (
           <div className="h-56 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               <BarChart
                 data={chartData}
                 margin={{ top: 5, right: 5, left: -25, bottom: 0 }}
