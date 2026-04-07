@@ -12,7 +12,10 @@ export function cn(...inputs: ClassValue[]) {
 /** 現在の日本時間 (UTC+9) の日付文字列 "YYYY-MM-DD" を返す */
 export function getJSTDateString(date?: Date): string {
   const d = date ?? new Date();
-  const jst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+  // UTC を取得
+  const utc = new Date(d.getTime() + d.getTimezoneOffset() * 60000);
+  // JST = UTC + 9 hours
+  const jst = new Date(utc.getTime() + 9 * 60 * 60 * 1000);
   return jst.toISOString().split("T")[0];
 }
 

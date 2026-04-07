@@ -3,8 +3,8 @@
 import { createClient } from "@supabase/supabase-js";
 import { revalidatePath, unstable_noStore as noStore } from "next/cache";
 import { getJSTDateString } from "@/lib/utils";
-import type { CharacterType } from "@/lib/characters";
-import { RANK_DEFS, getRankInfo, getAllRankDefs, type RankInfo } from "@/lib/raceUtils";
+import { getCharacterDef, type CharacterType } from "@/lib/characters";
+import { RANK_DEFS, getRankInfo, getAllRankDefs, getPreviousDayCumulative, type RankInfo } from "@/lib/raceUtils";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -81,6 +81,77 @@ function getDayOfWeek(): number {
   return day === 0 ? 7 : day;
 }
 
+function generateUuid(): string {
+  if (typeof globalThis?.crypto?.randomUUID === "function") {
+    return globalThis.crypto.randomUUID();
+  }
+  return `${Math.floor(Math.random() * 0xffff).toString(16).padStart(4, "0")}-${Math.floor(Math.random() * 0xffff).toString(16).padStart(4, "0")}`;
+}
+
+function getCharacterEmoji(type: CharacterType): string {
+  const def = getCharacterDef(type);
+  return def.stages[0]?.emoji || "🐱";
+}
+
+async function findOrCreateRaceIdForUser(weekStart: string, userId: string): Promise<string> {
+  const { data: existing } = await supabase
+    .from("race_participants")
+    .select("race_id")
+    .eq("user_id", userId)
+    .eq("week_start", weekStart)
+    .maybeSingle();
+
+  if (existing?.race_id) {
+    return existing.race_id;
+  }
+
+  const { data: raceRows } = await supabase
+    .from("race_participants")
+    .select("race_id")
+    .eq("week_start", weekStart);
+
+  const counts: Record<string, number> = {};
+  (raceRows ?? []).forEach((row: any) => {
+    if (!row.race_id) return;
+    counts[row.race_id] = (counts[row.race_id] || 0) + 1;
+  });
+
+  const openRace = Object.entries(counts).find(([, count]) => count < TOTAL_PARTICIPANTS);
+  if (openRace) {
+    return openRace[0];
+  }
+
+  return generateUuid();
+}
+
+async function fillRaceWithCpuParticipants(weekStart: string, raceId: string, seedCharacterType: string, userRank: number) {
+  const { data: current } = await supabase
+    .from("race_participants")
+    .select("id, is_cpu")
+    .eq("week_start", weekStart)
+    .eq("race_id", raceId);
+
+  const currentCount = (current ?? []).length;
+  const cpuCount = Math.max(0, TOTAL_PARTICIPANTS - currentCount);
+  if (cpuCount <= 0) return;
+
+  await createCpuParticipants(weekStart, raceId, seedCharacterType, cpuCount, userRank);
+}
+
+async function createUserRaceParticipant(userId: string, weekStart: string, raceId: string, characterEmoji: string, characterType: string, displayName: string) {
+  await supabase.from("race_participants").insert({
+    user_id: userId,
+    week_start: weekStart,
+    race_id: raceId,
+    distance: 0,
+    character_emoji: characterEmoji,
+    character_type: characterType,
+    display_name: displayName,
+    is_cpu: false,
+    daily_progress: {},
+  });
+}
+
 // =============================
 // 公開型定義
 // =============================
@@ -89,6 +160,7 @@ export type RaceParticipant = {
   id: string;
   user_id: string | null;
   week_start: string;
+  race_id: string;
   distance: number;
   character_emoji: string;
   character_type: string;
@@ -96,6 +168,8 @@ export type RaceParticipant = {
   is_cpu: boolean;
   finished_at: string | null;
   cpu_total_xp?: number;
+  cpu_daily_pace?: number;
+  last_cpu_advance_date?: string;
   daily_progress?: Record<string, number>;
 };
 
@@ -111,11 +185,14 @@ export type RaceData = {
   rankInfo: RankInfo;
   dayOfWeek: number;
   lastRaceViewDate?: string | null;
+  raceId: string | null;
+  characterGachaDone: boolean;
   recapParticipants?: RaceParticipant[];
 };
 
 export type RaceHistoryItem = {
   week_start: string;
+  race_id?: string;
   final_rank: number;
   final_distance: number;
   total_participants: number;
@@ -136,75 +213,78 @@ export async function getOrCreateWeeklyRace(userId: string): Promise<RaceData> {
   await finalizeLastWeek(userId);
 
   // ユーザーの累計XP＆ランク＆最終確認日を取得
-  const { data: userStats, error } = await supabase
+  const { data: userStats } = await supabase
     .from("user_stats")
-    .select("nickname, character_emoji, character_type, total_xp, race_rank, last_race_view_date")
+    .select("nickname, character_emoji, character_type, total_xp, race_rank, last_race_view_date, character_gacha_done")
     .eq("user_id", userId)
     .single();
-
-  console.log("=== [DEBUG] getOrCreateWeeklyRace called ===", new Date().toISOString());
-  console.log("DB value of user_stats.last_race_view_date:", userStats?.last_race_view_date);
-  if (error) console.log("DB Error:", error);
 
   const userTotalXp = userStats?.total_xp ?? 0;
   const userRank = userStats?.race_rank ?? 10;
   const lastRaceViewDate = userStats?.last_race_view_date ?? null;
+  const characterGachaDone = userStats?.character_gacha_done ?? false;
   const rankInfo = getRankInfo(userRank);
 
   // ユーザーの参加レコードを取得
-  const { data: existing } = await supabase
+  let { data: existing } = await supabase
     .from("race_participants")
     .select("*")
     .eq("user_id", userId)
     .eq("week_start", weekStart)
     .maybeSingle();
 
-  if (!existing) {
-    const { data: userData } = await supabase.auth.admin.getUserById(userId);
-    const displayName = userStats?.nickname || userData?.user?.email?.split("@")[0] || "プレイヤー";
-    const characterEmoji = userStats?.character_emoji || "🐱";
-    const characterType = userStats?.character_type || "cat";
+  let raceId = existing?.race_id ?? null;
+  let participants: RaceParticipant[] = [];
 
-    await supabase.from("race_participants").insert({
-      user_id: userId,
-      week_start: weekStart,
-      distance: 0,
-      character_emoji: characterEmoji,
-      character_type: characterType,
-      display_name: displayName,
-      is_cpu: false,
-    });
-
-    // CPUがまだいなければ作成
-    const { data: cpuExists } = await supabase
+  if (existing && !raceId) {
+    raceId = await findOrCreateRaceIdForUser(weekStart, userId);
+    await supabase
       .from("race_participants")
-      .select("id")
-      .eq("week_start", weekStart)
-      .eq("is_cpu", true)
-      .limit(1);
+      .update({ race_id: raceId })
+      .eq("id", existing.id);
+    existing = { ...existing, race_id: raceId } as any;
+  }
 
-    if (!cpuExists || cpuExists.length === 0) {
-      const { data: realPlayers } = await supabase
-        .from("race_participants")
-        .select("id")
-        .eq("week_start", weekStart)
-        .eq("is_cpu", false);
+  if (characterGachaDone || existing) {
+    if (!existing) {
+      const { data: userData } = await supabase.auth.admin.getUserById(userId);
+      const displayName = userStats?.nickname || userData?.user?.email?.split("@")[0] || "プレイヤー";
+      const characterEmoji = userStats?.character_emoji || "🐱";
+      const characterType = userStats?.character_type || "cat";
+      raceId = raceId || await findOrCreateRaceIdForUser(weekStart, userId);
 
-      const realCount = realPlayers?.length ?? 1;
-      const cpuCount = Math.max(0, TOTAL_PARTICIPANTS - realCount);
-      await createCpuParticipants(weekStart, characterType, cpuCount, userRank);
+      await createUserRaceParticipant(userId, weekStart, raceId, characterEmoji, characterType, displayName);
+      existing = {
+        id: "",
+        user_id: userId,
+        week_start: weekStart,
+        race_id: raceId,
+        distance: 0,
+        character_emoji: characterEmoji,
+        character_type: characterType,
+        display_name: displayName,
+        is_cpu: false,
+        finished_at: null,
+        daily_progress: {},
+      } as any;
     }
+
+    if (raceId) {
+      await fillRaceWithCpuParticipants(weekStart, raceId, existing.character_type || userStats?.character_type || "cat", userRank);
+    }
+
+    const { data } = await supabase
+      .from("race_participants")
+      .select("*")
+      .eq("week_start", weekStart)
+      .eq("race_id", raceId)
+      .order("distance", { ascending: false });
+
+    participants = (data ?? []) as RaceParticipant[];
   }
 
   // CPUの進行を更新（1日1回相当）
   await advanceCpuParticipants(weekStart, userRank);
-
-  // 全参加者取得（距離=獲得XP順）
-  const { data: participants } = await supabase
-    .from("race_participants")
-    .select("*")
-    .eq("week_start", weekStart)
-    .order("distance", { ascending: false });
 
   // 今日のXPを取得
   const todayStr = getJSTDateString();
@@ -215,12 +295,14 @@ export async function getOrCreateWeeklyRace(userId: string): Promise<RaceData> {
     .eq("activity_date", todayStr)
     .maybeSingle();
 
-  const allParticipants = (participants ?? []).map(p => ({
-    ...p,
-    distance: Object.values(p.daily_progress || {}).reduce((sum: number, val) => sum + (val as number), 0)
-  })).sort((a, b) => b.distance - a.distance);
+  const allParticipants = participants
+    .map((p) => ({
+      ...p,
+      distance: getPreviousDayCumulative(p.daily_progress || {}, getDayOfWeek()),
+    }))
+    .sort((a, b) => b.distance - a.distance);
 
-  const myParticipant = allParticipants.find(p => p.user_id === userId) ?? null;
+  const myParticipant = allParticipants.find((p) => p.user_id === userId) ?? null;
 
   const res: RaceData = {
     participants: allParticipants,
@@ -234,6 +316,8 @@ export async function getOrCreateWeeklyRace(userId: string): Promise<RaceData> {
     rankInfo,
     dayOfWeek: getDayOfWeek(),
     lastRaceViewDate,
+    raceId,
+    characterGachaDone,
   };
 
   // 月曜日かつ最後にレースを見たのが今日以外（先週である）場合、リキャップ用の先週のデータを取得
@@ -241,17 +325,33 @@ export async function getOrCreateWeeklyRace(userId: string): Promise<RaceData> {
     const lastWeekDate = new Date();
     lastWeekDate.setDate(lastWeekDate.getDate() - 7);
     const lastWeekStart = getWeekStart(lastWeekDate);
-    const { data: lastWeekP } = await supabase
+
+    const { data: lastWeekEntry } = await supabase
+      .from("race_participants")
+      .select("race_id")
+      .eq("user_id", userId)
+      .eq("week_start", lastWeekStart)
+      .maybeSingle();
+
+    let lastWeekParticipantsQuery = supabase
       .from("race_participants")
       .select("*")
       .eq("week_start", lastWeekStart)
       .order("distance", { ascending: false });
-    
+
+    if (lastWeekEntry?.race_id) {
+      lastWeekParticipantsQuery = lastWeekParticipantsQuery.eq("race_id", lastWeekEntry.race_id);
+    }
+
+    const { data: lastWeekP } = await lastWeekParticipantsQuery;
+
     if (lastWeekP && lastWeekP.length > 0) {
-      const fullLastWeekP = lastWeekP.map((p: any) => ({
-        ...p,
-        distance: Object.values(p.daily_progress || {}).reduce((sum: number, val) => sum + (val as number), 0)
-      })).sort((a: any, b: any) => b.distance - a.distance);
+      const fullLastWeekP = lastWeekP
+        .map((p: any) => ({
+          ...p,
+          distance: Object.values(p.daily_progress || {}).reduce((sum: number, val) => sum + (val as number), 0),
+        }))
+        .sort((a: any, b: any) => b.distance - a.distance);
       res.recapParticipants = fullLastWeekP;
     }
   }
@@ -262,12 +362,13 @@ export async function getOrCreateWeeklyRace(userId: string): Promise<RaceData> {
 /** レースを確認済みにする */
 export async function markRaceAsViewed(userId: string) {
   const todayStr = getJSTDateString();
-  console.log("=== [DEBUG] markRaceAsViewed called ===", new Date().toISOString(), "userId:", userId);
-  await supabase
+  const { data, error } = await supabase
     .from("user_stats")
     .update({ last_race_view_date: todayStr })
-    .eq("user_id", userId);
-  revalidatePath("/");
+    .eq("user_id", userId)
+    .select("last_race_view_date")
+    .single();
+  revalidatePath("/words/race");
 }
 
 /** レース距離(=今週獲得XP)を更新 */
@@ -314,6 +415,16 @@ export async function updateRaceDistance(userId: string, xpGained: number) {
 
 /** キャラクタータイプ変更 */
 export async function updateCharacterType(userId: string, characterType: CharacterType) {
+  const { data: stats } = await supabase
+    .from("user_stats")
+    .select("character_gacha_done")
+    .eq("user_id", userId)
+    .single();
+
+  if (stats?.character_gacha_done) {
+    return;
+  }
+
   await supabase
     .from("user_stats")
     .update({ character_type: characterType })
@@ -327,11 +438,56 @@ export async function updateCharacterType(userId: string, characterType: Charact
     .eq("week_start", weekStart);
 }
 
+/** 初回ガチャでキャラクターを確定 */
+export async function assignInitialCharacter(userId: string, characterType: CharacterType) {
+  const weekStart = getWeekStart();
+  const characterEmoji = getCharacterEmoji(characterType);
+
+  const { data: userData } = await supabase.auth.admin.getUserById(userId);
+  const { data: stats } = await supabase
+    .from("user_stats")
+    .select("nickname, total_xp, race_rank, character_gacha_done")
+    .eq("user_id", userId)
+    .single();
+
+  if (stats?.character_gacha_done) {
+    return;
+  }
+
+  await supabase
+    .from("user_stats")
+    .update({ character_type: characterType, character_emoji: characterEmoji, character_gacha_done: true })
+    .eq("user_id", userId);
+
+  const displayName = stats?.nickname || userData?.user?.email?.split("@")[0] || "プレイヤー";
+  let raceId = await findOrCreateRaceIdForUser(weekStart, userId);
+
+  const { data: existing } = await supabase
+    .from("race_participants")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("week_start", weekStart)
+    .maybeSingle();
+
+  if (existing) {
+    raceId = existing.race_id || raceId;
+    await supabase
+      .from("race_participants")
+      .update({ character_type: characterType, character_emoji: characterEmoji, race_id: raceId })
+      .eq("id", existing.id);
+  } else {
+    await createUserRaceParticipant(userId, weekStart, raceId, characterEmoji, characterType, displayName);
+  }
+
+  const userRank = stats?.race_rank ?? 10;
+  await fillRaceWithCpuParticipants(weekStart, raceId, characterType, userRank);
+}
+
 /** レース履歴を取得 */
 export async function getRaceHistory(userId: string): Promise<RaceHistoryItem[]> {
   const { data } = await supabase
     .from("race_history")
-    .select("week_start, final_rank, final_distance, total_participants, rank_before, rank_after")
+    .select("week_start, race_id, final_rank, final_distance, total_participants, rank_before, rank_after")
     .eq("user_id", userId)
     .order("week_start", { ascending: false })
     .limit(10);
@@ -344,7 +500,7 @@ export async function getRaceHistory(userId: string): Promise<RaceHistoryItem[]>
 // =============================
 
 /** CPU参加者を作成（ランクに合わせた強さ） */
-async function createCpuParticipants(weekStart: string, userCharType: string, cpuCount: number, userRank: number) {
+async function createCpuParticipants(weekStart: string, raceId: string, userCharType: string, cpuCount: number, userRank: number) {
   const usedTypes = new Set([userCharType]);
   const usedNames = new Set<string>();
   const cpuInserts = [];
@@ -380,6 +536,7 @@ async function createCpuParticipants(weekStart: string, userCharType: string, cp
     cpuInserts.push({
       user_id: null,
       week_start: weekStart,
+      race_id: raceId,
       distance: initialDistance,
       character_emoji: "🤖",
       character_type: charType,
@@ -499,6 +656,7 @@ async function finalizeLastWeek(userId: string) {
   await supabase.from("race_history").insert({
     user_id: userId,
     week_start: lastWeekStart,
+    race_id: userEntry.race_id || null,
     final_rank: userPlacement,
     final_distance: userEntry.distance,
     total_participants: totalP,

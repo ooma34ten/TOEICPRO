@@ -24,6 +24,7 @@ import {
 import {
   getOrCreateWeeklyRace,
   updateCharacterType,
+  assignInitialCharacter,
   getRaceHistory,
   markRaceAsViewed,
   type RaceData,
@@ -32,10 +33,11 @@ import {
 } from "@/app/actions/race";
 import { getRankInfo, RANK_DEFS, getAllRankDefs, getPreviousDayCumulative, type RankInfo } from "@/lib/raceUtils";
 import PixelCharacter, { PixelCharacterMini } from "@/components/PixelCharacter";
-import CharacterCard, { CharacterSelectGrid } from "@/components/CharacterCard";
+import CharacterCard from "@/components/CharacterCard";
 import {
   getCharacterDef,
   getStageIndex,
+  CHARACTER_DEFS,
   type CharacterType,
 } from "@/lib/characters";
 
@@ -181,7 +183,7 @@ const HorseRaceAnimation = ({
 }) => {
   // 動的な現在距離を保持する（ソート用）
   const [liveDistances, setLiveDistances] = useState<Record<string, number>>({});
-  
+
   // 各馬のアニメーション設定
   const animConfigs = useRef<Record<string, { start: number, final: number, delay: number, duration: number }>>({});
 
@@ -205,7 +207,7 @@ const HorseRaceAnimation = ({
     const newLive: Record<string, number> = {};
     initialSorted.forEach((p, index) => {
       const startPos = getPreviousDayCumulative(p.daily_progress || {}, dayOfWeek);
-      
+
       // 同点時にプレイヤーが一番下（最下位位置）からスタートするよう微小なマイナスをつける
       const isMe = p.user_id === myUserId;
       const tieBreaker = isMe ? -0.1 : (participants.length - index) * 0.001;
@@ -268,24 +270,22 @@ const HorseRaceAnimation = ({
               layout
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ 
+              transition={{
                 layout: { type: "spring", stiffness: 300, damping: 30 },
-                opacity: { duration: 0.2 } 
+                opacity: { duration: 0.2 }
               }}
               key={p.id}
-              className={`relative flex items-center gap-1.5 rounded-lg px-1.5 py-1 z-10 bg-[var(--card)] ${
-                isMe
-                  ? "bg-[var(--accent)]/8 border border-[var(--accent)]/20 shadow-sm"
-                  : ""
-              }`}
+              className={`relative flex items-center gap-1.5 rounded-lg px-1.5 py-1 z-10 bg-[var(--card)] ${isMe
+                ? "bg-[var(--accent)]/8 border border-[var(--accent)]/20 shadow-sm"
+                : ""
+                }`}
             >
               {/* 順位 */}
-              <span className={`text-[10px] font-bold w-4 text-center shrink-0 ${
-                rank === 1 ? "text-yellow-500" :
+              <span className={`text-[10px] font-bold w-4 text-center shrink-0 ${rank === 1 ? "text-yellow-500" :
                 rank === 2 ? "text-slate-400" :
-                rank === 3 ? "text-amber-600" :
-                "text-[var(--muted-foreground)]"
-              }`}>
+                  rank === 3 ? "text-amber-600" :
+                    "text-[var(--muted-foreground)]"
+                }`}>
                 {phase === "finished" ? rank : ""}
               </span>
 
@@ -333,9 +333,8 @@ const HorseRaceAnimation = ({
 
               {/* 名前＋距離 */}
               <div className="w-20 shrink-0 text-right">
-                <div className={`text-[9px] font-semibold truncate ${
-                  isMe ? "text-[var(--accent)]" : "text-[var(--muted-foreground)]"
-                }`}>
+                <div className={`text-[9px] font-semibold truncate ${isMe ? "text-[var(--accent)]" : "text-[var(--muted-foreground)]"
+                  }`}>
                   {isMe ? "あなた" : p.display_name.replace("CPU ", "")}
                 </div>
                 <motion.div
@@ -445,11 +444,10 @@ const RankingTable = ({
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: index * 0.05 }}
-            className={`rounded-xl p-3 border transition-all ${
-              isMe
-                ? "bg-[var(--accent)]/5 border-[var(--accent)]/30 ring-1 ring-[var(--accent)]/20"
-                : "bg-[var(--card)] border-[var(--border)]"
-            }`}
+            className={`rounded-xl p-3 border transition-all ${isMe
+              ? "bg-[var(--accent)]/5 border-[var(--accent)]/30 ring-1 ring-[var(--accent)]/20"
+              : "bg-[var(--card)] border-[var(--border)]"
+              }`}
           >
             <div className="flex items-center gap-2.5">
               <RankBadge rank={rank} />
@@ -458,9 +456,8 @@ const RankingTable = ({
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <span className={`text-[13px] font-bold truncate ${
-                    isMe ? "text-[var(--accent)]" : "text-[var(--foreground)]"
-                  }`}>
+                  <span className={`text-[13px] font-bold truncate ${isMe ? "text-[var(--accent)]" : "text-[var(--foreground)]"
+                    }`}>
                     {isMe ? `${p.display_name} (あなた)` : p.display_name}
                   </span>
                   {p.is_cpu && (
@@ -487,22 +484,55 @@ const RankingTable = ({
 };
 
 // =============================
-// キャラクター選択モーダル
+// ガチャモーダル
 // =============================
 const CharacterModal = ({
   isOpen,
   onClose,
   currentType,
   totalXp,
-  onSelect,
+  onComplete,
+  initialGachaDone,
 }: {
   isOpen: boolean;
   onClose: () => void;
   currentType: CharacterType;
   totalXp: number;
-  onSelect: (type: CharacterType) => void;
+  onComplete: (type: CharacterType) => Promise<void>;
+  initialGachaDone: boolean;
 }) => {
+  const [isSpinning, setIsSpinning] = useState(false);
+  const [displayType, setDisplayType] = useState<CharacterType>(currentType);
+  const [selectedType, setSelectedType] = useState<CharacterType | null>(null);
+
+  useEffect(() => {
+    setDisplayType(currentType);
+    setSelectedType(null);
+  }, [currentType, isOpen]);
+
   if (!isOpen) return null;
+
+  const handleSpin = async () => {
+    if (isSpinning || initialGachaDone) return;
+    setIsSpinning(true);
+    const interval = setInterval(() => {
+      const nextType = CHARACTER_DEFS[Math.floor(Math.random() * CHARACTER_DEFS.length)].type;
+      setDisplayType(nextType);
+    }, 100);
+
+    await new Promise((resolve) => setTimeout(resolve, 2200));
+    clearInterval(interval);
+
+    const finalType = CHARACTER_DEFS[Math.floor(Math.random() * CHARACTER_DEFS.length)].type;
+    setDisplayType(finalType);
+    setSelectedType(finalType);
+    await onComplete(finalType);
+    setIsSpinning(false);
+    onClose();
+  };
+
+  const charDef = getCharacterDef(displayType);
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -519,15 +549,42 @@ const CharacterModal = ({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-5">
-          <h3 className="text-lg font-bold text-[var(--foreground)]">キャラクター選択</h3>
+          <h3 className="text-lg font-bold text-[var(--foreground)]">キャラクターガチャ</h3>
           <button onClick={onClose} className="p-1 rounded-lg hover:bg-[var(--secondary)] transition">
             <X className="w-5 h-5 text-[var(--muted-foreground)]" />
           </button>
         </div>
-        <CharacterSelectGrid currentType={currentType} totalXp={totalXp} onSelect={onSelect} />
-        <p className="text-[11px] text-[var(--muted-foreground)] text-center mt-4">
-          タップしてキャラクターを変更
-        </p>
+
+        <div className="flex flex-col items-center gap-4 mb-5">
+          <div className="w-28 h-28 rounded-3xl bg-[var(--secondary)] flex items-center justify-center text-4xl">
+            {charDef.stages[0].emoji}
+          </div>
+          <div className="text-center">
+            <p className="text-sm font-bold text-[var(--foreground)]">{charDef.nameJa}</p>
+            <p className="text-[11px] text-[var(--muted-foreground)] mt-1">
+              {selectedType ? "結果が決定しました！" : "ガチャを回してキャラクターを決定します。"}
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-4 gap-2 mb-4">
+          {CHARACTER_DEFS.map((def) => (
+            <div
+              key={def.type}
+              className={`p-3 rounded-xl text-center border ${def.type === displayType ? "border-[var(--accent)] bg-[var(--accent)]/10" : "border-[var(--border)] bg-[var(--secondary)]"}`}>
+              <div className="text-2xl">{def.stages[0].emoji}</div>
+              <div className="text-[10px] text-[var(--muted-foreground)] mt-1">{def.nameJa}</div>
+            </div>
+          ))}
+        </div>
+
+        <button
+          onClick={handleSpin}
+          disabled={isSpinning || initialGachaDone}
+          className="w-full py-3 rounded-2xl bg-[var(--accent)] text-white font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {initialGachaDone ? "キャラクターは確定しています" : isSpinning ? "回しています..." : "ガチャを回す"}
+        </button>
       </motion.div>
     </motion.div>
   );
@@ -557,7 +614,10 @@ export default function RacePage() {
   useEffect(() => {
     (async () => {
       const { data } = await supabase.auth.getSession();
-      if (!data.session) { router.replace("/auth/login"); return; }
+      if (!data.session) {
+        router.replace("/auth/login");
+        return;
+      }
       setUserId(data.session.user.id);
     })();
   }, [router]);
@@ -601,8 +661,10 @@ export default function RacePage() {
     }
 
     // 進行が current で、まだ閲覧履歴がついていなければ、ロード時に閲覧済みとしてマーク（途中で閉じられるケース対策）
-    if (initialMode === "current" && !hasViewedToday && userId) {
-      markRaceAsViewed(userId).catch(console.error);
+    if (initialMode === "current" && userId) {
+      markRaceAsViewed(userId).then(() => {
+        fetchRaceData();
+      }).catch(console.error);
     }
 
     // Phase: ready → countdown → racing → finished
@@ -619,10 +681,12 @@ export default function RacePage() {
   // 今週のレースへ切り替え
   const handleGoToCurrentRace = () => {
     setViewMode("current");
-    
+
     // 切り替えた時点で今週分は閲覧済み扱いにする
-    if (!hasViewedTodayRef.current && userId) {
-      markRaceAsViewed(userId).catch(console.error);
+    if (userId) {
+      markRaceAsViewed(userId)
+        .then(fetchRaceData)
+        .catch(console.error);
       hasViewedTodayRef.current = true;
     }
 
@@ -634,20 +698,21 @@ export default function RacePage() {
     }, 9500);
   };
 
-  const handleCharacterSelect = async (charType: CharacterType) => {
+  const handleGachaComplete = async (charType: CharacterType) => {
     if (!userId) return;
-    await updateCharacterType(userId, charType);
+    await assignInitialCharacter(userId, charType);
     setShowCharacterModal(false);
     await fetchRaceData();
   };
 
   const myRank = raceData
     ? [...raceData.participants]
-        .sort((a, b) => b.distance - a.distance)
-        .findIndex((p) => p.user_id === userId) + 1
+      .sort((a, b) => b.distance - a.distance)
+      .findIndex((p) => p.user_id === userId) + 1
     : 0;
 
   const myCharType = ((raceData?.myParticipant?.character_type) || "cat") as CharacterType;
+  const canChangeCharacter = !raceData?.characterGachaDone;
 
   // ローディング
   if (loading || !raceData) {
@@ -663,6 +728,28 @@ export default function RacePage() {
     );
   }
 
+  if (!raceData.characterGachaDone && !raceData.myParticipant) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-6">
+        <div className="max-w-md w-full bg-[var(--card)] border border-[var(--border)] rounded-3xl p-8 text-center">
+          <h1 className="text-2xl font-bold text-[var(--foreground)] mb-4">キャラクターを選択しよう</h1>
+          <p className="text-[var(--muted-foreground)] text-sm mb-6">
+            登録時に初回ガチャでキャラクターが決まります。今日のレースには今日の得点は反映されません。
+          </p>
+          <button
+            onClick={() => setShowCharacterModal(true)}
+            className="w-full px-4 py-3 rounded-2xl bg-[var(--accent)] text-white font-bold hover:opacity-90 transition"
+          >
+            ガチャを回す
+          </button>
+          <p className="text-[11px] text-[var(--muted-foreground)] mt-4">
+            まだキャラクターが決まっていません。ランダムで1匹が選ばれます。
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="pb-24">
       <AnimatePresence>
@@ -672,7 +759,8 @@ export default function RacePage() {
             onClose={() => setShowCharacterModal(false)}
             currentType={myCharType}
             totalXp={raceData.userTotalXp}
-            onSelect={handleCharacterSelect}
+            onComplete={handleGachaComplete}
+            initialGachaDone={raceData.characterGachaDone}
           />
         )}
       </AnimatePresence>
@@ -680,17 +768,34 @@ export default function RacePage() {
       <div className="max-w-2xl mx-auto">
         {/* ヘッダー + ランク */}
         <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex items-center justify-between mb-4"
-          >
-            <div>
-              <h1 className="text-xl font-bold text-[var(--foreground)] flex items-center gap-2 mb-1">
-                {viewMode === "recap" ? "🏇 先週の最終結果" : "🏇 ウィークリーレース"}
-              </h1>
-              {viewMode === "current" && <RankTierBadge rankInfo={raceData.rankInfo} />}
-            </div>
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center justify-between mb-4"
+        >
+          <div>
+            <h1 className="text-xl font-bold text-[var(--foreground)] flex items-center gap-2 mb-1">
+              {viewMode === "recap" ? "🏇 先週の最終結果" : "🏇 ウィークリーレース"}
+            </h1>
+            {viewMode === "current" && <RankTierBadge rankInfo={raceData.rankInfo} />}
+            {raceData.raceId && viewMode === "current" && (
+              <p className="text-[11px] text-[var(--muted-foreground)] mt-2">
+                レースID: <span className="font-semibold text-[var(--foreground)]">{raceData.raceId.slice(0, 8)}</span>
+              </p>
+            )}
+          </div>
           <div className="flex items-center gap-2">
+            {viewMode === "recap" && (
+              <motion.button
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={handleGoToCurrentRace}
+                className="flex items-center gap-1.5 px-3 py-2 bg-[var(--accent)] text-white rounded-lg text-[13px] font-bold shadow-md hover:shadow-lg transition-all"
+              >
+                今週のレースを見る <ChevronRight className="w-4 h-4" />
+              </motion.button>
+            )}
             <button
               onClick={() => setShowHistory(!showHistory)}
               className="p-2 rounded-lg bg-[var(--secondary)] border border-[var(--border)] hover:bg-[var(--muted)] transition"
@@ -757,13 +862,23 @@ export default function RacePage() {
               目標: <span className="font-bold text-[var(--foreground)]">{raceData.weeklyTarget.toLocaleString()} XP/週</span>
             </span>
           </div>
-          <button
-            onClick={() => setShowCharacterModal(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--secondary)] border border-[var(--border)] rounded-lg hover:bg-[var(--muted)] transition text-[12px] font-medium text-[var(--foreground)]"
-          >
-            <PixelCharacterMini type={myCharType} totalXp={raceData.userTotalXp} />
-            変更
-          </button>
+          {canChangeCharacter ? (
+            <button
+              onClick={() => setShowCharacterModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--secondary)] border border-[var(--border)] rounded-lg hover:bg-[var(--muted)] transition text-[12px] font-medium text-[var(--foreground)]"
+            >
+              <PixelCharacterMini type={myCharType} totalXp={raceData.userTotalXp} />
+              ガチャを回す
+            </button>
+          ) : (
+            <button
+              disabled
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--secondary)] border border-[var(--border)] rounded-lg text-[12px] font-medium text-[var(--muted-foreground)] cursor-not-allowed"
+            >
+              <PixelCharacterMini type={myCharType} totalXp={raceData.userTotalXp} />
+              キャラクター確定済み
+            </button>
+          )}
         </motion.div>
 
         {/* マイキャラクターカード */}
@@ -776,7 +891,7 @@ export default function RacePage() {
           <CharacterCard
             type={myCharType}
             totalXp={raceData.userTotalXp}
-            onClick={() => setShowCharacterModal(true)}
+            onClick={canChangeCharacter ? () => setShowCharacterModal(true) : undefined}
           />
         </motion.div>
 
@@ -790,21 +905,19 @@ export default function RacePage() {
           <div className="flex gap-1 bg-[var(--secondary)] p-1 rounded-xl">
             <button
               onClick={() => setActiveTab("track")}
-              className={`flex-1 py-2 px-3 rounded-lg text-[13px] font-semibold transition-all ${
-                activeTab === "track"
-                  ? "bg-[var(--card)] text-[var(--foreground)] shadow-sm"
-                  : "text-[var(--muted-foreground)]"
-              }`}
+              className={`flex-1 py-2 px-3 rounded-lg text-[13px] font-semibold transition-all ${activeTab === "track"
+                ? "bg-[var(--card)] text-[var(--foreground)] shadow-sm"
+                : "text-[var(--muted-foreground)]"
+                }`}
             >
               🏇 レーストラック
             </button>
             <button
               onClick={() => setActiveTab("ranking")}
-              className={`flex-1 py-2 px-3 rounded-lg text-[13px] font-semibold transition-all ${
-                activeTab === "ranking"
-                  ? "bg-[var(--card)] text-[var(--foreground)] shadow-sm"
-                  : "text-[var(--muted-foreground)]"
-              }`}
+              className={`flex-1 py-2 px-3 rounded-lg text-[13px] font-semibold transition-all ${activeTab === "ranking"
+                ? "bg-[var(--card)] text-[var(--foreground)] shadow-sm"
+                : "text-[var(--muted-foreground)]"
+                }`}
             >
               🏆 ランキング
             </button>
@@ -820,7 +933,7 @@ export default function RacePage() {
         >
           {activeTab === "track" ? (
             <HorseRaceAnimation
-              participants={raceData.participants}
+              participants={viewMode === "recap" && raceData.recapParticipants ? raceData.recapParticipants : raceData.participants}
               myUserId={userId}
               weeklyTarget={raceData.weeklyTarget}
               userTotalXp={raceData.userTotalXp}
@@ -829,7 +942,7 @@ export default function RacePage() {
             />
           ) : (
             <RankingTable
-              participants={raceData.participants}
+              participants={viewMode === "recap" && raceData.recapParticipants ? raceData.recapParticipants : raceData.participants}
               myUserId={userId}
               userTotalXp={raceData.userTotalXp}
             />
@@ -897,21 +1010,19 @@ export default function RacePage() {
                           {h.final_distance.toLocaleString()} XP
                         </div>
                         {h.rank_before !== undefined && h.rank_after !== undefined && h.rank_before !== h.rank_after && (
-                          <div className={`text-[10px] font-bold flex items-center gap-0.5 ${
-                            h.rank_after < h.rank_before ? "text-emerald-500" : "text-red-400"
-                          }`}>
+                          <div className={`text-[10px] font-bold flex items-center gap-0.5 ${h.rank_after < h.rank_before ? "text-emerald-500" : "text-red-400"
+                            }`}>
                             {h.rank_after < h.rank_before ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
                             {getRankInfo(h.rank_before).name} → {getRankInfo(h.rank_after).name}
                           </div>
                         )}
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className={`text-lg font-bold ${
-                          h.final_rank === 1 ? "text-yellow-500" :
+                        <span className={`text-lg font-bold ${h.final_rank === 1 ? "text-yellow-500" :
                           h.final_rank === 2 ? "text-slate-400" :
-                          h.final_rank === 3 ? "text-amber-600" :
-                          "text-[var(--muted-foreground)]"
-                        }`}>
+                            h.final_rank === 3 ? "text-amber-600" :
+                              "text-[var(--muted-foreground)]"
+                          }`}>
                           {h.final_rank === 1 ? "🥇" : h.final_rank === 2 ? "🥈" : h.final_rank === 3 ? "🥉" : `${h.final_rank}位`}
                         </span>
                         <span className="text-[11px] text-[var(--muted-foreground)]">/ {h.total_participants}人</span>
@@ -948,6 +1059,10 @@ export default function RacePage() {
             <li className="flex gap-2">
               <span className="text-[var(--accent)] font-bold shrink-0">•</span>
               10人のプレイヤーで競争（足りない場合はCPUが参加）
+            </li>
+            <li className="flex gap-2">
+              <span className="text-[var(--accent)] font-bold shrink-0">•</span>
+              今日獲得した得点は今日のレース結果には反映されません
             </li>
             <li className="flex gap-2">
               <span className="text-[var(--accent)] font-bold shrink-0">•</span>
