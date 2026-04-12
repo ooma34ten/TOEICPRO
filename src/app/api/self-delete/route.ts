@@ -5,10 +5,16 @@ export async function POST(req: Request) {
   const { userId } = await req.json();
 
   try {
-    // 1. 関連データ削除
+    // 1. 関連データ削除（FK制約のある順で削除）
     const tables = [
       "user_word_history",
       "user_words",
+      "test_results",
+      "ai_generated_questions_queue",
+      "race_participants",
+      "race_history",
+      "user_activity_logs",
+      "user_stats",
       "subscriptions",
       "inquiries",
     ] as const;

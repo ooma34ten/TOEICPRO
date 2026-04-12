@@ -1,1 +1,0 @@
-["id","user_id","week_start","distance","character_emoji","display_name","is_cpu","cpu_daily_pace","finished_at","created_at","character_type","cpu_total_xp","last_cpu_advance_date"]

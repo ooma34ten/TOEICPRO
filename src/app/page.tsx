@@ -540,12 +540,44 @@ export default function Dashboard() {
         </motion.div>
       </header>
 
+      {/* 今日のタスク — ダッシュボード最上部 */}
+      <div className="mb-6">
+        <h2 className="text-base font-bold text-[var(--foreground)] flex items-center gap-2 mb-4">
+          <CheckCircle2 className="w-5 h-5 text-[var(--accent)]" />
+          今日のタスク
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <ActionCard
+            title="単語復習"
+            desc="苦手な単語を重点的に復習します。忘却曲線に基づいた出題で効率よく暗記を進めましょう。"
+            icon={Activity}
+            accentColor="#22c55e"
+            onClick={() => router.push("/words/review")}
+            delay={0.1}
+            disabled={false}
+            current={wordReviewCount}
+            target={wordTarget}
+          />
+          <ActionCard
+            title="Part5 問題"
+            desc="AIが自動生成するPart5形式の問題を解き、文法・語彙力を毎日鍛えましょう。"
+            icon={BookOpen}
+            accentColor="var(--accent)"
+            onClick={() => router.push("/words/ai_teacher")}
+            delay={0.15}
+            disabled={false}
+            current={part5Count}
+            target={part5Target}
+          />
+        </div>
+      </div>
+
       {/* XPレベル (単独で表示) */}
       <div className="mb-6">
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
+          transition={{ delay: 0.2 }}
           className="bg-[var(--card)] border border-[var(--border)] p-5 rounded-xl"
         >
           <div className="flex items-center justify-between mb-3">
@@ -591,7 +623,7 @@ export default function Dashboard() {
           value={`${stats?.streak_current || 0} 日`}
           icon={Flame}
           accentColor="text-orange-500"
-          delay={0.15}
+          delay={0.25}
           subtitle={stats?.streak_max ? `最高: ${stats.streak_max} 日` : undefined}
         />
         <StatCard
@@ -599,7 +631,7 @@ export default function Dashboard() {
           value={stats?.total_xp || 0}
           icon={Zap}
           accentColor="text-[var(--accent)]"
-          delay={0.25}
+          delay={0.3}
           subtitle={`Lv. ${stats?.level || 1}`}
         />
         <StatCard
@@ -607,41 +639,9 @@ export default function Dashboard() {
           value={`Lv. ${stats?.level || 1}`}
           icon={Trophy}
           accentColor="text-violet-500"
-          delay={0.3}
+          delay={0.35}
           subtitle={`次まで ${xpForNextLevel - currentXp} XP`}
         />
-      </div>
-
-      {/* 今日のタスク */}
-      <div className="mb-8">
-        <h2 className="text-base font-bold text-[var(--foreground)] flex items-center gap-2 mb-4">
-          <CheckCircle2 className="w-5 h-5 text-[var(--accent)]" />
-          今日のタスク
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <ActionCard
-            title="単語復習"
-            desc="苦手な単語を重点的に復習します。忘却曲線に基づいた出題で効率よく暗記を進めましょう。"
-            icon={Activity}
-            accentColor="#22c55e"
-            onClick={() => router.push("/words/review")}
-            delay={0.35}
-            disabled={false}
-            current={wordReviewCount}
-            target={wordTarget}
-          />
-          <ActionCard
-            title="Part5 問題"
-            desc="AIが自動生成するPart5形式の問題を解き、文法・語彙力を毎日鍛えましょう。"
-            icon={BookOpen}
-            accentColor="var(--accent)"
-            onClick={() => router.push("/words/ai_teacher")}
-            delay={0.4}
-            disabled={false}
-            current={part5Count}
-            target={part5Target}
-          />
-        </div>
       </div>
 
       {/* レースウィジェット */}

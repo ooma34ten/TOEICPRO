@@ -30,19 +30,22 @@ export function getAllRankDefs(): RankInfo[] {
   return RANK_DEFS;
 }
 
-/** 前日の累積距離を計算 */
-export function getPreviousDayCumulative(dailyProgress: Record<string, number>, dayOfWeek: number): number {
-  if (dayOfWeek === 1) return 0;
-
-  // 週の開始日を計算（月曜日）
+/** 週の開始日（月曜日）を計算するヘルパー */
+function getWeekStartString(): string {
   const now = new Date();
   const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
   const day = jst.getUTCDay();
   const diff = day === 0 ? 6 : day - 1;
   const monday = new Date(jst);
   monday.setUTCDate(monday.getUTCDate() - diff);
-  const weekStart = `${monday.getUTCFullYear()}-${String(monday.getUTCMonth() + 1).padStart(2, "0")}-${String(monday.getUTCDate()).padStart(2, "0")}`;
+  return `${monday.getUTCFullYear()}-${String(monday.getUTCMonth() + 1).padStart(2, "0")}-${String(monday.getUTCDate()).padStart(2, "0")}`;
+}
 
+/** 前日の累積距離を計算 */
+export function getPreviousDayCumulative(dailyProgress: Record<string, number>, dayOfWeek: number): number {
+  if (dayOfWeek === 1) return 0;
+
+  const weekStart = getWeekStartString();
   const weekStartDate = new Date(weekStart);
   const prevDate = new Date(weekStartDate);
   prevDate.setDate(prevDate.getDate() + dayOfWeek - 2); // dayOfWeek 1=月, prev=前日
@@ -50,5 +53,21 @@ export function getPreviousDayCumulative(dailyProgress: Record<string, number>, 
 
   return Object.entries(dailyProgress)
     .filter(([date]) => date <= prevDateStr)
+    .reduce((sum: number, [, val]) => sum + val, 0);
+}
+
+/** 先々日（おととい）までの累積距離を計算 — レースのスタートレーン順に使用 */
+export function getDayBeforeYesterdayCumulative(dailyProgress: Record<string, number>, dayOfWeek: number): number {
+  // 月曜・火曜は先々日のデータがないため 0
+  if (dayOfWeek <= 2) return 0;
+
+  const weekStart = getWeekStartString();
+  const weekStartDate = new Date(weekStart);
+  const targetDate = new Date(weekStartDate);
+  targetDate.setDate(targetDate.getDate() + dayOfWeek - 3); // dayOfWeek 3=水 → 月曜(+0)
+  const targetDateStr = targetDate.toISOString().split('T')[0];
+
+  return Object.entries(dailyProgress)
+    .filter(([date]) => date <= targetDateStr)
     .reduce((sum: number, [, val]) => sum + val, 0);
 }

@@ -1,19 +1,72 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { BookOpen, X, Sparkles, ArrowRight } from "lucide-react";
+import { BookOpen, X, Sparkles, ArrowRight, ArrowLeft, Zap, Trophy, MessageCircle } from "lucide-react";
 
 interface OnboardingPopupProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
+const SLIDES = [
+  {
+    icon: Sparkles,
+    iconColor: "text-yellow-500",
+    iconBg: "bg-yellow-500/10 border-yellow-500/20",
+    title: "TOEIC PROへようこそ！",
+    subtitle: "このアプリでできること",
+    items: [
+      { emoji: "📝", text: "AI自動生成で単語を効率的に学習" },
+      { emoji: "🧠", text: "忘却曲線に基づいた復習システム" },
+      { emoji: "📖", text: "Part5形式の問題で文法・語彙を強化" },
+      { emoji: "🏇", text: "ウィークリーレースで楽しく継続" },
+    ],
+  },
+  {
+    icon: BookOpen,
+    iconColor: "text-[var(--accent)]",
+    iconBg: "bg-[var(--accent)]/10 border-[var(--accent)]/20",
+    title: "単語学習の流れ",
+    subtitle: "3ステップで効率よく暗記",
+    items: [
+      { emoji: "1️⃣", text: "学びたい単語を入力して登録", highlight: "登録" },
+      { emoji: "2️⃣", text: "AIが例文・意味・類義語を自動生成", highlight: "自動生成" },
+      { emoji: "3️⃣", text: "復習モードで効率的に暗記", highlight: "暗記" },
+    ],
+  },
+  {
+    icon: Zap,
+    iconColor: "text-violet-500",
+    iconBg: "bg-violet-500/10 border-violet-500/20",
+    title: "Part5 問題演習",
+    subtitle: "AIが毎日新しい問題を生成",
+    items: [
+      { emoji: "📋", text: "TOEIC Part5形式の4択問題を演習" },
+      { emoji: "🤖", text: "AIチャットで分からない問題を質問" },
+      { emoji: "📊", text: "正答率ベースで日々のタスク目標を自動調整" },
+    ],
+  },
+  {
+    icon: Trophy,
+    iconColor: "text-amber-500",
+    iconBg: "bg-amber-500/10 border-amber-500/20",
+    title: "ウィークリーレース",
+    subtitle: "他のプレイヤーと競争して継続力UP",
+    items: [
+      { emoji: "🏁", text: "毎週月〜日の10人対抗レース" },
+      { emoji: "⬆️", text: "1位でランクUP、ランクが上がると目標も高く" },
+      { emoji: "🐾", text: "キャラクターが学習とともに成長" },
+    ],
+  },
+];
+
 export default function OnboardingPopup({ isOpen, onClose }: OnboardingPopupProps) {
   const router = useRouter();
+  const [currentSlide, setCurrentSlide] = useState(0);
 
-  const handleGoToRegister = () => {
+  const handleFinish = () => {
     localStorage.setItem("onboarding_done", "true");
     onClose();
     router.push("/words/register");
@@ -23,6 +76,24 @@ export default function OnboardingPopup({ isOpen, onClose }: OnboardingPopupProp
     localStorage.setItem("onboarding_done", "true");
     onClose();
   };
+
+  const handleNext = () => {
+    if (currentSlide < SLIDES.length - 1) {
+      setCurrentSlide(currentSlide + 1);
+    } else {
+      handleFinish();
+    }
+  };
+
+  const handlePrev = () => {
+    if (currentSlide > 0) {
+      setCurrentSlide(currentSlide - 1);
+    }
+  };
+
+  const slide = SLIDES[currentSlide];
+  const SlideIcon = slide.icon;
+  const isLastSlide = currentSlide === SLIDES.length - 1;
 
   return (
     <AnimatePresence>
@@ -50,92 +121,104 @@ export default function OnboardingPopup({ isOpen, onClose }: OnboardingPopupProp
               <X className="w-5 h-5" />
             </button>
 
-            {/* アイコン */}
-            <motion.div
-              initial={{ scale: 0, rotate: -180 }}
-              animate={{ scale: 1, rotate: 0 }}
-              transition={{ delay: 0.15, type: "spring", damping: 12 }}
-              className="w-20 h-20 bg-[var(--accent)]/10 border border-[var(--accent)]/20 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-[var(--accent)]/10"
-            >
-              <BookOpen className="w-10 h-10 text-[var(--accent)]" />
-            </motion.div>
-
-            {/* タイトル */}
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.25 }}
-              className="text-center"
-            >
-              <h2 className="text-2xl font-extrabold text-[var(--foreground)] mb-2 flex items-center justify-center gap-2">
-                <Sparkles className="w-5 h-5 text-yellow-500" />
-                ようこそ！
-                <Sparkles className="w-5 h-5 text-yellow-500" />
-              </h2>
-              <p className="text-[var(--muted-foreground)] leading-relaxed mb-2">
-                TOEIC PROへようこそ！
-              </p>
-              <p className="text-[var(--muted-foreground)] leading-relaxed">
-                まずは<span className="font-bold text-[var(--accent)]">単語を登録</span>して、
-                学習を始めましょう！
-              </p>
-            </motion.div>
-
-            {/* ステップ説明 */}
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.35 }}
-              className="mt-6 space-y-3"
-            >
-              <div className="flex items-center gap-3 bg-[var(--accent)]/10 p-3 rounded-xl border border-[var(--accent)]/20">
-                <div className="w-8 h-8 bg-[var(--accent)] text-[var(--primary-foreground)] rounded-full flex items-center justify-center text-sm font-bold shrink-0">
-                  1
-                </div>
-                <p className="text-sm text-[var(--foreground)]">
-                  学びたい単語を入力して<span className="font-semibold text-[var(--accent)]">登録</span>
-                </p>
-              </div>
-              <div className="flex items-center gap-3 bg-emerald-500/10 p-3 rounded-xl border border-emerald-500/20">
-                <div className="w-8 h-8 bg-emerald-500 text-white rounded-full flex items-center justify-center text-sm font-bold shrink-0">
-                  2
-                </div>
-                <p className="text-sm text-[var(--foreground)]">
-                  AIが例文・意味・類義語を<span className="font-semibold text-emerald-500">自動生成</span>
-                </p>
-              </div>
-              <div className="flex items-center gap-3 bg-violet-500/10 p-3 rounded-xl border border-violet-500/20">
-                <div className="w-8 h-8 bg-violet-500 text-white rounded-full flex items-center justify-center text-sm font-bold shrink-0">
-                  3
-                </div>
-                <p className="text-sm text-[var(--foreground)]">
-                  復習モードで<span className="font-semibold text-violet-500">効率的に暗記</span>
-                </p>
-              </div>
-            </motion.div>
-
-            {/* ボタン */}
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.45 }}
-              className="mt-8 space-y-3"
-            >
-              <button
-                onClick={handleGoToRegister}
-                className="w-full py-3.5 bg-[var(--primary)] text-[var(--primary-foreground)] rounded-xl font-bold hover:opacity-90 transition shadow-lg shadow-[var(--primary)]/20 flex items-center justify-center gap-2 text-lg"
+            {/* スライド内容 */}
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={currentSlide}
+                initial={{ opacity: 0, x: 40 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -40 }}
+                transition={{ duration: 0.25 }}
               >
-                <BookOpen className="w-5 h-5" />
-                単語を登録する
-                <ArrowRight className="w-5 h-5" />
-              </button>
+                {/* アイコン */}
+                <div
+                  className={`w-16 h-16 ${slide.iconBg} border rounded-full flex items-center justify-center mx-auto mb-5 shadow-lg`}
+                >
+                  <SlideIcon className={`w-8 h-8 ${slide.iconColor}`} />
+                </div>
+
+                {/* タイトル */}
+                <div className="text-center mb-5">
+                  <h2 className="text-xl font-extrabold text-[var(--foreground)] mb-1">
+                    {slide.title}
+                  </h2>
+                  <p className="text-[13px] text-[var(--muted-foreground)]">
+                    {slide.subtitle}
+                  </p>
+                </div>
+
+                {/* アイテムリスト */}
+                <div className="space-y-2.5 mb-6">
+                  {slide.items.map((item, i) => (
+                    <motion.div
+                      key={i}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.1 + i * 0.08 }}
+                      className="flex items-center gap-3 bg-[var(--secondary)]/60 p-3 rounded-xl border border-[var(--border)]"
+                    >
+                      <span className="text-lg shrink-0">{item.emoji}</span>
+                      <p className="text-[13px] text-[var(--foreground)] leading-snug">
+                        {item.text}
+                      </p>
+                    </motion.div>
+                  ))}
+                </div>
+              </motion.div>
+            </AnimatePresence>
+
+            {/* ドットインジケーター */}
+            <div className="flex items-center justify-center gap-2 mb-5">
+              {SLIDES.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setCurrentSlide(i)}
+                  className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                    i === currentSlide
+                      ? "bg-[var(--accent)] w-6"
+                      : "bg-[var(--border)] hover:bg-[var(--muted-foreground)]"
+                  }`}
+                />
+              ))}
+            </div>
+
+            {/* ナビゲーションボタン */}
+            <div className="flex gap-3">
+              {currentSlide > 0 && (
+                <button
+                  onClick={handlePrev}
+                  className="px-4 py-3 text-[var(--muted-foreground)] text-sm font-medium hover:text-[var(--foreground)] hover:bg-[var(--secondary)] rounded-xl transition flex items-center gap-1"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  戻る
+                </button>
+              )}
               <button
-                onClick={handleClose}
-                className="w-full py-2.5 text-[var(--muted-foreground)] text-sm font-medium hover:text-[var(--foreground)] transition"
+                onClick={handleNext}
+                className="flex-1 py-3 bg-[var(--primary)] text-[var(--primary-foreground)] rounded-xl font-bold hover:opacity-90 transition shadow-lg shadow-[var(--primary)]/20 flex items-center justify-center gap-2 text-[15px]"
               >
-                あとで見る
+                {isLastSlide ? (
+                  <>
+                    <BookOpen className="w-5 h-5" />
+                    単語を登録する
+                    <ArrowRight className="w-5 h-5" />
+                  </>
+                ) : (
+                  <>
+                    次へ
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
               </button>
-            </motion.div>
+            </div>
+
+            {/* スキップリンク */}
+            <button
+              onClick={handleClose}
+              className="w-full mt-3 py-2 text-[var(--muted-foreground)] text-[12px] font-medium hover:text-[var(--foreground)] transition text-center"
+            >
+              あとで見る
+            </button>
           </motion.div>
         </motion.div>
       )}

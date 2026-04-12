@@ -31,7 +31,7 @@ import {
   type RaceParticipant,
   type RaceHistoryItem,
 } from "@/app/actions/race";
-import { getRankInfo, RANK_DEFS, getAllRankDefs, getPreviousDayCumulative, type RankInfo } from "@/lib/raceUtils";
+import { getRankInfo, RANK_DEFS, getAllRankDefs, getPreviousDayCumulative, getDayBeforeYesterdayCumulative, type RankInfo } from "@/lib/raceUtils";
 import PixelCharacter, { PixelCharacterMini } from "@/components/PixelCharacter";
 import CharacterCard from "@/components/CharacterCard";
 import {
@@ -132,7 +132,7 @@ const RankDetailCard = ({ rankInfo, userRank }: { rankInfo: RankInfo; userRank: 
         </div>
         <div>
           <h3 className="text-lg font-bold text-[var(--foreground)]">
-            {rankInfo.name} (ランク {rankInfo.rank})
+            現在のレースランク : {rankInfo.name} ({rankInfo.rank})
           </h3>
           <p className="text-[12px] text-[var(--muted-foreground)]">
             週間目標: {rankInfo.weeklyTarget.toLocaleString()} XP
@@ -144,9 +144,9 @@ const RankDetailCard = ({ rankInfo, userRank }: { rankInfo: RankInfo; userRank: 
       <div className="space-y-2">
         {nextRank && (
           <div className="text-[12px] text-[var(--muted-foreground)]">
-            <span className="font-medium">次のランクまで:</span>
+            <span className="font-medium">次のランク:</span>
             <span className="ml-2 text-[var(--foreground)]">
-              {nextRank.name} ({nextRank.weeklyTarget.toLocaleString()} XP)
+              {nextRank.name} ({nextRank.rank})({nextRank.weeklyTarget.toLocaleString()} XP)
             </span>
           </div>
         )}
@@ -193,9 +193,10 @@ const HorseRaceAnimation = ({
 
   // 初期化：スタート時の距離とアニメ設定を固定
   useEffect(() => {
+    // 先々日の累積距離順でスタートレーンを並べる（前回のレース結果が反映される）
     const initialSorted = [...participants].sort((a, b) => {
-      const prevA = getPreviousDayCumulative(a.daily_progress || {}, dayOfWeek);
-      const prevB = getPreviousDayCumulative(b.daily_progress || {}, dayOfWeek);
+      const prevA = getDayBeforeYesterdayCumulative(a.daily_progress || {}, dayOfWeek);
+      const prevB = getDayBeforeYesterdayCumulative(b.daily_progress || {}, dayOfWeek);
       if (prevA === prevB) {
         if (a.user_id === myUserId) return 1;
         if (b.user_id === myUserId) return -1;
@@ -206,7 +207,8 @@ const HorseRaceAnimation = ({
 
     const newLive: Record<string, number> = {};
     initialSorted.forEach((p, index) => {
-      const startPos = getPreviousDayCumulative(p.daily_progress || {}, dayOfWeek);
+      // スタート位置は2日前までの累積距離（レース中の走行距離の起点）
+      const startPos = getDayBeforeYesterdayCumulative(p.daily_progress || {}, dayOfWeek);
 
       // 同点時にプレイヤーが一番下（最下位位置）からスタートするよう微小なマイナスをつける
       const isMe = p.user_id === myUserId;
@@ -216,8 +218,8 @@ const HorseRaceAnimation = ({
       animConfigs.current[p.id] = {
         start: startPos,
         final: p.distance,
-        delay: 0.3 + (Math.random() * 0.8) + (index * 0.1),
-        duration: 5.0 + (Math.random() * 2.0),
+        delay: 0.8 + (Math.random() * 0.5) + (index * 0.15),
+        duration: 7.0 + (Math.random() * 2.5),
       };
     });
     setLiveDistances(newLive);
@@ -259,7 +261,7 @@ const HorseRaceAnimation = ({
           const rank = index + 1;
 
           // 初期位置・終了位置は useRef に保存したものを使う
-          const conf = animConfigs.current[p.id] || { start: 0, final: p.distance, delay: 0.3, duration: 5.0 };
+          const conf = animConfigs.current[p.id] || { start: 0, final: p.distance, delay: 0.8, duration: 7.0 };
           const startPosition = conf.start * displayScale;
           const finalPosition = conf.final * displayScale;
           const raceDelay = phase === "racing" ? conf.delay : 0;
@@ -602,6 +604,7 @@ export default function RacePage() {
   const [showCharacterModal, setShowCharacterModal] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [activeTab, setActiveTab] = useState<"track" | "ranking">("track");
+  const [showRacePopup, setShowRacePopup] = useState(false);
 
   const [viewMode, setViewMode] = useState<"recap" | "current">("current");
   const hasViewedTodayRef = useRef(false);
@@ -609,6 +612,7 @@ export default function RacePage() {
   // レースアニメーション状態
   const [racePhase, setRacePhase] = useState<RacePhase>("loading");
   const animationTriggered = useRef(false);
+  const raceTimers = useRef<NodeJS.Timeout[]>([]);
 
   // 認証
   useEffect(() => {
@@ -660,26 +664,30 @@ export default function RacePage() {
       return;
     }
 
-    // 進行が current で、まだ閲覧履歴がついていなければ、ロード時に閲覧済みとしてマーク（途中で閉じられるケース対策）
+    // 未閲覧時はポップアップを表示
+    setShowRacePopup(true);
+
+    // 進行が current で、まだ閲覧履歴がついていなければ、閲覧済みとしてマーク（アニメーション完了後にデータ再取得）
     if (initialMode === "current" && userId) {
-      markRaceAsViewed(userId).then(() => {
-        fetchRaceData();
-      }).catch(console.error);
+      markRaceAsViewed(userId).catch(console.error);
     }
 
     // Phase: ready → countdown → racing → finished
     setRacePhase("ready");
+    raceTimers.current.forEach(clearTimeout);
+    raceTimers.current = [];
     const t1 = setTimeout(() => setRacePhase("countdown"), 500);
     const t2 = setTimeout(() => setRacePhase("racing"), 2800);
     const t3 = setTimeout(() => {
       setRacePhase("finished");
-    }, 9500);
+    }, 15000);
+    raceTimers.current = [t1, t2, t3];
 
-    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+    return () => { raceTimers.current.forEach(clearTimeout); raceTimers.current = []; };
   }, [raceData, userId]);
 
   // 今週のレースへ切り替え
-  const handleGoToCurrentRace = () => {
+  const handleGoToCurrentRace = useCallback(() => {
     setViewMode("current");
 
     // 切り替えた時点で今週分は閲覧済み扱いにする
@@ -690,13 +698,20 @@ export default function RacePage() {
       hasViewedTodayRef.current = true;
     }
 
+    // 既存タイマーをクリア
+    raceTimers.current.forEach(clearTimeout);
+    raceTimers.current = [];
+
+    // ポップアップが開いたままアニメーションをリセット
+    setShowRacePopup(true);
     setRacePhase("ready");
     const t1 = setTimeout(() => setRacePhase("countdown"), 500);
     const t2 = setTimeout(() => setRacePhase("racing"), 2800);
     const t3 = setTimeout(() => {
       setRacePhase("finished");
-    }, 9500);
-  };
+    }, 15000);
+    raceTimers.current = [t1, t2, t3];
+  }, [userId, fetchRaceData]);
 
   const handleGachaComplete = async (charType: CharacterType) => {
     if (!userId) return;
@@ -762,6 +777,90 @@ export default function RacePage() {
             onComplete={handleGachaComplete}
             initialGachaDone={raceData.characterGachaDone}
           />
+        )}
+      </AnimatePresence>
+
+      {/* レースポップアップモーダル */}
+      <AnimatePresence>
+        {showRacePopup && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/70 backdrop-blur-md flex flex-col items-center justify-center z-50 p-4"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 30 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ type: "spring", damping: 20, stiffness: 300 }}
+              className="w-full max-w-2xl"
+            >
+              {/* ポップアップヘッダー */}
+              <div className="text-center mb-4">
+                <h2 className="text-xl font-bold text-white flex items-center justify-center gap-2 mb-1">
+                  {viewMode === "recap" ? "🏇 先週の最終結果" : "🏇 昨日まで中間結果"}
+                </h2>
+                {viewMode === "current" && <RankTierBadge rankInfo={raceData.rankInfo} />}
+              </div>
+
+              {/* レースアニメーション */}
+              <HorseRaceAnimation
+                participants={viewMode === "recap" && raceData.recapParticipants ? raceData.recapParticipants : raceData.participants}
+                myUserId={userId}
+                weeklyTarget={raceData.weeklyTarget}
+                userTotalXp={raceData.userTotalXp}
+                phase={racePhase}
+                dayOfWeek={raceData.dayOfWeek}
+              />
+
+              {/* レース結果＋アクションボタン */}
+              <AnimatePresence>
+                {racePhase === "finished" && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3 }}
+                    className="mt-4 space-y-3"
+                  >
+                    {/* 結果サマリー */}
+                    <div className="bg-white/10 backdrop-blur rounded-xl p-4 text-center">
+                      <div className="text-3xl font-black text-white mb-1">
+                        {(() => {
+                          const popupParticipants = viewMode === "recap" && raceData.recapParticipants ? raceData.recapParticipants : raceData.participants;
+                          const sorted = [...popupParticipants].sort((a, b) => b.distance - a.distance);
+                          const rank = sorted.findIndex(p => p.user_id === userId) + 1;
+                          return rank === 1 ? "🥇 1位" : rank === 2 ? "🥈 2位" : rank === 3 ? "🥉 3位" : `${rank}位`;
+                        })()}
+                      </div>
+                      <p className="text-[13px] text-white/70">
+                        {viewMode === "recap" ? "先週の最終結果" : `${raceData.participants.length}人中`}
+                      </p>
+                    </div>
+
+                    {/* ボタン */}
+                    <div className="flex gap-3">
+                      {viewMode === "recap" && (
+                        <button
+                          onClick={handleGoToCurrentRace}
+                          className="flex-1 py-3 rounded-xl bg-[var(--accent)] text-white font-bold text-[14px] hover:opacity-90 transition shadow-lg flex items-center justify-center gap-2"
+                        >
+                          今週のレースを見る <ChevronRight className="w-4 h-4" />
+                        </button>
+                      )}
+                      <button
+                        onClick={() => { setShowRacePopup(false); fetchRaceData(); }}
+                        className={`${viewMode === "recap" ? "flex-1" : "w-full"} py-3 rounded-xl bg-white/15 text-white font-bold text-[14px] hover:bg-white/25 transition backdrop-blur flex items-center justify-center gap-2`}
+                      >
+                        <X className="w-4 h-4" />
+                        閉じる
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
 
@@ -932,14 +1031,21 @@ export default function RacePage() {
           className="mb-6"
         >
           {activeTab === "track" ? (
-            <HorseRaceAnimation
-              participants={viewMode === "recap" && raceData.recapParticipants ? raceData.recapParticipants : raceData.participants}
-              myUserId={userId}
-              weeklyTarget={raceData.weeklyTarget}
-              userTotalXp={raceData.userTotalXp}
-              phase={racePhase}
-              dayOfWeek={raceData.dayOfWeek}
-            />
+            showRacePopup ? (
+              /* ポップアップ表示中はインラインは非表示（二重レンダリング防止） */
+              <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-8 text-center text-[var(--muted-foreground)] text-sm">
+                🏇 レースアニメーションを表示中...
+              </div>
+            ) : (
+              <HorseRaceAnimation
+                participants={viewMode === "recap" && raceData.recapParticipants ? raceData.recapParticipants : raceData.participants}
+                myUserId={userId}
+                weeklyTarget={raceData.weeklyTarget}
+                userTotalXp={raceData.userTotalXp}
+                phase={racePhase}
+                dayOfWeek={raceData.dayOfWeek}
+              />
+            )
           ) : (
             <RankingTable
               participants={viewMode === "recap" && raceData.recapParticipants ? raceData.recapParticipants : raceData.participants}
