@@ -49,7 +49,7 @@ type WeaknessCategory = {
   total: number;
 };
 
-type Mode = "quick" | "focus" | "weakness" | "review";
+type Mode = "quick" | "focus" | "weakness" | "review" | "not_in_mylist";
 
 // =============================
 // XPフローティングエフェクト
