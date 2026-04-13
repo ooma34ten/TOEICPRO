@@ -787,14 +787,15 @@ export default function RacePage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/70 backdrop-blur-md flex flex-col items-center justify-center z-50 p-4"
+            className="fixed inset-0 bg-black/70 backdrop-blur-md flex flex-col items-center justify-center z-[60] p-4"
           >
             <motion.div
               initial={{ opacity: 0, scale: 0.9, y: 30 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               transition={{ type: "spring", damping: 20, stiffness: 300 }}
-              className="w-full max-w-2xl"
+              className="w-full max-w-2xl max-h-[calc(100vh-72px)] overflow-y-auto pb-24 md:pb-8"
+              style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
             >
               {/* ポップアップヘッダー */}
               <div className="text-center mb-4">

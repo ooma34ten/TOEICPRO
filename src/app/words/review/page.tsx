@@ -492,7 +492,7 @@ export default function ReviewPage() {
             setQuizPhase("quiz");
             setSelectedPos(null);
             setPosCorrect(null);
-          }, 150);
+          }, 50);
         } else {
           setTimeout(() => {
             setSessionResult({
@@ -504,7 +504,7 @@ export default function ReviewPage() {
             });
             setIsAnswering(false);
             setLastAnswer(null);
-          }, 150);
+          }, 50);
         }
         return;
       }
@@ -516,16 +516,18 @@ export default function ReviewPage() {
       setLastAnswer(isOk);
       const now = new Date().toISOString();
 
-      await supabase.from("user_word_history").insert({
+      // DB保存は非同期で実行（UIをブロックしない）
+      supabase.from("user_word_history").insert({
         user_word_id: words[currentIndex].id,
         user_id: userId,
         is_correct: isOk,
         answered_at: now,
-      });
+      }).then(({ error }) => { if (error) console.error("History insert error:", error); });
 
       // XP計算
       const xpGained = isOk ? 5 : 1;
-      await updateUserStats(userId, xpGained, 1);
+      // updateUserStatsも非同期（バックグラウンド）
+      updateUserStats(userId, xpGained, 1).catch((err) => console.error("Stats update error:", err));
 
       // XPポップアップ
       setXpPopup({ visible: true, amount: xpGained });
@@ -581,7 +583,7 @@ export default function ReviewPage() {
             setQuizPhase("quiz");
             setSelectedPos(null);
             setPosCorrect(null);
-          }, 150);
+          }, 50);
         } else {
           // セッション完了
           setTimeout(() => {
@@ -594,7 +596,7 @@ export default function ReviewPage() {
             });
             setIsAnswering(false);
             setLastAnswer(null);
-          }, 150);
+          }, 50);
         }
       };
 

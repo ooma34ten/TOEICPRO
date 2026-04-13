@@ -100,17 +100,45 @@ async function getSmartQuestions(
 ): Promise<ToeicQuestion[]> {
   const now = new Date();
 
-  // 1. 全問題を取得
-  let query = supabase.from("toeic_questions").select("*");
 
-  if (categoryFilter && categoryFilter.length > 0) {
-    query = query.in("category", categoryFilter);
-  }
-  if (levelFilter && levelFilter.length > 0) {
-    query = query.in("level", levelFilter);
-  }
+  // 1. 全問題を取得（not_in_mylistモードの場合はmy単語帳未登録のみ）
+  let allQuestions: ToeicQuestion[] = [];
+  let qError: any = null;
+  if (mode === "not_in_mylist") {
+    // user_wordsに存在しない単語のみ取得
+    // 1. user_wordsから自分のword_id一覧を取得
+    const { data: myWords, error: myWordsError } = await supabase
+      .from("user_words")
+      .select("word_id")
+      .eq("user_id", userId);
+    const myWordIds = (myWords ?? []).map((w: any) => w.word_id);
 
-  const { data: allQuestions, error: qError } = await query;
+    // 2. words_masterからmyWordIds以外のwordを取得し、そのwordと一致するtoeic_questionsのみ抽出
+    let query = supabase.from("toeic_questions").select("*");
+    if (categoryFilter && categoryFilter.length > 0) {
+      query = query.in("category", categoryFilter);
+    }
+    if (levelFilter && levelFilter.length > 0) {
+      query = query.in("level", levelFilter);
+    }
+    if (myWordIds.length > 0) {
+      query = query.not("id", "in", `(${myWordIds.map((id) => `'${id}'`).join(",")})`);
+    }
+    const { data, error } = await query;
+    allQuestions = data ?? [];
+    qError = error;
+  } else {
+    let query = supabase.from("toeic_questions").select("*");
+    if (categoryFilter && categoryFilter.length > 0) {
+      query = query.in("category", categoryFilter);
+    }
+    if (levelFilter && levelFilter.length > 0) {
+      query = query.in("level", levelFilter);
+    }
+    const { data, error } = await query;
+    allQuestions = data ?? [];
+    qError = error;
+  }
   if (qError || !allQuestions || allQuestions.length === 0) {
     console.error("Failed to fetch questions:", qError);
     return [];
@@ -165,6 +193,10 @@ async function getSmartQuestions(
   let filtered: ScoredQuestion[] = [];
 
   switch (mode) {
+        case "not_in_mylist":
+          // my単語帳未登録のみ: そのまま優先度順で出題
+          filtered = scoredQuestions.sort((a, b) => b.priority - a.priority);
+          break;
     case "quick":
       // クイックモード: ランダムに出題（未回答・復習期限優先）
       filtered = scoredQuestions

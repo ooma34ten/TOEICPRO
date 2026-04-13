@@ -265,22 +265,18 @@ export default function QuestionBankPage() {
       await updateUserStats(userId, 1, 1);
     }
 
-    // 保存
-    try {
-      await fetch("/api/save-question-answer", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId,
-          questionId: currentQ.id,
-          userAnswer: selectedAnswer,
-          isCorrect,
-          answerTimeMs: timeMs
-        })
-      });
-    } catch (e) {
-      console.error(e);
-    }
+    // 保存はバックグラウンドで非同期実行
+    fetch("/api/save-question-answer", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        userId,
+        questionId: currentQ.id,
+        userAnswer: selectedAnswer,
+        isCorrect,
+        answerTimeMs: timeMs
+      })
+    }).catch(() => {});
   };
 
   // 次へ
@@ -734,6 +730,13 @@ export default function QuestionBankPage() {
             icon={RotateCcw}
             color="bg-green-600"
             onClick={() => startSession("review")}
+          />
+          <ModeCard
+            title="分からない単語テスト"
+            desc="my単語帳に未登録の単語のみ出題。NG単語は自動保存。ゲストモードのような体験。"
+            icon={BookOpen}
+            color="bg-blue-500"
+            onClick={() => startSession("not_in_mylist")}
           />
         </div>
       </div>
