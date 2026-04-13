@@ -34,7 +34,7 @@ type UserQuestionHistory = {
 
 type SmartQuestionRequest = {
   userId: string;
-  mode: "quick" | "focus" | "weakness" | "review";
+  mode: "quick" | "focus" | "weakness" | "review" | "not_in_mylist";
   count?: number;
   categoryFilter?: number[];
   levelFilter?: number[];
