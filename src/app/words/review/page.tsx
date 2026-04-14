@@ -788,12 +788,20 @@ export default function ReviewPage() {
             <br />
             素晴らしい学習ペースです！
           </p>
-          <button
-            onClick={() => router.push("/")}
-            className="w-full px-6 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-xl font-bold hover:opacity-90 transition shadow-lg shadow-indigo-200 dark:shadow-indigo-900/30"
-          >
-            ダッシュボードに戻る
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={() => router.push("/words/random")}
+              className="flex-1 px-4 py-3 bg-[var(--secondary)] text-[var(--foreground)] rounded-xl font-bold hover:bg-[var(--muted)] transition flex items-center justify-center gap-2 text-sm border border-[var(--border)]"
+            >
+              新しい単語を学ぶ
+            </button>
+            <button
+              onClick={() => router.push("/")}
+              className="flex-1 px-4 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-xl font-bold hover:opacity-90 transition shadow-lg shadow-indigo-200 dark:shadow-indigo-900/30 flex items-center justify-center gap-2 text-sm"
+            >
+              ダッシュボードに戻る
+            </button>
+          </div>
         </motion.div>
       </div>
     );
