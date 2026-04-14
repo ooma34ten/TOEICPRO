@@ -410,7 +410,11 @@ export default function ReviewPage() {
 
         const today = new Date();
         const reviewWords = userWords.filter((w) => {
-          const lastReview = new Date(w.lastAnswered!);
+          if (!w.lastAnswered) return false;
+          
+          const lastReview = new Date(w.lastAnswered);
+          if (isNaN(lastReview.getTime())) return false;
+          
           const diffDays = Math.floor((today.getTime() - lastReview.getTime()) / (1000 * 60 * 60 * 24));
           const schedule: Record<number, number> = { 0: 0, 1: 1, 2: 3, 3: 7, 4: 14, 5: 30 };
           const cappedCount = Math.min(w.correct ?? 0, 5);
@@ -446,17 +450,22 @@ export default function ReviewPage() {
         if (selectedWords.length > 0) {
           setWords(selectedWords);
         } else {
-          const fallback = userWords
-            .filter((w) => !((w.correct ?? 0) >= 6 && w.successRate! >= 0.9))
-            .sort((a, b) => {
-              const rateA = a.successRate ?? 0;
-              const rateB = b.successRate ?? 0;
-              if (rateA !== rateB) return rateA - rateB;
-              return rank(b.words_master.importance) - rank(a.words_master.importance);
-            })
-            .slice(0, 10);
+          const allUnmemorized = userWords.filter((w) => !((w.correct ?? 0) >= 6 && w.successRate! >= 0.9));
+          
+          if (allUnmemorized.length === 0) {
+            setWords([]);
+          } else {
+            const fallback = allUnmemorized
+              .sort((a, b) => {
+                const rateA = a.successRate ?? 0;
+                const rateB = b.successRate ?? 0;
+                if (rateA !== rateB) return rateA - rateB;
+                return rank(b.words_master.importance) - rank(a.words_master.importance);
+              })
+              .slice(0, 10);
 
-          setWords(fallback.length > 0 ? fallback : shuffleArray(userWords).slice(0, 10));
+            setWords(fallback);
+          }
         }
       } catch (err) {
         console.error(err);
