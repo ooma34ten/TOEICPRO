@@ -18,14 +18,12 @@ function ResetPasswordContent() {
     const accessToken = hashParams.get("access_token");
     const refreshToken = hashParams.get("refresh_token");
 
-    if (!accessToken) return;
+    if (!accessToken || !refreshToken) return;
 
-    const sessionPayload: { access_token: string; refresh_token?: string } = {
+    supabase.auth.setSession({
       access_token: accessToken,
-    };
-    if (refreshToken) sessionPayload.refresh_token = refreshToken;
-
-    supabase.auth.setSession(sessionPayload).catch((error) => {
+      refresh_token: refreshToken,
+    }).catch((error) => {
       console.warn("Failed to set reset-password session:", error);
     });
   }, []);
