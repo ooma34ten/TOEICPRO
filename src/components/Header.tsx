@@ -112,6 +112,7 @@ export default function Header() {
     { href: "/words/list", label: "My単語帳", disabled: false },
     { href: "/words/register", label: "単語登録", disabled: false },
     { href: "/words/review", label: "単語復習モード", disabled: false },
+    { href: "/words/random", label: "新しい単語テスト", disabled: false },
     { href: "/words/ai_teacher", label: "Part5強化モード", disabled: false },
     { href: "/words/progress", label: "学習進捗", disabled: false },
     { href: "/words/toeic_ai", label: "AIアシスタント", disabled: true },
