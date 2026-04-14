@@ -18,12 +18,16 @@ function ResetPasswordContent() {
     const accessToken = hashParams.get("access_token");
     const refreshToken = hashParams.get("refresh_token");
 
-    if (accessToken) {
-      supabase.auth.setSession({
-        access_token: accessToken,
-        refresh_token: refreshToken || "",
-      });
-    }
+    if (!accessToken) return;
+
+    const sessionPayload: { access_token: string; refresh_token?: string } = {
+      access_token: accessToken,
+    };
+    if (refreshToken) sessionPayload.refresh_token = refreshToken;
+
+    supabase.auth.setSession(sessionPayload).catch((error) => {
+      console.warn("Failed to set reset-password session:", error);
+    });
   }, []);
 
   const handleReset = async (e: React.FormEvent) => {

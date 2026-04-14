@@ -442,7 +442,22 @@ export default function ReviewPage() {
           if (grouped[r]) result.push(...shuffleArray(grouped[r]));
         });
 
-        setWords(result);
+        const selectedWords = result.slice(0, 10);
+        if (selectedWords.length > 0) {
+          setWords(selectedWords);
+        } else {
+          const fallback = userWords
+            .filter((w) => !((w.correct ?? 0) >= 6 && w.successRate! >= 0.9))
+            .sort((a, b) => {
+              const rateA = a.successRate ?? 0;
+              const rateB = b.successRate ?? 0;
+              if (rateA !== rateB) return rateA - rateB;
+              return rank(b.words_master.importance) - rank(a.words_master.importance);
+            })
+            .slice(0, 10);
+
+          setWords(fallback.length > 0 ? fallback : shuffleArray(userWords).slice(0, 10));
+        }
       } catch (err) {
         console.error(err);
         setError("データ取得中にエラーが発生しました。");
