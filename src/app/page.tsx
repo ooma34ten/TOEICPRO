@@ -464,7 +464,7 @@ export default function Dashboard() {
             targetParticipants = [...raceData.recapParticipants];
             widgetTitle = "🏇 先週の最終結果 (未確認)";
           } else {
-            targetParticipants = raceData.participants.map(p => {
+            targetParticipants = raceData.participants.map((p: import("@/app/actions/race").RaceParticipant) => {
               const prev = getPreviousDayCumulative(p.daily_progress || {}, raceData.dayOfWeek);
               return { ...p, distance: prev };
             });
