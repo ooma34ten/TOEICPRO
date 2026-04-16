@@ -10,7 +10,7 @@ export async function POST(req: Request) {
       "user_word_history",
       "user_words",
       "test_results",
-      "ai_generated_questions_queue",
+      // "ai_generated_questions_queue", // user_idカラムが存在しないため除外
       "race_participants",
       "race_history",
       "user_activity_logs",
@@ -34,12 +34,17 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true });
   } catch (err: unknown) {
-    console.error(err);
+    // エラー内容を詳細に出力
+    if (err instanceof Error) {
+      console.error("[self-delete] Error:", err.message, err.stack, err);
+    } else {
+      console.error("[self-delete] Unknown error:", err);
+    }
 
     const message =
       err instanceof Error
-        ? err.message
-        : "削除に失敗しました";
+        ? err.message + (err.stack ? "\n" + err.stack : "")
+        : JSON.stringify(err);
 
     return NextResponse.json({ error: message }, { status: 400 });
   }

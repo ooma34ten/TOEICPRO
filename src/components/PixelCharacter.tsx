@@ -18,6 +18,8 @@ interface PixelCharacterProps {
   animated?: boolean;
   /** 明示的にステージを指定する場合 (XPベースを上書き) */
   stageOverride?: number;
+  /** 1位用王冠表示 */
+  showCrown?: boolean;
 }
 
 export default function PixelCharacter({
@@ -27,6 +29,7 @@ export default function PixelCharacter({
   className = "",
   animated = true,
   stageOverride,
+  showCrown = false,
 }: PixelCharacterProps) {
   const charDef = getCharacterDef(type);
   const stageIndex = stageOverride ?? getStageIndex(totalXp);
@@ -63,6 +66,8 @@ export default function PixelCharacter({
   const isLegendary = stageIndex >= 4;
   // Stage 4+ のゴールデンアウラ
   const hasAura = stageIndex >= 3;
+  // 1位用王冠表示
+  const showCrownDot = showCrown || isLegendary;
 
   return (
     <div
@@ -121,17 +126,27 @@ export default function PixelCharacter({
           ))}
         </g>
 
-        {/* Stage 5: 王冠 */}
-        {isLegendary && (
-          <g>
-            <rect x={3} y={-2} width={1} height={1} fill="#ffd700" />
-            <rect x={5} y={-2} width={1} height={1} fill="#ffd700" />
-            <rect x={7} y={-2} width={1} height={1} fill="#ffd700" />
-            <rect x={3} y={-1} width={5} height={1} fill="#ffd700" />
-            <rect x={4} y={-2} width={1} height={1} fill="#ff4500" />
-            <rect x={6} y={-2} width={1} height={1} fill="#ff4500" />
-          </g>
-        )}
+        {/* 1位用王冠: SVG画像を重ねて表示 */}
+        {/* rect王冠は非表示にし、SVG画像を絶対配置で重ねる */}
+      {/* 王冠SVG画像をキャラクター頭上に重ねる */}
+      {showCrownDot && (
+        <img
+          src="/crown_01_gold_red.svg"
+          alt="王冠"
+          style={{
+            position: "absolute",
+            left: "50%",
+            top: `-${pixelSize * 3}px`, // キャラ頭上に配置
+            width: `${pixelSize * 8}px`,
+            height: "auto",
+            transform: "translateX(-50%)",
+            zIndex: 2,
+            pointerEvents: "none",
+            userSelect: "none",
+          }}
+          draggable={false}
+        />
+      )}
 
         {/* Stage 4: 星マーク */}
         {stageIndex === 3 && (
@@ -179,11 +194,13 @@ export function PixelCharacterMini({
   totalXp,
   className = "",
   stageOverride,
+  showCrown = false,
 }: {
   type: CharacterType;
   totalXp: number;
   className?: string;
   stageOverride?: number;
+  showCrown?: boolean;
 }) {
   return (
     <PixelCharacter
@@ -193,6 +210,7 @@ export function PixelCharacterMini({
       className={className}
       animated={false}
       stageOverride={stageOverride}
+      showCrown={showCrown}
     />
   );
 }
