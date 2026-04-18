@@ -2,6 +2,7 @@
 
 import React, { useMemo } from "react";
 import { getCharacterDef, getStageIndex, getStageScale, type CharacterType } from "@/lib/characters";
+import { PIXEL_ITEMS } from "@/lib/items";
 
 // =============================
 // SVG ベースのドット絵レンダラー
@@ -33,12 +34,13 @@ export default function PixelCharacter({
 }: PixelCharacterProps) {
   const charDef = getCharacterDef(type);
   const stageIndex = stageOverride ?? getStageIndex(totalXp);
-  const palette = charDef.palettes[stageIndex];
+  // 体色は常にインデックス0（初期パレット）に固定
+  const palette = charDef.palettes[0];
   const scale = getStageScale(stageIndex);
   const pixels = charDef.pixels;
 
   // ピクセルデータからSVG要素を生成 (メモ化)
-  const { rects, width, height } = useMemo(() => {
+  const { rects, itemRects, width, height } = useMemo(() => {
     const allRects: { x: number; y: number; color: string }[] = [];
     const h = pixels.length;
     const w = pixels[0]?.length ?? 0;
@@ -56,11 +58,49 @@ export default function PixelCharacter({
       }
     }
 
-    return { rects: allRects, width: w, height: h };
-  }, [pixels, palette]);
+    // アイテム（装備）データの生成
+    const equippedItems: string[] = [];
+    if (stageIndex >= 1) equippedItems.push("ribbon");
+    if (stageIndex >= 2) equippedItems.push("glasses");
+    if (stageIndex >= 3) equippedItems.push("hero_sword"); // 新アイテム: 勇者の剣
+    if (stageIndex >= 4) equippedItems.push("legend_badge");
 
-  const svgWidth = width * pixelSize * scale;
-  const svgHeight = height * pixelSize * scale;
+    // 王冠は1位の場合（showCrownがtrueの場合）のみ
+    if (showCrown) equippedItems.push("crown");
+
+    const iRects: { x: number; y: number; color: string }[] = [];
+    equippedItems.forEach(itemId => {
+      const itemDef = PIXEL_ITEMS[itemId];
+      if (!itemDef) return;
+      const offset = charDef.itemOffsets?.[itemId] || { x: 0, y: 0 };
+      const itemH = itemDef.pixels.length;
+      const itemW = itemDef.pixels[0]?.length ?? 0;
+
+      for (let r = 0; r < itemH; r++) {
+        const line = itemDef.pixels[r];
+        for (let c = 0; c < itemW; c++) {
+          const ch = line[c];
+          if (ch === "0") continue;
+          const color = itemDef.palette[ch];
+          if (color) {
+            iRects.push({ x: c + offset.x, y: r + offset.y, color });
+          }
+        }
+      }
+    });
+
+    return { rects: allRects, itemRects: iRects, width: w, height: h };
+  }, [pixels, palette, stageIndex, charDef.itemOffsets]);
+
+  // はみ出し（見切れ）を防ぐためのパディング
+  const PADDING_X = 4;
+  const PADDING_TOP = 6;
+  const PADDING_BOTTOM = 2;
+  const viewWidth = width + PADDING_X * 2;
+  const viewHeight = height + PADDING_TOP + PADDING_BOTTOM;
+
+  const svgWidth = viewWidth * pixelSize * scale;
+  const svgHeight = viewHeight * pixelSize * scale;
 
   // Stage 5 のグロウエフェクト
   const isLegendary = stageIndex >= 4;
@@ -92,7 +132,7 @@ export default function PixelCharacter({
       <svg
         width={svgWidth}
         height={svgHeight}
-        viewBox={`0 0 ${width} ${height}`}
+        viewBox={`-${PADDING_X} -${PADDING_TOP} ${viewWidth} ${viewHeight}`}
         style={{
           imageRendering: "pixelated",
           position: "relative",
@@ -116,7 +156,18 @@ export default function PixelCharacter({
         <g filter={isLegendary ? `url(#glow-${type})` : undefined}>
           {rects.map((r, i) => (
             <rect
-              key={i}
+              key={`base-${i}`}
+              x={r.x}
+              y={r.y}
+              width={1}
+              height={1}
+              fill={r.color}
+            />
+          ))}
+          {/* アイテム（装備）レイヤー */}
+          {itemRects.map((r, i) => (
+            <rect
+              key={`item-${i}`}
               x={r.x}
               y={r.y}
               width={1}
@@ -126,27 +177,7 @@ export default function PixelCharacter({
           ))}
         </g>
 
-        {/* 1位用王冠: SVG画像を重ねて表示 */}
-        {/* rect王冠は非表示にし、SVG画像を絶対配置で重ねる */}
-      {/* 王冠SVG画像をキャラクター頭上に重ねる */}
-      {showCrownDot && (
-        <img
-          src="/crown_01_gold_red.svg"
-          alt="王冠"
-          style={{
-            position: "absolute",
-            left: "50%",
-            top: `-${pixelSize * 3}px`, // キャラ頭上に配置
-            width: `${pixelSize * 8}px`,
-            height: "auto",
-            transform: "translateX(-50%)",
-            zIndex: 2,
-            pointerEvents: "none",
-            userSelect: "none",
-          }}
-          draggable={false}
-        />
-      )}
+        {/* （旧）1位用王冠: 独自のSVG画像を使う古い実装は削除・コメントアウト */}
 
         {/* Stage 4: 星マーク */}
         {stageIndex === 3 && (
@@ -163,8 +194,8 @@ export default function PixelCharacter({
       {isLegendary && animated && (
         <>
           <span
-            className="absolute text-[8px] animate-bounce"
-            style={{ top: "-4px", left: "10%", animationDelay: "0s", animationDuration: "2s" }}
+            className="absolute text-[12px] animate-bounce"
+            style={{ top: "0px", left: "15%", animationDelay: "0s", animationDuration: "2s" }}
           >
             ✦
           </span>
