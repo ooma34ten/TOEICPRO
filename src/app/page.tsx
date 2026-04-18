@@ -331,14 +331,6 @@ export default function Dashboard() {
     fetchDashboard();
   }, [router, chartPeriod]);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-2 border-accent border-t-transparent"></div>
-      </div>
-    );
-  }
-
   const currentXp = stats?.total_xp || 0;
   const xpForCurrentLevel = ((stats?.level || 1) - 1) * 1000;
   const xpForNextLevel = (stats?.level || 1) * 1000;
@@ -375,7 +367,7 @@ export default function Dashboard() {
             <div>
               <p className="text-[13px] text-muted-foreground mb-0.5">{greeting.subText}</p>
               <h1 className="text-2xl font-bold text-foreground tracking-tight">
-                {greeting.text}、<span className="text-accent">{userName}</span> さん
+                {greeting.text}、<span className="text-accent">{loading ? "..." : userName}</span> さん
               </h1>
             </div>
             {(stats?.streak_current || 0) > 0 && (
@@ -393,34 +385,45 @@ export default function Dashboard() {
         <h2 className="text-base font-bold text-foreground flex items-center gap-2 mb-4">
           <CheckCircle2 className="w-5 h-5 text-accent" />今日のタスク
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <ActionCard
-            title="単語復習"
-            desc="苦手な単語を重点的に復習します。忘却曲線に基づいた出題で効率よく暗記を進めましょう。"
-            icon={Activity}
-            accentColor="#22c55e"
-            onClick={() => router.push("/words/review")}
-            delay={0.1}
-            disabled={false}
-            current={dashboard?.dailyTasks?.wordReviewCount ?? 0}
-            target={dashboard?.dailyTasks?.wordReviewTarget ?? 10}
-          />
-          <ActionCard
-            title="Part5 問題"
-            desc="AIが自動生成するPart5形式の問題を解き、文法・語彙力を毎日鍛えましょう。"
-            icon={BookOpen}
-            accentColor="var(--accent)"
-            onClick={() => router.push("/words/ai_teacher")}
-            delay={0.15}
-            disabled={false}
-            current={dashboard?.dailyTasks?.part5Count ?? 0}
-            target={dashboard?.dailyTasks?.part5Target ?? 10}
-          />
-        </div>
+        {loading ? (
+          <div className="h-40 flex justify-center items-center bg-card border border-border rounded-xl">
+            <div className="animate-spin rounded-full h-8 w-8 border-2 border-accent border-t-transparent"></div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <ActionCard
+              title="単語復習"
+              desc="苦手な単語を重点的に復習します。忘却曲線に基づいた出題で効率よく暗記を進めましょう。"
+              icon={Activity}
+              accentColor="#22c55e"
+              onClick={() => router.push("/words/review")}
+              delay={0.1}
+              disabled={false}
+              current={dashboard?.dailyTasks?.wordReviewCount ?? 0}
+              target={dashboard?.dailyTasks?.wordReviewTarget ?? 10}
+            />
+            <ActionCard
+              title="Part5 問題"
+              desc="AIが自動生成するPart5形式の問題を解き、文法・語彙力を毎日鍛えましょう。"
+              icon={BookOpen}
+              accentColor="var(--accent)"
+              onClick={() => router.push("/words/ai_teacher")}
+              delay={0.15}
+              disabled={false}
+              current={dashboard?.dailyTasks?.part5Count ?? 0}
+              target={dashboard?.dailyTasks?.part5Target ?? 10}
+            />
+          </div>
+        )}
       </div>
       {/* XPレベル */}
       <div className="mb-6">
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="bg-card border border-border p-5 rounded-xl">
+        {loading ? (
+          <div className="h-32 flex justify-center items-center bg-card border border-border rounded-xl">
+            <div className="animate-spin rounded-full h-8 w-8 border-2 border-accent border-t-transparent"></div>
+          </div>
+        ) : (
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="bg-card border border-border p-5 rounded-xl">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <div className="w-7 h-7 rounded-lg bg-(--accent)/10 flex items-center justify-center">
@@ -444,15 +447,26 @@ export default function Dashboard() {
           </div>
           <p className="text-[11px] text-muted-foreground">{currentXp - xpForCurrentLevel} / {xpForNextLevel - xpForCurrentLevel} XP</p>
         </motion.div>
+        )}
       </div>
       {/* 統計カード */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
-        <StatCard title="ストリーク" value={`${stats?.streak_current || 0} 日`} icon={Flame} accentColor="text-orange-500" delay={0.25} subtitle={stats?.streak_max ? `最高: ${stats.streak_max} 日` : undefined} />
-        <StatCard title="合計 XP" value={stats?.total_xp || 0} icon={Zap} accentColor="text-[var(--accent)]" delay={0.3} subtitle={`Lv. ${stats?.level || 1}`} />
-        <StatCard title="レベル" value={`Lv. ${stats?.level || 1}`} icon={Trophy} accentColor="text-violet-500" delay={0.35} subtitle={`次まで ${xpForNextLevel - currentXp} XP`} />
-      </div>
+      {loading ? (
+        <div className="h-28 mb-6 flex justify-center items-center bg-card border border-border rounded-xl">
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-accent border-t-transparent"></div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
+          <StatCard title="ストリーク" value={`${stats?.streak_current || 0} 日`} icon={Flame} accentColor="text-orange-500" delay={0.25} subtitle={stats?.streak_max ? `最高: ${stats.streak_max} 日` : undefined} />
+          <StatCard title="合計 XP" value={stats?.total_xp || 0} icon={Zap} accentColor="text-[var(--accent)]" delay={0.3} subtitle={`Lv. ${stats?.level || 1}`} />
+          <StatCard title="レベル" value={`Lv. ${stats?.level || 1}`} icon={Trophy} accentColor="text-violet-500" delay={0.35} subtitle={`次まで ${xpForNextLevel - currentXp} XP`} />
+        </div>
+      )}
       {/* レースウィジェット */}
-      {!isGuest && dashboard?.raceData && dashboard.raceData.myParticipant && (() => {
+      {loading ? (
+        <div className="h-36 mb-8 flex justify-center items-center bg-card border border-border rounded-xl">
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-accent border-t-transparent"></div>
+        </div>
+      ) : (!isGuest && dashboard?.raceData && dashboard.raceData.myParticipant && (() => {
         const raceData = dashboard.raceData;
         const todayStr = getJSTDateString();
         const hasViewedToday = raceData.lastRaceViewDate === todayStr;
@@ -512,14 +526,18 @@ export default function Dashboard() {
             </button>
           </motion.div>
         );
-      })()}
+      })())}
       {/* チャート */}
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }} className="bg-card border border-border rounded-xl p-5">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-base font-bold text-foreground flex items-center gap-2"><TrendingUp className="w-4 h-4 text-accent" />{chartPeriod === "week" ? "週間" : chartPeriod === "month" ? "月間" : "年間"}学習進捗</h2>
           <div className="flex gap-1">{(["week", "month", "year"] as const).map((period) => (<button key={period} onClick={() => setChartPeriod(period)} className={`px-3 py-1 rounded-md text-[12px] font-medium transition-colors ${chartPeriod === period ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-secondary"}`}>{period === "week" ? "週" : period === "month" ? "月" : "年"}</button>))}</div>
         </div>
-        {dashboard?.chartData?.length > 0 ? (<div className="h-56 w-full"><ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}><BarChart data={dashboard.chartData} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}><XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }} /><YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }} /><Tooltip contentStyle={{ borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--foreground)', boxShadow: '0 4px 12px rgb(0 0 0 / 0.1)', fontSize: '12px', }} cursor={{ fill: 'transparent' }} /><Bar dataKey="xp" fill="var(--accent)" radius={[4, 4, 4, 4]} barSize={16} /></BarChart></ResponsiveContainer></div>) : (<div className="h-56 flex flex-col items-center justify-center text-muted-foreground"><Activity className="w-10 h-10 mb-2 opacity-20" /><p className="text-sm font-medium">まだデータがありません</p><p className="text-[12px]">学習を始めると、ここに進捗が表示されます</p></div>)}
+        {loading ? (
+          <div className="h-56 flex justify-center items-center text-muted-foreground">
+            <div className="animate-spin rounded-full h-8 w-8 border-2 border-accent border-t-transparent"></div>
+          </div>
+        ) : dashboard?.chartData?.length > 0 ? (<div className="h-56 w-full"><ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}><BarChart data={dashboard.chartData} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}><XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }} /><YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }} /><Tooltip contentStyle={{ borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--foreground)', boxShadow: '0 4px 12px rgb(0 0 0 / 0.1)', fontSize: '12px', }} cursor={{ fill: 'transparent' }} /><Bar dataKey="xp" fill="var(--accent)" radius={[4, 4, 4, 4]} barSize={16} /></BarChart></ResponsiveContainer></div>) : (<div className="h-56 flex flex-col items-center justify-center text-muted-foreground"><Activity className="w-10 h-10 mb-2 opacity-20" /><p className="text-sm font-medium">まだデータがありません</p><p className="text-[12px]">学習を始めると、ここに進捗が表示されます</p></div>)}
       </motion.div>
     </div>
   );

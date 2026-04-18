@@ -17,6 +17,12 @@ export async function POST(req: Request) {
       "user_stats",
       "subscriptions",
       "inquiries",
+      "question_answer_history",
+      "user_question_history",
+      "learning_sessions",
+      "ai_usage_log",
+      "word_reports",
+      "invites"
     ] as const;
 
     for (const table of tables) {
@@ -25,7 +31,10 @@ export async function POST(req: Request) {
         .delete()
         .eq("user_id", userId);
 
-      if (error) throw error;
+      // テーブルが存在しない場合や user_id がない場合でもエラーで中断しないようにする
+      if (error) {
+        console.warn(`[self-delete] Failed to delete from ${table}:`, error.message);
+      }
     }
 
     // 2. Auth ユーザー
