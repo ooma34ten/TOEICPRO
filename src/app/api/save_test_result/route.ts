@@ -13,6 +13,7 @@ interface Question {
   importance: number;
   synonyms: string[];
   category?: string;
+  accuracy?: number | null;
 }
 
 interface TestResult {
@@ -90,17 +91,6 @@ export async function POST(req: Request) {
     // 2) スコア変動計算 (サーバー側で計算して不正防止)
     let scoreDelta = 0;
 
-    // 再出題判定のために過去の履歴を一括取得
-    const questionIds = questions.map(q => q.id).filter(Boolean) as string[];
-    const { data: historyData } = await supabaseAdmin
-      .from("user_question_history")
-      .select("question_id")
-      .eq("user_id", userId)
-      .in("question_id", questionIds);
-
-    const answeredIds = new Set(historyData?.map(h => h.question_id) || []);
-    console.log("historyData", historyData);
-
     // 問題ごとの正誤判定とスコア計算
     for (let i = 0; i < questions.length; i++) {
       const q = questions[i];
@@ -113,9 +103,9 @@ export async function POST(req: Request) {
       }
 
       const isCorrect = userAnswer.trim().toLowerCase() === q.answer.trim().toLowerCase();
-      const isReQuestion = q.id ? answeredIds.has(q.id) : false;
+      // accuracy が null/undefined の場合を「初出題」とみなす (UIの表示ロジックと統一)
+      const isReQuestion = q.accuracy !== null && q.accuracy !== undefined;
       console.log("id", q.id);
-      console.log("answeredIds", answeredIds);
 
       console.log("isReQuestion", isReQuestion);
       const importance = q.importance ?? 3; // デフォルト3

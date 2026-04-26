@@ -77,7 +77,7 @@ function extractJson(raw: string): string | null {
 async function processOne(item: QueueRow): Promise<GeneratedQuestion | null> {
   try {
     const prompt = buildPrompt(item);
-    const model = genAI.getGenerativeModel({ model: "models/gemini_3_flash" });
+    const model = genAI.getGenerativeModel({ model: "models/gemini-2.5-flash" });
     const result = await model.generateContent(prompt);
     const raw = result.response.text();
 

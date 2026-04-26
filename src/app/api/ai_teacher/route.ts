@@ -531,7 +531,7 @@ ${categoryListText}
       console.log(`[ai_teacher] initiating gemini call for aiCount: ${aiCount}...`);
       console.time("[ai_teacher] gemini_generate");
       const model = genAI.getGenerativeModel({
-        model: "gemini_3_flash",
+        model: "gemini-2.5-flash",
         generationConfig: {
           temperature: 0.9, // 創造性と多様性を高めるために引き上げ
         },

@@ -661,6 +661,11 @@ export default function AITeacherPage() {
             <p className="text-[15px] text-[var(--foreground)] leading-relaxed mb-5">
               {currentQuestion.question}
             </p>
+            {showResult && (
+              <p className="text-[13px] text-emerald-600 dark:text-emerald-400 leading-relaxed mt-[-12px] mb-5 animate-in fade-in slide-in-from-top-1 duration-500">
+                訳: {currentQuestion.translation}
+              </p>
+            )}
 
             {/* 選択肢 */}
             <div className="space-y-3">
@@ -738,7 +743,6 @@ export default function AITeacherPage() {
                   </div>
 
                   <div className="text-[13px] text-[var(--foreground)] space-y-1.5">
-                    <p><span className="font-semibold text-[var(--muted-foreground)]">訳:</span> {currentQuestion.translation}</p>
                     {currentQuestion.explanation && (
                       <p><span className="font-semibold text-[var(--muted-foreground)]">解説:</span> {currentQuestion.explanation}</p>
                     )}

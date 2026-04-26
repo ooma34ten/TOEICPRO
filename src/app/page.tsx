@@ -242,7 +242,7 @@ const ActionCard = ({
         >
           <Icon className="w-5 h-5" style={{ color: accentColor }} />
         </div>
-        
+
         {isCompleted ? (
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 shadow-sm">
             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
@@ -254,7 +254,7 @@ const ActionCard = ({
           </div>
         )}
       </div>
-      
+
       <div className="flex-1 w-full relative z-10">
         <h3 className="text-base font-bold text-foreground mb-1.5">{title}</h3>
         <p className="text-[12.5px] text-muted-foreground leading-relaxed mb-4">
@@ -274,7 +274,7 @@ const ActionCard = ({
         <div className="w-full mt-auto pt-3 border-t border-(--border)/70 relative z-10">
           <div className="flex justify-between items-end mb-2">
             <span className="text-[11px] font-medium text-muted-foreground">進捗</span>
-            <span className={cn("text-[13px] font-bold", isCompleted ? "text-emerald-600 dark:text-emerald-400" : "text-foreground")}> 
+            <span className={cn("text-[13px] font-bold", isCompleted ? "text-emerald-600 dark:text-emerald-400" : "text-foreground")}>
               {current} <span className="text-[10px] text-muted-foreground font-normal">/ {target}問</span>
             </span>
           </div>
@@ -469,7 +469,8 @@ export default function Dashboard() {
         </motion.div>
       </div>
       {/* 統計カード */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+        <StatCard title="今日の獲得" value={`${dashboard?.raceData?.todayXp || 0} XP`} icon={TrendingUp} accentColor="text-amber-400" delay={0.2} isLoading={loading} subtitle="本日" />
         <StatCard title="ストリーク" value={`${stats?.streak_current || 0} 日`} icon={Flame} accentColor="text-orange-500" delay={0.25} isLoading={loading} subtitle={stats?.streak_max ? `最高: ${stats.streak_max} 日` : undefined} />
         <StatCard title="合計 XP" value={stats?.total_xp || 0} icon={Zap} accentColor="text-[var(--accent)]" delay={0.3} isLoading={loading} subtitle={`Lv. ${stats?.level || 1}`} />
         <StatCard title="レベル" value={`Lv. ${stats?.level || 1}`} icon={Trophy} accentColor="text-violet-500" delay={0.35} isLoading={loading} subtitle={`次まで ${xpForNextLevel - currentXp} XP`} />

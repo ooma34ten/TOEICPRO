@@ -112,15 +112,16 @@ export default function Header() {
     { href: "/words/list", label: "My単語帳", disabled: false },
     { href: "/words/register", label: "単語登録", disabled: false },
     { href: "/words/review", label: "単語復習モード", disabled: false },
-    { href: "/words/random", label: "新しい単語テスト", disabled: false },
     { href: "/words/ai_teacher", label: "Part5強化モード", disabled: false },
-    { href: "/words/progress", label: "学習進捗", disabled: false },
-    { href: "/words/toeic_ai", label: "AIアシスタント", disabled: true },
-    { href: "/words/questions", label: "問題バンク", disabled: true },
-    { href: "/words/subscribe", label: "サブスクリプション", disabled: true },
+
+    //{ href: "/words/toeic_ai", label: "AIアシスタント", disabled: true },
+    //{ href: "/words/questions", label: "問題バンク", disabled: true },
+    //{ href: "/words/subscribe", label: "サブスクリプション", disabled: true },
   ];
 
   const settingLinks: NavLink[] = [
+    { href: "/words/progress", label: "学習進捗", disabled: false },
+    { href: "/words/random", label: "新しい単語テスト", disabled: false },
     { href: "/words/contact", label: "お問い合わせ" },
     { href: "/words/setting", label: "設定" },
     { href: "/legal/privacy", label: "プライバシー" },
@@ -193,13 +194,12 @@ export default function Header() {
                 key={link.href}
                 href={link.href}
                 onClick={(e) => handleLinkClick(e, link)}
-                className={`relative px-3 py-1.5 rounded-md transition-colors whitespace-nowrap ${
-                  link.disabled
-                    ? 'opacity-40 cursor-not-allowed text-[var(--muted-foreground)]'
-                    : isActive
+                className={`relative px-3 py-1.5 rounded-md transition-colors whitespace-nowrap ${link.disabled
+                  ? 'opacity-40 cursor-not-allowed text-[var(--muted-foreground)]'
+                  : isActive
                     ? "text-[var(--accent)] font-semibold"
                     : "text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--secondary)]"
-                }`}
+                  }`}
               >
                 {link.label}
                 {isActive && (
@@ -277,13 +277,12 @@ export default function Header() {
                       key={link.href}
                       href={link.href}
                       onClick={(e) => handleLinkClick(e, link, () => setSettingsOpen(false))}
-                      className={`block px-3 py-2 text-[13px] transition-colors ${
-                        link.disabled
-                          ? 'opacity-40 cursor-not-allowed text-[var(--muted-foreground)]'
-                          : pathname === link.href
+                      className={`block px-3 py-2 text-[13px] transition-colors ${link.disabled
+                        ? 'opacity-40 cursor-not-allowed text-[var(--muted-foreground)]'
+                        : pathname === link.href
                           ? "text-[var(--accent)] font-semibold bg-[var(--secondary)]"
                           : "text-[var(--foreground)] hover:bg-[var(--secondary)]"
-                      }`}
+                        }`}
                     >
                       {link.label}
                     </Link>
@@ -341,13 +340,12 @@ export default function Header() {
                   key={link.href}
                   href={link.href}
                   onClick={(e) => handleLinkClick(e, link, () => setMenuOpen(false))}
-                  className={`block px-5 py-2.5 text-[13px] transition-colors ${
-                    link.disabled
-                      ? 'opacity-40 cursor-not-allowed text-[var(--muted-foreground)]'
-                      : pathname === link.href
+                  className={`block px-5 py-2.5 text-[13px] transition-colors ${link.disabled
+                    ? 'opacity-40 cursor-not-allowed text-[var(--muted-foreground)]'
+                    : pathname === link.href
                       ? "text-[var(--accent)] font-semibold bg-[var(--secondary)]"
                       : "text-[var(--foreground)] hover:bg-[var(--secondary)]"
-                  }`}
+                    }`}
                 >
                   {link.label}
                 </Link>
