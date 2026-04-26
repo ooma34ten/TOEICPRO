@@ -120,7 +120,7 @@ export async function POST(req: Request) {
       console.log("isReQuestion", isReQuestion);
       const importance = q.importance ?? 3; // デフォルト3
 
-      if (isReQuestion) {
+      if (!isReQuestion) {
         // 初出題のみスコアを変動させる
         if (isCorrect) {
           // 初回正解: +1

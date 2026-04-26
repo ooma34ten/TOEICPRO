@@ -206,7 +206,7 @@ export async function POST(req: Request) {
           .from("test_results")
           .select("created_at, test_result_items(question_id, is_correct)")
           .eq("user_id", userId)
-        : Promise.resolve({ data: [] }),
+        : Promise.resolve({ data: [] as any[], error: null as any }),
     ]);
     console.timeEnd("[ai_teacher] db_basic_fetch");
     if (catRes.error) console.error("[ai_teacher] catRes error:", catRes.error);
