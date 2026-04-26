@@ -660,7 +660,7 @@ export default function RacePage() {
     }
     setViewMode(initialMode);
 
-    if (hasViewedTodayJST && initialMode === "current") {
+    if ((hasViewedTodayJST || raceData.dayOfWeek === 1) && initialMode === "current") {
       setRacePhase("finished");
       return;
     }
@@ -705,13 +705,17 @@ export default function RacePage() {
 
     // ポップアップが開いたままアニメーションをリセット
     setShowRacePopup(true);
-    setRacePhase("ready");
-    const t1 = setTimeout(() => setRacePhase("countdown"), 500);
-    const t2 = setTimeout(() => setRacePhase("racing"), 2800);
-    const t3 = setTimeout(() => {
+    if (raceData?.dayOfWeek === 1) {
       setRacePhase("finished");
-    }, 15000);
-    raceTimers.current = [t1, t2, t3];
+    } else {
+      setRacePhase("ready");
+      const t1 = setTimeout(() => setRacePhase("countdown"), 500);
+      const t2 = setTimeout(() => setRacePhase("racing"), 2800);
+      const t3 = setTimeout(() => {
+        setRacePhase("finished");
+      }, 15000);
+      raceTimers.current = [t1, t2, t3];
+    }
   }, [userId, fetchRaceData]);
 
   const handleGachaComplete = async (charType: CharacterType) => {

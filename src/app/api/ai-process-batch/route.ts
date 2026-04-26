@@ -86,7 +86,7 @@ async function processOne(item: QueueRow): Promise<GeneratedQuestion | null> {
     const prompt = buildPrompt(item);
 
     const model = genAI.getGenerativeModel({
-      model: "models/gemini-2.5-flash"
+      model: "models/gemini_3_flash"
     });
 
     const result = await model.generateContent(prompt);

@@ -90,6 +90,17 @@ export async function POST(req: Request) {
     // 2) スコア変動計算 (サーバー側で計算して不正防止)
     let scoreDelta = 0;
 
+    // 再出題判定のために過去の履歴を一括取得
+    const questionIds = questions.map(q => q.id).filter(Boolean) as string[];
+    const { data: historyData } = await supabaseAdmin
+      .from("user_question_history")
+      .select("question_id")
+      .eq("user_id", userId)
+      .in("question_id", questionIds);
+
+    const answeredIds = new Set(historyData?.map(h => h.question_id) || []);
+    console.log("historyData", historyData);
+
     // 問題ごとの正誤判定とスコア計算
     for (let i = 0; i < questions.length; i++) {
       const q = questions[i];
@@ -102,16 +113,28 @@ export async function POST(req: Request) {
       }
 
       const isCorrect = userAnswer.trim().toLowerCase() === q.answer.trim().toLowerCase();
+      const isReQuestion = q.id ? answeredIds.has(q.id) : false;
+      console.log("id", q.id);
+      console.log("answeredIds", answeredIds);
+
+      console.log("isReQuestion", isReQuestion);
       const importance = q.importance ?? 3; // デフォルト3
 
-      if (isCorrect) {
-        // 正解: 重要度が高いほど伸びる (例: ★5=10点, ★3=6点)
-        scoreDelta += importance * 1;
+      if (isReQuestion) {
+        // 初出題のみスコアを変動させる
+        if (isCorrect) {
+          // 初回正解: +1
+          scoreDelta += 1 * importance;
+        } else {
+          // 初回不正解: -1
+          scoreDelta -= 1 * importance;
+        }
       } else {
-        // 不正解: 重要度が高いほど下がる (例: ★5=-5点, ★3=-3点)
-        scoreDelta -= importance * 1;
+        // 再出題: スコア変動なし
       }
     }
+
+    console.log("scoreDelta", scoreDelta);
 
     // 新しいスコア (10〜990の範囲に収める)
     let newScore = currentScore + scoreDelta;

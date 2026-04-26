@@ -82,14 +82,14 @@ function buildPrompt(item: QueueRow): string {
 
 
 // =============================
-// AI で 1 件処理（gemini-2.5-flash）
+// AI で 1 件処理（gemini_3_flash）
 // =============================
 async function processOne(item: QueueRow): Promise<GeneratedQuestion | null> {
   try {
     const prompt = buildPrompt(item);
 
     const model = genAI.getGenerativeModel({
-      model: "models/gemini-2.5-flash"
+      model: "models/gemini_3_flash"
     });
 
     const result = await model.generateContent(prompt);

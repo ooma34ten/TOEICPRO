@@ -32,7 +32,7 @@ type BatchSaveRequest = {
 // =============================
 // 単一回答保存
 // =============================
-async function saveAnswer(data: SaveAnswerRequest): Promise<{ success: boolean; error?: string }> {
+async function saveAnswer(data: SaveAnswerRequest): Promise<{ success: boolean; isReQuestion?: boolean; error?: string }> {
     const { userId, questionId, userAnswer, isCorrect, answerTimeMs, sessionId } = data;
 
     try {
@@ -101,7 +101,7 @@ async function saveAnswer(data: SaveAnswerRequest): Promise<{ success: boolean; 
             is_correct: isCorrect,
         });
 
-        return { success: true };
+        return { success: true, isReQuestion: !!existing };
     } catch (err) {
         console.error("saveAnswer error:", err);
         return { success: false, error: "Unexpected error" };
@@ -111,7 +111,7 @@ async function saveAnswer(data: SaveAnswerRequest): Promise<{ success: boolean; 
 // =============================
 // スコア更新 (TOEIC予測スコア)
 // =============================
-async function updatePredictedScore(userId: string, isCorrect: boolean, questionId: string): Promise<void> {
+async function updatePredictedScore(userId: string, isCorrect: boolean, questionId: string, isReQuestion: boolean): Promise<void> {
     try {
         // 1. 問題の重要度を取得
         const { data: question } = await supabase
@@ -136,9 +136,15 @@ async function updatePredictedScore(userId: string, isCorrect: boolean, question
         // 3. 変動値を計算
         let delta = 0;
         if (isCorrect) {
-            delta = 1;
+            if (isReQuestion) {
+                // 再出題の場合は1/2の上昇
+                delta = 0.5;
+            } else {
+                delta = 1;
+            }
         } else {
-            delta = -1;
+            // 下降は抑制（変動なし）
+            delta = 0;
         }
 
         let newScore = currentScore + delta;
@@ -273,7 +279,7 @@ export async function POST(req: Request) {
 
         if (result.success) {
             // スコア更新 (非同期で実行しても良いが、ここではawaitして確実性を取る)
-            await updatePredictedScore(userId, isCorrect, questionId);
+            await updatePredictedScore(userId, isCorrect, questionId, !!result.isReQuestion);
 
             // セッション統計を更新
             if (sessionId) {

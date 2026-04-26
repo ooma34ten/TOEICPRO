@@ -209,6 +209,17 @@ export async function POST(req: Request) {
         : Promise.resolve({ data: [] }),
     ]);
     console.timeEnd("[ai_teacher] db_basic_fetch");
+    if (catRes.error) console.error("[ai_teacher] catRes error:", catRes.error);
+    if (scoreRes.error) console.error("[ai_teacher] scoreRes error:", scoreRes.error);
+    if (historyRes.error) console.error("[ai_teacher] historyRes error:", historyRes.error);
+
+    if (catRes.error || scoreRes.error || historyRes.error) {
+      return NextResponse.json({
+        questions: [],
+        error: "DB_FETCH_FAILED",
+        details: { cat: catRes.error, score: scoreRes.error, history: historyRes.error }
+      }, { status: 500 });
+    }
 
     allCategoriesData = catRes.data || [];
     const latestResult = scoreRes.data;
@@ -520,7 +531,7 @@ ${categoryListText}
       console.log(`[ai_teacher] initiating gemini call for aiCount: ${aiCount}...`);
       console.time("[ai_teacher] gemini_generate");
       const model = genAI.getGenerativeModel({
-        model: "gemini-2.5-flash",
+        model: "gemini_3_flash",
         generationConfig: {
           temperature: 0.9, // 創造性と多様性を高めるために引き上げ
         },
@@ -680,6 +691,7 @@ ${categoryListText}
         questions: [],
         limitReached: false,
         message: `サーバーエラー: ${err?.message || String(err)}`,
+        stack: process.env.NODE_ENV === 'development' ? err?.stack : undefined
       },
       { status: 500 },
     );
