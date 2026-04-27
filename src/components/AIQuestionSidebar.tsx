@@ -121,12 +121,12 @@ export default function UnifiedSidebar() {
         <button
           key={sb.type}
           onClick={() => toggleSidebar(sb.type)}
-          style={{ bottom: `${20 + idx * 70}px` }} // Tailwindの動的クラスではなく style
-          className={`fixed right-6 z-[70] flex items-center gap-2 px-4 py-3 rounded-full shadow-lg backdrop-blur-md border border-[var(--border)]
-            transition-all duration-300 font-bold ${
-              isOpen[sb.type]
-                ? "bg-[var(--secondary)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] scale-95"
-                : "bg-[var(--accent)] text-[var(--accent-foreground)] shadow-[var(--accent)]/20 hover:scale-105"
+          className={`fixed right-4 sm:right-6 z-[70] flex items-center gap-2 px-4 py-3 rounded-full shadow-lg backdrop-blur-md border border-[var(--border)]
+            transition-all duration-300 font-bold 
+            ${idx === 0 ? "bottom-[90px] md:bottom-[20px]" : "bottom-[160px] md:bottom-[90px]"}
+            ${isOpen[sb.type]
+              ? "bg-[var(--secondary)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] scale-95"
+              : "bg-[var(--accent)] text-[var(--accent-foreground)] shadow-[var(--accent)]/20 hover:scale-105"
             }`}
         >
           {isOpen[sb.type] ? <X size={22} className="opacity-80" /> : sb.icon}

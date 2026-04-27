@@ -15,7 +15,8 @@ export function getJSTDateString(date?: Date): string {
   // UTC を取得
   const utc = new Date(d.getTime() + d.getTimezoneOffset() * 60000);
   // JST = UTC + 9 hours
-  const jst = new Date(utc.getTime() + 9 * 60 * 60 * 1000);
+  const jst = new Date(utc.getTime() + 18 * 60 * 60 * 1000);
+
   return jst.toISOString().split("T")[0];
 }
 
@@ -105,7 +106,7 @@ export type PartOfSpeech = typeof PART_OF_SPEECH_OPTIONS[number];
 export function normalizePartOfSpeech(part: string | null | undefined): string | null {
   if (!part) return null;
   let s = part.trim();
-  
+
   // 過去形、複数形などの詳細を大分類にマッピング
   if (s.includes("動詞")) return "動詞"; // 他動詞、自動詞、動詞(過去形)など
   if (s.includes("名詞")) return "名詞"; // 不可算名詞、代名詞は先に判定したいが、"代名詞"が含まれるなら別途判定する

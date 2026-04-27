@@ -384,8 +384,8 @@ export async function updateRaceDistance(userId: string, xpGained: number) {
 
   if (!participant) return;
 
-  // 既にゴール済みなら更新しない
-  if (participant.finished_at) return;
+  // ゴール後もスコアを伸ばせるように、リターン処理を削除
+  // if (participant.finished_at) return;
 
   // ユーザーのランクを取得して目標値チェック
   const { data: userStats } = await supabase
@@ -403,13 +403,16 @@ export async function updateRaceDistance(userId: string, xpGained: number) {
   currentProgress[todayStr] = (currentProgress[todayStr] || 0) + xpGained;
 
   const newDistance = Object.values(currentProgress).reduce((sum: number, val) => sum + (val as number), 0);
-  const cappedDistance = Math.min(newDistance, weeklyTarget);
-  const isFinished = cappedDistance >= weeklyTarget;
-  const finishedAt = isFinished ? new Date().toISOString() : null;
+  
+  // 上限（cappedDistance）を撤廃し、獲得したそのままの数値を採用
+  const isFinished = newDistance >= weeklyTarget;
+  
+  // 既にゴールしている場合は記録済みの時間を維持、新規ゴールの場合は現在の時間
+  const finishedAt = participant.finished_at || (isFinished ? new Date().toISOString() : null);
 
   await supabase
     .from("race_participants")
-    .update({ distance: cappedDistance, finished_at: finishedAt, daily_progress: currentProgress })
+    .update({ distance: newDistance, finished_at: finishedAt, daily_progress: currentProgress })
     .eq("id", participant.id);
 }
 
