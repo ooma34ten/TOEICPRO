@@ -12,6 +12,9 @@ const jetbrainsMono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jet
 export const metadata: Metadata = {
   title: "TOEIC PRO | AI学習アプリ",
   description: "AIと共に最短でTOEICスコアアップを目指すプロフェッショナル学習ツール",
+  verification: {
+    google: "SaQXJG-3anEIKbDgHs2Gj0i6FAiLMyA9Oa3Jccpubk8",
+  },
 };
 
 export default function RootLayout({
