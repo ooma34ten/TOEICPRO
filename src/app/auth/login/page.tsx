@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import Link from "next/link";
-import { Loader2, UserCircle, Mail, Lock } from "lucide-react";
+import { Loader2, UserCircle, Mail, Lock, Sparkles, ChevronRight } from "lucide-react";
 import { FcGoogle } from "react-icons/fc";
 
 export default function LoginPage() {
@@ -81,16 +81,35 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[var(--background)] px-4">
+    <div className="min-h-screen flex items-center justify-center bg-[var(--background)] px-4 py-12">
       <div className="w-full max-w-[400px]">
         {/* ブランディング */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-black tracking-tight mb-1">
             TOEIC<span className="text-[var(--accent)]">PRO</span>
           </h1>
-          <p className="text-[13px] text-[var(--muted-foreground)]">
+          <p className="text-[13px] text-[var(--muted-foreground)] mb-6">
             AIと共にスコアアップを目指す
           </p>
+
+          <button
+            onClick={() => router.push("/words/diagnosis")}
+            className="mx-auto w-full relative overflow-hidden bg-linear-to-r from-[var(--accent)] to-blue-500 text-white rounded-2xl p-4 text-left shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all group"
+          >
+            <div className="absolute top-0 right-0 p-8 -m-4 bg-white/10 rounded-full pointer-events-none group-hover:scale-110 transition-transform duration-500" />
+            <div className="relative z-10 flex items-center justify-between">
+              <div>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Sparkles className="w-4 h-4 text-amber-300" />
+                  <span className="text-[12px] font-bold text-white/90">会員登録不要</span>
+                </div>
+                <h3 className="text-base font-bold">10秒で推定スコアを判定</h3>
+              </div>
+              <div className="bg-white/20 p-2 rounded-full backdrop-blur-sm shrink-0">
+                <ChevronRight className="w-4 h-4 text-white" />
+              </div>
+            </div>
+          </button>
         </div>
 
         {/* カード */}
