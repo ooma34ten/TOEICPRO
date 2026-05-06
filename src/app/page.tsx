@@ -414,7 +414,6 @@ export default function Dashboard() {
             accentColor="#22c55e"
             onClick={() => router.push("/words/review")}
             delay={0.1}
-            disabled={loading}
             isLoading={loading}
             current={dashboard?.dailyTasks?.wordReviewCount ?? 0}
             target={dashboard?.dailyTasks?.wordReviewTarget ?? 10}
@@ -426,7 +425,6 @@ export default function Dashboard() {
             accentColor="var(--accent)"
             onClick={() => router.push("/words/ai_teacher")}
             delay={0.15}
-            disabled={loading}
             isLoading={loading}
             current={dashboard?.dailyTasks?.part5Count ?? 0}
             target={dashboard?.dailyTasks?.part5Target ?? 10}

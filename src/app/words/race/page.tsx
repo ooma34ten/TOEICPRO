@@ -325,7 +325,7 @@ const HorseRaceAnimation = ({
                         💨
                       </motion.div>
                     )}
-                    <PixelCharacterMini type={charType} totalXp={xpForChar} showCrown={rank === 1} />
+                    <PixelCharacterMini type={charType} totalXp={xpForChar} showCrown={rank === 1 && phase === "finished"} />
                   </div>
                 </motion.div>
 
@@ -705,17 +705,7 @@ export default function RacePage() {
 
     // ポップアップが開いたままアニメーションをリセット
     setShowRacePopup(true);
-    if (raceData?.dayOfWeek === 1) {
-      setRacePhase("finished");
-    } else {
-      setRacePhase("ready");
-      const t1 = setTimeout(() => setRacePhase("countdown"), 500);
-      const t2 = setTimeout(() => setRacePhase("racing"), 2800);
-      const t3 = setTimeout(() => {
-        setRacePhase("finished");
-      }, 15000);
-      raceTimers.current = [t1, t2, t3];
-    }
+    setRacePhase("finished");
   }, [userId, fetchRaceData]);
 
   const handleGachaComplete = async (charType: CharacterType) => {
