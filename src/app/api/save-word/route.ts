@@ -2,7 +2,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { PostgrestError } from "@supabase/supabase-js";
-import { parseImportance, normalizePartOfSpeech } from "@/lib/utils";
+import { parseImportance, normalizePartOfSpeech, getJSTISOString } from "@/lib/utils";
 
 interface WordRow {
   word: string;
@@ -116,7 +116,7 @@ export async function POST(req: Request) {
         example_sentence: r.example || null,
         translation: r.translation || null,
         importance: r.importance ? String(parseImportance(r.importance)) : null,
-        registered_at: new Date().toISOString(),
+        registered_at: getJSTISOString(),
       }));
 
     if (newMasterRows.length > 0) {
@@ -148,7 +148,7 @@ export async function POST(req: Request) {
         word_id: id,
         correct_count: 0,
         incorrect_count: 0,
-        registered_at: new Date().toISOString(),
+        registered_at: getJSTISOString(),
       }));
 
     if (newUserWords.length === 0) {

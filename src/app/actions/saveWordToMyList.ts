@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@supabase/supabase-js";
+import { getJSTISOString } from "@/lib/utils";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -31,7 +32,7 @@ export async function saveWordToMyList(userId: string, wordId: string): Promise<
       user_id: userId,
       word_id: wordId,
       correct_count: 0,
-      registered_at: new Date().toISOString(),
+      registered_at: getJSTISOString(),
     });
 
   if (error) {

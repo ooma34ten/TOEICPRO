@@ -9,15 +9,12 @@ export function cn(...inputs: ClassValue[]) {
 // JST 日付ヘルパー
 // =============================
 
-/** 現在の日本時間 (UTC+9) の日付文字列 "YYYY-MM-DD" を返す */
+/** 現在の日本時間 (UTC+9) の日付文字列 "YYYY-MM-DD" を返す。
+ *  Intl.DateTimeFormat を使うため、サーバーの TZ に依存しない。 */
 export function getJSTDateString(date?: Date): string {
   const d = date ?? new Date();
-  // UTC を取得
-  const utc = new Date(d.getTime() + d.getTimezoneOffset() * 60000);
-  // JST = UTC + 9 hours
-  const jst = new Date(utc.getTime() + 18 * 60 * 60 * 1000);
-
-  return jst.toISOString().split("T")[0];
+  // 'sv-SE' ロケールは YYYY-MM-DD 形式を返す
+  return d.toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
 }
 
 /** 日本時間で「昨日」の日付文字列を返す */
@@ -25,6 +22,24 @@ export function getJSTYesterday(): string {
   const now = new Date();
   const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
   return getJSTDateString(yesterday);
+}
+
+/** 日本時間の ISO 形式タイムスタンプを返す (例: "2026-05-08T22:30:00+09:00")。
+ *  DB の timestamp / timestamptz カラムに保存する際に使用する。 */
+export function getJSTISOString(date?: Date): string {
+  const d = date ?? new Date();
+  const fmt = new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+  // "YYYY-MM-DD HH:mm:ss" → "YYYY-MM-DDTHH:mm:ss+09:00"
+  return fmt.format(d).replace(" ", "T") + "+09:00";
 }
 
 // =============================

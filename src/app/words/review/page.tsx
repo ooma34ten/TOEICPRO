@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { initVoices, speakText } from "@/lib/speech";
-import { getImportanceClasses, getPartOfSpeechClasses, getJSTDateString, getJSTYesterday, parseImportance, importanceToStars, isWeakWord } from "@/lib/utils";
+import { getImportanceClasses, getPartOfSpeechClasses, getJSTDateString, getJSTYesterday, getJSTISOString, parseImportance, importanceToStars, isWeakWord } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import Confetti from "react-confetti";
 import { motion, AnimatePresence } from "framer-motion";
@@ -340,13 +340,13 @@ export default function ReviewPage() {
           id: `guest-${item.id}`,
           user_id: "guest",
           word_id: item.id,
-          registered_at: new Date().toISOString(),
+          registered_at: getJSTISOString(),
           words_master: item,
           total: 0,
           correct: 0,
           wrong: 0,
           successRate: 0,
-          lastAnswered: new Date().toISOString(),
+          lastAnswered: getJSTISOString(),
         }));
 
         setWords(guestWords);
@@ -538,7 +538,7 @@ export default function ReviewPage() {
 
       setIsAnswering(true);
       setLastAnswer(isOk);
-      const now = new Date().toISOString();
+      const now = getJSTISOString();
 
       // DB保存は非同期で実行（UIをブロックしない）
       supabase.from("user_word_history").insert({

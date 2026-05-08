@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { getJSTISOString } from "@/lib/utils";
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -44,7 +45,7 @@ async function saveAnswer(data: SaveAnswerRequest): Promise<{ success: boolean; 
             is_correct: isCorrect,
             answer_time_ms: answerTimeMs ?? null,
             session_id: sessionId ?? null,
-            answered_at: new Date().toISOString(),
+            answered_at: getJSTISOString(),
         });
 
         if (historyError) {
@@ -71,7 +72,7 @@ async function saveAnswer(data: SaveAnswerRequest): Promise<{ success: boolean; 
                 .update({
                     correct_count: existing.correct_count + (isCorrect ? 1 : 0),
                     incorrect_count: existing.incorrect_count + (isCorrect ? 0 : 1),
-                    last_answered_at: new Date().toISOString(),
+                    last_answered_at: getJSTISOString(),
                 })
                 .eq("id", existing.id);
 
@@ -86,7 +87,7 @@ async function saveAnswer(data: SaveAnswerRequest): Promise<{ success: boolean; 
                 question_id: questionId,
                 correct_count: isCorrect ? 1 : 0,
                 incorrect_count: isCorrect ? 0 : 1,
-                last_answered_at: new Date().toISOString(),
+                last_answered_at: getJSTISOString(),
             });
 
             if (insertError) {
@@ -193,7 +194,7 @@ async function updateSessionStats(
                 .update({
                     total_questions: session.total_questions + 1,
                     correct_count: session.correct_count + (isCorrect ? 1 : 0),
-                    updated_at: new Date().toISOString(),
+                    updated_at: getJSTISOString(),
                 })
                 .eq("id", session.id);
         } else {
@@ -202,7 +203,7 @@ async function updateSessionStats(
                 session_id: sessionId,
                 total_questions: 1,
                 correct_count: isCorrect ? 1 : 0,
-                started_at: new Date().toISOString(),
+                started_at: getJSTISOString(),
             });
         }
     } catch (err) {

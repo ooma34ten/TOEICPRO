@@ -2,7 +2,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { revalidatePath, unstable_noStore as noStore } from "next/cache";
-import { getJSTDateString } from "@/lib/utils";
+import { getJSTDateString, getJSTISOString } from "@/lib/utils";
 import { getCharacterDef, type CharacterType } from "@/lib/characters";
 import { RANK_DEFS, getRankInfo, getAllRankDefs, getPreviousDayCumulative, type RankInfo } from "@/lib/raceUtils";
 
@@ -408,7 +408,7 @@ export async function updateRaceDistance(userId: string, xpGained: number) {
   const isFinished = newDistance >= weeklyTarget;
   
   // 既にゴールしている場合は記録済みの時間を維持、新規ゴールの場合は現在の時間
-  const finishedAt = participant.finished_at || (isFinished ? new Date().toISOString() : null);
+  const finishedAt = participant.finished_at || (isFinished ? getJSTISOString() : null);
 
   await supabase
     .from("race_participants")

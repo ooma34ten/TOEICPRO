@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
+import { getJSTISOString } from "@/lib/utils";
 
 // ✅ Stripe & Supabase 設定
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -94,7 +95,7 @@ export async function POST(req: NextRequest) {
           is_active: true,
           cancel_at_period_end: null,
           current_period_end: new Date(subData.items.data[0]?.current_period_end * 1000) ?? null,
-          updated_at: new Date().toISOString(),
+          updated_at: getJSTISOString(),
         };
 
         if (existing) {
@@ -106,7 +107,7 @@ export async function POST(req: NextRequest) {
             user_id: null,
             stripe_customer: customerId,
             ...updateData,
-            created_at: new Date().toISOString(),
+            created_at: getJSTISOString(),
           });
         }
         break;
@@ -140,7 +141,7 @@ export async function POST(req: NextRequest) {
           .update({
             cancel_at_period_end: cancelAtPeriodEnd,
             current_period_end: currentPeriodEnd ? new Date(currentPeriodEnd * 1000) : null,
-            updated_at: new Date().toISOString(),
+            updated_at: getJSTISOString(),
           })
           .eq("stripe_subscription", subData.id);
 
@@ -205,7 +206,7 @@ export async function POST(req: NextRequest) {
             plan: null,
             cancel_at_period_end: null,
             current_period_end: null,
-            updated_at: new Date().toISOString(),
+            updated_at: getJSTISOString(),
           })
           .eq("stripe_subscription", subscriptionId);
 

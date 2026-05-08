@@ -1,7 +1,7 @@
 // src/app/api/add-to-master/route.ts
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { parseImportance, normalizePartOfSpeech } from "@/lib/utils";
+import { parseImportance, normalizePartOfSpeech, getJSTISOString } from "@/lib/utils";
 
 interface WordRow {
   word: string;
@@ -71,7 +71,7 @@ export async function POST(req: Request) {
         translation: w.translation || null,
         importance: w.importance ? String(parseImportance(w.importance)) : null,
         synonyms: w.synonyms || null,
-        registered_at: new Date().toISOString(),
+        registered_at: getJSTISOString(),
       }));
 
     if (newMasterRows.length === 0) {
